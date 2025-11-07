@@ -44,11 +44,29 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="accommodations"
+        options={{
+          title: 'Stay & Dine',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="silverware-fork-knife" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="community"
         options={{
           title: 'Community',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account-group" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="group-travel"
+        options={{
+          title: 'Group Travel',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-multiple" size={size} color={color} />
           ),
         }}
       />

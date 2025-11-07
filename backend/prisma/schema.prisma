@@ -1,0 +1,466 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SITE_ADMIN
+  GOVT_DEPARTMENT
+  TOURIST_GUIDE
+  USER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ContentType {
+  LOCATION
+  EVENT
+  PACKAGE
+  ACCOMMODATION
+}
+
+enum AccommodationType {
+  HOTEL
+  RESTAURANT
+  RESORT
+}
+
+enum BookingCategory {
+  HOTEL
+  FLIGHT
+  BUS
+  TRAIN
+  SHIP
+}
+
+enum GroupTravelStatus {
+  OPEN
+  CLOSED
+  COMPLETED
+}
+
+enum BidApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile              UserProfile?
+  locations            Location[]
+  events               Event[]
+  packages             Package[]
+  accommodations       Accommodation[]
+  communityPosts       CommunityPost[]
+  eventInterests       EventInterest[]
+  packageInterests     PackageInterest[]
+  groupTravels         GroupTravel[]
+  travelBids           TravelBid[]
+  followers            Follow[]              @relation("UserFollowers")
+  following            Follow[]              @relation("UserFollowing")
+  conversationsUser1   ChatConversation[]    @relation("User1Conversations")
+  conversationsUser2   ChatConversation[]    @relation("User2Conversations")
+  messages             ChatMessage[]
+  chatRequestsSent     ChatRequest[]         @relation("ChatRequestSender")
+  chatRequestsReceived ChatRequest[]         @relation("ChatRequestReceiver")
+  notifications        Notification[]
+  comments             Comment[]
+  postLikes            PostLike[]
+  groupTravelInterests GroupTravelInterest[]
+  approvedContent      ApprovalQueue[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  name          String
+  phone         String?
+  avatar        String?
+  bio           String?
+  isCelebrity   Boolean  @default(false)
+  isInfluencer  Boolean  @default(false)
+  stateAssignment String? // For Govt Department
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model Location {
+  id             String         @id @default(uuid())
+  country        String
+  state          String
+  area           String
+  description    String
+  images         String[]
+  createdBy      String
+  createdByRole  UserRole
+  approvalStatus ApprovalStatus @default(PENDING)
+  approvedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  creator        User            @relation(fields: [createdBy], references: [id])
+  events         Event[]
+  packages       Package[]
+  accommodations Accommodation[]
+  communityPosts CommunityPost[]
+
+  @@map("locations")
+}
+
+model Event {
+  id             String         @id @default(uuid())
+  title          String
+  description    String
+  locationId     String?
+  customCountry  String?
+  customState    String?
+  customArea     String?
+  startDate      DateTime
+  endDate        DateTime
+  images         String[]
+  hostId         String
+  hostRole       UserRole
+  approvalStatus ApprovalStatus @default(PENDING)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  host             User            @relation(fields: [hostId], references: [id])
+  location         Location?       @relation(fields: [locationId], references: [id])
+  interestedUsers  EventInterest[]
+
+  @@map("events")
+}
+
+model EventInterest {
+  id            String   @id @default(uuid())
+  eventId       String
+  userId        String
+  contactShared Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_interests")
+}
+
+model Package {
+  id             String         @id @default(uuid())
+  title          String
+  description    String
+  duration       Int // days
+  locationId     String?
+  customCountry  String?
+  customState    String?
+  customArea     String?
+  price          Float
+  images         String[]
+  hostId         String
+  hostRole       UserRole
+  approvalStatus ApprovalStatus @default(PENDING)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  host             User              @relation(fields: [hostId], references: [id])
+  location         Location?         @relation(fields: [locationId], references: [id])
+  itinerary        ItineraryDay[]
+  interestedUsers  PackageInterest[]
+
+  @@map("packages")
+}
+
+model ItineraryDay {
+  id          String   @id @default(uuid())
+  packageId   String
+  day         Int
+  title       String
+  description String
+  activities  String[]
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@map("itinerary_days")
+}
+
+model PackageInterest {
+  id            String   @id @default(uuid())
+  packageId     String
+  userId        String
+  contactShared Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, userId])
+  @@map("package_interests")
+}
+
+model Accommodation {
+  id              String            @id @default(uuid())
+  name            String
+  type            AccommodationType
+  locationId      String
+  description     String
+  contactPhone    String
+  contactEmail    String?
+  contactWebsite  String?
+  contactAddress  String
+  images          String[]
+  isGovtApproved  Boolean           @default(false)
+  uploadedBy      String
+  uploadedByRole  UserRole
+  approvalStatus  ApprovalStatus    @default(PENDING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  uploader User     @relation(fields: [uploadedBy], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@map("accommodations")
+}
+
+model CommunityPost {
+  id            String      @id @default(uuid())
+  userId        String
+  locationId    String?
+  customCountry String?
+  customState   String?
+  customArea    String?
+  caption       String
+  mediaUrls     String[]
+  mediaTypes    MediaType[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location Location?  @relation(fields: [locationId], references: [id])
+  comments Comment[]
+  likes    PostLike[]
+
+  @@map("community_posts")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  text      String
+  createdAt DateTime @default(now())
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model PostLike {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("post_likes")
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+model GroupTravel {
+  id            String            @id @default(uuid())
+  title         String
+  description   String
+  locationId    String?
+  customCountry String?
+  customState   String?
+  customArea    String?
+  travelDate    DateTime
+  expiryDate    DateTime
+  creatorId     String
+  status        GroupTravelStatus @default(OPEN)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  creator         User                  @relation(fields: [creatorId], references: [id])
+  interestedUsers GroupTravelInterest[]
+  bids            TravelBid[]
+
+  @@map("group_travels")
+}
+
+model GroupTravelInterest {
+  id            String   @id @default(uuid())
+  groupTravelId String
+  userId        String
+  createdAt     DateTime @default(now())
+
+  groupTravel GroupTravel @relation(fields: [groupTravelId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupTravelId, userId])
+  @@map("group_travel_interests")
+}
+
+model TravelBid {
+  id                   String            @id @default(uuid())
+  groupTravelId        String
+  guideId              String
+  numberOfDays         Int
+  accommodationDetails String
+  foodDetails          String
+  transportDetails     String
+  totalCost            Float
+  approvalStatus       BidApprovalStatus @default(PENDING)
+  canContact           Boolean           @default(false)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  groupTravel   GroupTravel @relation(fields: [groupTravelId], references: [id], onDelete: Cascade)
+  guide         User        @relation(fields: [guideId], references: [id])
+  dailyItinerary DailyPlan[]
+
+  @@map("travel_bids")
+}
+
+model DailyPlan {
+  id            String @id @default(uuid())
+  bidId         String
+  day           Int
+  activities    String
+  meals         String
+  accommodation String
+
+  bid TravelBid @relation(fields: [bidId], references: [id], onDelete: Cascade)
+
+  @@map("daily_plans")
+}
+
+model ChatConversation {
+  id        String   @id @default(uuid())
+  user1Id   String
+  user2Id   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user1    User          @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2    User          @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@unique([user1Id, user2Id])
+  @@map("chat_conversations")
+}
+
+model ChatMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderId       String
+  message        String
+  createdAt      DateTime @default(now())
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User             @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+model ChatRequest {
+  id         String         @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     ApprovalStatus @default(PENDING)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  sender   User @relation("ChatRequestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ChatRequestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@map("chat_requests")
+}
+
+model BookingAPIConfig {
+  id          String          @id @default(uuid())
+  category    BookingCategory
+  provider    String
+  apiEndpoint String
+  apiKey      String
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("booking_api_configs")
+}
+
+model ApprovalQueue {
+  id              String         @id @default(uuid())
+  contentType     ContentType
+  contentId       String
+  submittedBy     String
+  submittedByRole UserRole
+  status          ApprovalStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime       @default(now())
+
+  reviewer User? @relation(fields: [reviewedBy], references: [id])
+
+  @@map("approval_queue")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}

@@ -1,0 +1,84 @@
+import bcrypt from 'bcryptjs';
+import prisma from '../config/database';
+import { UserRole } from '@prisma/client';
+
+export class AdminService {
+  async createCredentials(data: {
+    email: string;
+    password: string;
+    name: string;
+    role: UserRole;
+    phone?: string;
+    stateAssignment?: string;
+  }) {
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingUser) {
+      throw new Error('User with this email already exists');
+    }
+
+    // Validate role
+    if (data.role !== 'GOVT_DEPARTMENT' && data.role !== 'TOURIST_GUIDE') {
+      throw new Error('Can only create credentials for Govt Department or Tourist Guide');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    // Create user with profile
+    const user = await prisma.user.create({
+      data: {
+        email: data.email,
+        password: hashedPassword,
+        role: data.role,
+        profile: {
+          create: {
+            name: data.name,
+            phone: data.phone,
+            stateAssignment: data.stateAssignment,
+          },
+        },
+      },
+      include: {
+        profile: true,
+      },
+    });
+
+    // In a real application, send email with credentials here
+    // For now, we'll just return the credentials
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        profile: user.profile,
+      },
+      temporaryPassword: data.password, // In production, don't return this
+    };
+  }
+
+  async deleteUser(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.role === 'SITE_ADMIN') {
+      throw new Error('Cannot delete admin users');
+    }
+
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return { message: 'User deleted successfully' };
+  }
+}
+
+export default new AdminService();

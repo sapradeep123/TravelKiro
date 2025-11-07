@@ -1,14 +1,29 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { Button } from 'react-native-paper';
+import { useEffect } from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from 'react-native-paper';
+import { useRouter } from 'expo-router';
+import { useAuth } from '../src/contexts/AuthContext';
 
 export default function Index() {
+  const { isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading) {
+      if (isAuthenticated) {
+        router.replace('/(tabs)/locations');
+      } else {
+        router.replace('/(auth)/login');
+      }
+    }
+  }, [isAuthenticated, loading]);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Travel Encyclopedia</Text>
-      <Text style={styles.subtitle}>Your Gateway to World Exploration</Text>
-      <Button mode="contained" style={styles.button}>
-        Get Started
-      </Button>
+      <Text variant="headlineLarge" style={styles.title}>
+        Travel Encyclopedia
+      </Text>
+      <ActivityIndicator size="large" color="#2196F3" style={styles.loader} />
     </View>
   );
 }
@@ -19,20 +34,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
-    padding: 20,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
     color: '#2196F3',
-    marginBottom: 10,
+    fontWeight: 'bold',
+    marginBottom: 20,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
-  },
-  button: {
+  loader: {
     marginTop: 20,
   },
 });

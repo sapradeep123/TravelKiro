@@ -94,6 +94,7 @@ export class AdminService {
       id: user.id,
       email: user.email,
       role: user.role,
+      isActive: user.isActive,
       createdAt: user.createdAt,
       profile: user.profile,
     }));

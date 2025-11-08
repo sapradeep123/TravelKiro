@@ -406,17 +406,17 @@ export default function UserManagement() {
                   <View style={[styles.tableCell, styles.statusColumn]}>
                     <View style={[
                       styles.statusBadge,
-                      { backgroundColor: user.isActive ? '#10b98120' : '#ef444420' }
+                      { backgroundColor: (user.isActive !== false) ? '#10b98120' : '#ef444420' }
                     ]}>
                       <View style={[
                         styles.statusDot,
-                        { backgroundColor: user.isActive ? '#10b981' : '#ef4444' }
+                        { backgroundColor: (user.isActive !== false) ? '#10b981' : '#ef4444' }
                       ]} />
                       <Text style={[
                         styles.statusText,
-                        { color: user.isActive ? '#10b981' : '#ef4444' }
+                        { color: (user.isActive !== false) ? '#10b981' : '#ef4444' }
                       ]}>
-                        {user.isActive ? 'Active' : 'Inactive'}
+                        {(user.isActive !== false) ? 'Active' : 'Inactive'}
                       </Text>
                     </View>
                   </View>
@@ -436,12 +436,12 @@ export default function UserManagement() {
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.iconButton}
-                          onPress={() => handleToggleStatus(user.id, user.isActive)}
+                          onPress={() => handleToggleStatus(user.id, user.isActive !== false)}
                         >
                           <Ionicons 
-                            name={user.isActive ? 'close-circle' : 'checkmark-circle'} 
+                            name={(user.isActive !== false) ? 'close-circle' : 'checkmark-circle'} 
                             size={18} 
-                            color={user.isActive ? '#f59e0b' : '#10b981'} 
+                            color={(user.isActive !== false) ? '#f59e0b' : '#10b981'} 
                           />
                         </TouchableOpacity>
                         <TouchableOpacity

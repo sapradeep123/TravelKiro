@@ -67,6 +67,11 @@ export class AuthService {
       throw new Error('Invalid email or password');
     }
 
+    // Check if user is active
+    if (!user.isActive) {
+      throw new Error('Account is inactive. Please contact administrator.');
+    }
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
@@ -79,6 +84,7 @@ export class AuthService {
       userId: user.id,
       email: user.email,
       role: user.role,
+      isActive: user.isActive,
     };
 
     const tokens = generateTokens(tokenPayload);

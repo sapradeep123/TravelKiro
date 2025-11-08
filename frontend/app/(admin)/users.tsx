@@ -7,6 +7,7 @@ interface User {
   id: string;
   email: string;
   role: string;
+  isActive: boolean;
   createdAt: string;
   profile?: {
     name: string;
@@ -33,6 +34,14 @@ export default function UserManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState<NewUserForm>({
+    email: '',
+    password: '',
+    name: '',
+    role: 'USER',
+    phone: '',
+    stateAssignment: ''
+  });
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
@@ -106,6 +115,66 @@ export default function UserManagement() {
     } catch (error) {
       console.error('Error resetting password:', error);
       Alert.alert('Error', 'Failed to reset password');
+    }
+  };
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setEditForm({
+      email: user.email,
+      password: '',
+      name: user.profile?.name || '',
+      role: user.role,
+      phone: user.profile?.phone || '',
+      stateAssignment: user.profile?.stateAssignment || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
+
+    if (!editForm.email || !editForm.name || !editForm.role) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    try {
+      await api.put(`/admin/users/${selectedUser.id}`, {
+        name: editForm.name,
+        email: editForm.email,
+        role: editForm.role,
+        phone: editForm.phone,
+        stateAssignment: editForm.stateAssignment,
+      });
+      Alert.alert('Success', 'User updated successfully');
+      setShowEditModal(false);
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.error || 'Failed to update user');
+    }
+  };
+
+  const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
+    Alert.alert(
+      `${currentStatus ? 'Deactivate' : 'Activate'} User`,
+      `Are you sure you want to ${currentStatus ? 'deactivate' : 'activate'} this user?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Confirm', onPress: () => performToggleStatus(userId) }
+      ]
+    );
+  };
+
+  const performToggleStatus = async (userId: string) => {
+    try {
+      await api.post(`/admin/users/${userId}/toggle-status`);
+      fetchUsers();
+      Alert.alert('Success', 'User status updated successfully');
+    } catch (error) {
+      console.error('Error toggling user status:', error);
+      Alert.alert('Error', 'Failed to update user status');
     }
   };
 
@@ -281,6 +350,9 @@ export default function UserManagement() {
               <View style={[styles.tableHeaderCell, styles.phoneColumn]}>
                 <Text style={styles.tableHeaderText}>Phone</Text>
               </View>
+              <View style={[styles.tableHeaderCell, styles.statusColumn]}>
+                <Text style={styles.tableHeaderText}>Status</Text>
+              </View>
               <TouchableOpacity 
                 style={[styles.tableHeaderCell, styles.dateColumn]} 
                 onPress={() => handleSort('date')}
@@ -331,6 +403,23 @@ export default function UserManagement() {
                       {user.profile?.phone || '-'}
                     </Text>
                   </View>
+                  <View style={[styles.tableCell, styles.statusColumn]}>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: user.isActive ? '#10b98120' : '#ef444420' }
+                    ]}>
+                      <View style={[
+                        styles.statusDot,
+                        { backgroundColor: user.isActive ? '#10b981' : '#ef4444' }
+                      ]} />
+                      <Text style={[
+                        styles.statusText,
+                        { color: user.isActive ? '#10b981' : '#ef4444' }
+                      ]}>
+                        {user.isActive ? 'Active' : 'Inactive'}
+                      </Text>
+                    </View>
+                  </View>
                   <View style={[styles.tableCell, styles.dateColumn]}>
                     <Text style={styles.tableCellText}>
                       {new Date(user.createdAt).toLocaleDateString()}
@@ -339,6 +428,22 @@ export default function UserManagement() {
                   <View style={[styles.tableCell, styles.actionsColumn]}>
                     {user.role !== 'SITE_ADMIN' && (
                       <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                          style={styles.iconButton}
+                          onPress={() => handleEditUser(user)}
+                        >
+                          <Ionicons name="create" size={18} color="#6366f1" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.iconButton}
+                          onPress={() => handleToggleStatus(user.id, user.isActive)}
+                        >
+                          <Ionicons 
+                            name={user.isActive ? 'close-circle' : 'checkmark-circle'} 
+                            size={18} 
+                            color={user.isActive ? '#f59e0b' : '#10b981'} 
+                          />
+                        </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.iconButton}
                           onPress={() => handleResetPassword(user.id, user.email)}
@@ -509,6 +614,110 @@ export default function UserManagement() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit User</Text>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <Ionicons name="close" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Name *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Enter full name"
+                  value={editForm.name}
+                  onChangeText={(text) => setEditForm({...editForm, name: text})}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Email *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Enter email address"
+                  value={editForm.email}
+                  onChangeText={(text) => setEditForm({...editForm, email: text})}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Role *</Text>
+                <View style={styles.roleSelector}>
+                  {['USER', 'TOURIST_GUIDE', 'GOVT_DEPARTMENT'].map(role => (
+                    <TouchableOpacity
+                      key={role}
+                      style={[
+                        styles.roleSelectorButton,
+                        editForm.role === role && styles.roleSelectorButtonActive
+                      ]}
+                      onPress={() => setEditForm({...editForm, role})}
+                    >
+                      <Text style={[
+                        styles.roleSelectorText,
+                        editForm.role === role && styles.roleSelectorTextActive
+                      ]}>
+                        {getRoleLabel(role)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Phone</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Enter phone number"
+                  value={editForm.phone}
+                  onChangeText={(text) => setEditForm({...editForm, phone: text})}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              {editForm.role === 'GOVT_DEPARTMENT' && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>State Assignment</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="Enter state assignment"
+                    value={editForm.stateAssignment}
+                    onChangeText={(text) => setEditForm({...editForm, stateAssignment: text})}
+                  />
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => setShowEditModal(false)}
+              >
+                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleUpdateUser}
+              >
+                <Text style={styles.modalButtonTextPrimary}>Update User</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -665,11 +874,14 @@ const styles = StyleSheet.create({
   phoneColumn: {
     width: 150,
   },
+  statusColumn: {
+    width: 120,
+  },
   dateColumn: {
     width: 120,
   },
   actionsColumn: {
-    width: 130,
+    width: 180,
   },
   roleBadge: {
     paddingHorizontal: 10,
@@ -678,6 +890,24 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   roleBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
     fontSize: 12,
     fontWeight: '600',
   },

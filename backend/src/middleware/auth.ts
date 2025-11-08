@@ -7,6 +7,7 @@ export interface AuthRequest extends Request {
     userId: string;
     email: string;
     role: UserRole;
+    isActive: boolean;
   };
 }
 
@@ -27,7 +28,15 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
       userId: decoded.userId,
       email: decoded.email,
       role: decoded.role,
+      isActive: decoded.isActive !== false, // Default to true if not present
     };
+
+    // Check if user is active
+    if (decoded.isActive === false) {
+      return res.status(403).json({
+        error: 'Account is inactive. Please contact administrator.',
+      });
+    }
 
     next();
   } catch (error) {

@@ -123,6 +123,80 @@ export class AdminService {
 
     return { newPassword };
   }
+
+  async updateUser(userId: string, data: {
+    name?: string;
+    email?: string;
+    role?: UserRole;
+    phone?: string;
+    stateAssignment?: string;
+  }) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.role === 'SITE_ADMIN') {
+      throw new Error('Cannot edit admin users');
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (data.email && data.email !== user.email) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: data.email },
+      });
+      if (existingUser) {
+        throw new Error('Email already in use');
+      }
+    }
+
+    // Update user and profile
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: data.email || user.email,
+        role: data.role || user.role,
+        profile: {
+          update: {
+            name: data.name || user.profile?.name || '',
+            phone: data.phone,
+            stateAssignment: data.stateAssignment,
+          },
+        },
+      },
+      include: {
+        profile: true,
+      },
+    });
+
+    return updatedUser;
+  }
+
+  async toggleUserStatus(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.role === 'SITE_ADMIN') {
+      throw new Error('Cannot deactivate admin users');
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: !user.isActive },
+      include: { profile: true },
+    });
+
+    return updatedUser;
+  }
 }
 
 export default new AdminService();

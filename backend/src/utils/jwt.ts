@@ -10,6 +10,7 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: UserRole;
+  isActive?: boolean;
 }
 
 export interface DecodedToken extends TokenPayload {

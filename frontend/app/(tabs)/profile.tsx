@@ -77,6 +77,18 @@ export default function ProfileScreen() {
         </Card.Content>
       </Card>
 
+      {(user.role === 'SITE_ADMIN' || user.role === 'GOVT_DEPARTMENT') && (
+        <Button
+          mode="contained"
+          onPress={() => router.push('/(admin)/dashboard' as any)}
+          style={styles.adminButton}
+          buttonColor="#6366f1"
+          icon="shield-account"
+        >
+          Admin Dashboard
+        </Button>
+      )}
+
       <Button
         mode="contained"
         onPress={handleLogout}
@@ -147,6 +159,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 10,
+  },
+  adminButton: {
+    margin: 15,
+    marginTop: 10,
   },
   logoutButton: {
     margin: 15,

@@ -79,6 +79,50 @@ export class AdminService {
 
     return { message: 'User deleted successfully' };
   }
+
+  async getAllUsers() {
+    const users = await prisma.user.findMany({
+      include: {
+        profile: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return users.map(user => ({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+      profile: user.profile,
+    }));
+  }
+
+  async resetUserPassword(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.role === 'SITE_ADMIN') {
+      throw new Error('Cannot reset admin password');
+    }
+
+    // Generate a random password
+    const newPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { newPassword };
+  }
 }
 
 export default new AdminService();

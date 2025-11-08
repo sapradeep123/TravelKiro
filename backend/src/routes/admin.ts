@@ -9,6 +9,8 @@ router.use(authenticate);
 router.use(requireAdmin);
 
 router.post('/create-credentials', adminController.createCredentials);
+router.get('/users', adminController.getAllUsers);
+router.post('/users/:userId/reset-password', adminController.resetUserPassword);
 router.delete('/users/:userId', adminController.deleteUser);
 
 export default router;

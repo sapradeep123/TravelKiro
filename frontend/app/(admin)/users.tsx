@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
 
@@ -15,12 +15,38 @@ interface User {
   };
 }
 
+interface NewUserForm {
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+  phone: string;
+  stateAssignment: string;
+}
+
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'email' | 'date'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  const [newUserForm, setNewUserForm] = useState<NewUserForm>({
+    email: '',
+    password: '',
+    name: '',
+    role: 'USER',
+    phone: '',
+    stateAssignment: ''
+  });
+
   const isWeb = Platform.OS === 'web';
+  const itemsPerPage = 20;
 
   useEffect(() => {
     fetchUsers();
@@ -38,6 +64,30 @@ export default function UserManagement() {
     }
   };
 
+  const handleAddUser = async () => {
+    if (!newUserForm.email || !newUserForm.password || !newUserForm.name || !newUserForm.role) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    try {
+      await api.post('/admin/create-credentials', newUserForm);
+      Alert.alert('Success', 'User created successfully');
+      setShowAddModal(false);
+      setNewUserForm({
+        email: '',
+        password: '',
+        name: '',
+        role: 'USER',
+        phone: '',
+        stateAssignment: ''
+      });
+      fetchUsers();
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.error || 'Failed to create user');
+    }
+  };
+
   const handleResetPassword = async (userId: string, email: string) => {
     Alert.alert(
       'Reset Password',
@@ -52,7 +102,7 @@ export default function UserManagement() {
   const performPasswordReset = async (userId: string) => {
     try {
       const response = await api.post(`/admin/users/${userId}/reset-password`);
-      Alert.alert('Password Reset', `New password: ${response.data.newPassword}\nPlease share this with the user.`);
+      Alert.alert('Password Reset', `New password: ${response.data.newPassword}\n\nPlease share this with the user securely.`);
     } catch (error) {
       console.error('Error resetting password:', error);
       Alert.alert('Error', 'Failed to reset password');
@@ -81,12 +131,39 @@ export default function UserManagement() {
     }
   };
 
+  const handleSort = (field: 'name' | 'email' | 'date') => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          user.profile?.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = selectedRole === 'ALL' || user.role === selectedRole;
     return matchesSearch && matchesRole;
   });
+
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    let comparison = 0;
+    if (sortBy === 'name') {
+      comparison = (a.profile?.name || '').localeCompare(b.profile?.name || '');
+    } else if (sortBy === 'email') {
+      comparison = a.email.localeCompare(b.email);
+    } else {
+      comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    }
+    return sortOrder === 'asc' ? comparison : -comparison;
+  });
+
+  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
+  const paginatedUsers = sortedUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -115,12 +192,20 @@ export default function UserManagement() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       <View style={[styles.content, isWeb && styles.webContent]}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>User Management</Text>
-          <Text style={styles.subtitle}>Manage all users and reset passwords</Text>
+          <View>
+            <Text style={styles.title}>User Management</Text>
+            <Text style={styles.subtitle}>
+              {filteredUsers.length} users • Page {currentPage} of {totalPages}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
+            <Ionicons name="add-circle" size={20} color="#ffffff" />
+            <Text style={styles.addButtonText}>Add User</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Filters */}
@@ -143,7 +228,10 @@ export default function UserManagement() {
                   styles.roleFilter,
                   selectedRole === role && styles.roleFilterActive
                 ]}
-                onPress={() => setSelectedRole(role)}
+                onPress={() => {
+                  setSelectedRole(role);
+                  setCurrentPage(1);
+                }}
               >
                 <Text style={[
                   styles.roleFilterText,
@@ -156,61 +244,272 @@ export default function UserManagement() {
           </ScrollView>
         </View>
 
-        {/* Users List */}
-        <View style={styles.usersList}>
-          {filteredUsers.map(user => (
-            <View key={user.id} style={styles.userCard}>
-              <View style={styles.userInfo}>
-                <View style={styles.userHeader}>
-                  <Text style={styles.userName}>{user.profile?.name || 'No Name'}</Text>
-                  <View style={[styles.roleBadge, { backgroundColor: getRoleBadgeColor(user.role) + '20' }]}>
-                    <Text style={[styles.roleBadgeText, { color: getRoleBadgeColor(user.role) }]}>
-                      {getRoleLabel(user.role)}
+        {/* Table */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={isWeb}>
+          <View style={styles.tableContainer}>
+            {/* Table Header */}
+            <View style={styles.tableHeader}>
+              <TouchableOpacity 
+                style={[styles.tableHeaderCell, styles.nameColumn]} 
+                onPress={() => handleSort('name')}
+              >
+                <Text style={styles.tableHeaderText}>Name</Text>
+                {sortBy === 'name' && (
+                  <Ionicons 
+                    name={sortOrder === 'asc' ? 'chevron-up' : 'chevron-down'} 
+                    size={16} 
+                    color="#6b7280" 
+                  />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.tableHeaderCell, styles.emailColumn]} 
+                onPress={() => handleSort('email')}
+              >
+                <Text style={styles.tableHeaderText}>Email</Text>
+                {sortBy === 'email' && (
+                  <Ionicons 
+                    name={sortOrder === 'asc' ? 'chevron-up' : 'chevron-down'} 
+                    size={16} 
+                    color="#6b7280" 
+                  />
+                )}
+              </TouchableOpacity>
+              <View style={[styles.tableHeaderCell, styles.roleColumn]}>
+                <Text style={styles.tableHeaderText}>Role</Text>
+              </View>
+              <View style={[styles.tableHeaderCell, styles.phoneColumn]}>
+                <Text style={styles.tableHeaderText}>Phone</Text>
+              </View>
+              <TouchableOpacity 
+                style={[styles.tableHeaderCell, styles.dateColumn]} 
+                onPress={() => handleSort('date')}
+              >
+                <Text style={styles.tableHeaderText}>Joined</Text>
+                {sortBy === 'date' && (
+                  <Ionicons 
+                    name={sortOrder === 'asc' ? 'chevron-up' : 'chevron-down'} 
+                    size={16} 
+                    color="#6b7280" 
+                  />
+                )}
+              </TouchableOpacity>
+              <View style={[styles.tableHeaderCell, styles.actionsColumn]}>
+                <Text style={styles.tableHeaderText}>Actions</Text>
+              </View>
+            </View>
+
+            {/* Table Body */}
+            <ScrollView style={styles.tableBody}>
+              {paginatedUsers.map((user, index) => (
+                <View 
+                  key={user.id} 
+                  style={[
+                    styles.tableRow,
+                    index % 2 === 0 && styles.tableRowEven
+                  ]}
+                >
+                  <View style={[styles.tableCell, styles.nameColumn]}>
+                    <Text style={styles.tableCellText} numberOfLines={1}>
+                      {user.profile?.name || 'No Name'}
                     </Text>
                   </View>
+                  <View style={[styles.tableCell, styles.emailColumn]}>
+                    <Text style={styles.tableCellText} numberOfLines={1}>
+                      {user.email}
+                    </Text>
+                  </View>
+                  <View style={[styles.tableCell, styles.roleColumn]}>
+                    <View style={[styles.roleBadge, { backgroundColor: getRoleBadgeColor(user.role) + '20' }]}>
+                      <Text style={[styles.roleBadgeText, { color: getRoleBadgeColor(user.role) }]}>
+                        {getRoleLabel(user.role)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[styles.tableCell, styles.phoneColumn]}>
+                    <Text style={styles.tableCellText} numberOfLines={1}>
+                      {user.profile?.phone || '-'}
+                    </Text>
+                  </View>
+                  <View style={[styles.tableCell, styles.dateColumn]}>
+                    <Text style={styles.tableCellText}>
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <View style={[styles.tableCell, styles.actionsColumn]}>
+                    {user.role !== 'SITE_ADMIN' && (
+                      <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                          style={styles.iconButton}
+                          onPress={() => handleResetPassword(user.id, user.email)}
+                        >
+                          <Ionicons name="key" size={18} color="#6366f1" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.iconButton}
+                          onPress={() => handleDeleteUser(user.id, user.email)}
+                        >
+                          <Ionicons name="trash" size={18} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
                 </View>
-                <Text style={styles.userEmail}>{user.email}</Text>
-                {user.profile?.phone && (
-                  <Text style={styles.userDetail}>📱 {user.profile.phone}</Text>
-                )}
-                {user.profile?.stateAssignment && (
-                  <Text style={styles.userDetail}>📍 {user.profile.stateAssignment}</Text>
-                )}
-                <Text style={styles.userDate}>
-                  Joined: {new Date(user.createdAt).toLocaleDateString()}
-                </Text>
+              ))}
+            </ScrollView>
+          </View>
+        </ScrollView>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <View style={styles.pagination}>
+            <TouchableOpacity
+              style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
+              onPress={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              <Ionicons name="chevron-back" size={20} color={currentPage === 1 ? '#d1d5db' : '#6366f1'} />
+            </TouchableOpacity>
+            
+            <View style={styles.paginationInfo}>
+              <Text style={styles.paginationText}>
+                Page {currentPage} of {totalPages}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+              onPress={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <Ionicons name="chevron-forward" size={20} color={currentPage === totalPages ? '#d1d5db' : '#6366f1'} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {filteredUsers.length === 0 && (
+          <View style={styles.emptyState}>
+            <Ionicons name="people-outline" size={64} color="#d1d5db" />
+            <Text style={styles.emptyStateText}>No users found</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Add User Modal */}
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New User</Text>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Name *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Enter full name"
+                  value={newUserForm.name}
+                  onChangeText={(text) => setNewUserForm({...newUserForm, name: text})}
+                />
               </View>
 
-              {user.role !== 'SITE_ADMIN' && (
-                <View style={styles.userActions}>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.resetButton]}
-                    onPress={() => handleResetPassword(user.id, user.email)}
-                  >
-                    <Ionicons name="key" size={18} color="#ffffff" />
-                    <Text style={styles.actionButtonText}>Reset Password</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.deleteButton]}
-                    onPress={() => handleDeleteUser(user.id, user.email)}
-                  >
-                    <Ionicons name="trash" size={18} color="#ffffff" />
-                    <Text style={styles.actionButtonText}>Delete</Text>
-                  </TouchableOpacity>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Email *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Enter email address"
+                  value={newUserForm.email}
+                  onChangeText={(text) => setNewUserForm({...newUserForm, email: text})}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Password *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Enter password"
+                  value={newUserForm.password}
+                  onChangeText={(text) => setNewUserForm({...newUserForm, password: text})}
+                  secureTextEntry
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Role *</Text>
+                <View style={styles.roleSelector}>
+                  {['USER', 'TOURIST_GUIDE', 'GOVT_DEPARTMENT'].map(role => (
+                    <TouchableOpacity
+                      key={role}
+                      style={[
+                        styles.roleSelectorButton,
+                        newUserForm.role === role && styles.roleSelectorButtonActive
+                      ]}
+                      onPress={() => setNewUserForm({...newUserForm, role})}
+                    >
+                      <Text style={[
+                        styles.roleSelectorText,
+                        newUserForm.role === role && styles.roleSelectorTextActive
+                      ]}>
+                        {getRoleLabel(role)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Phone</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Enter phone number"
+                  value={newUserForm.phone}
+                  onChangeText={(text) => setNewUserForm({...newUserForm, phone: text})}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              {newUserForm.role === 'GOVT_DEPARTMENT' && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>State Assignment</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="Enter state assignment"
+                    value={newUserForm.stateAssignment}
+                    onChangeText={(text) => setNewUserForm({...newUserForm, stateAssignment: text})}
+                  />
                 </View>
               )}
-            </View>
-          ))}
+            </ScrollView>
 
-          {filteredUsers.length === 0 && (
-            <View style={styles.emptyState}>
-              <Ionicons name="people-outline" size={64} color="#d1d5db" />
-              <Text style={styles.emptyStateText}>No users found</Text>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => setShowAddModal(false)}
+              >
+                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleAddUser}
+              >
+                <Text style={styles.modalButtonTextPrimary}>Create User</Text>
+              </TouchableOpacity>
             </View>
-          )}
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </Modal>
+    </View>
   );
 }
 
@@ -220,10 +519,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   content: {
+    flex: 1,
     padding: 20,
   },
   webContent: {
-    maxWidth: 1200,
+    maxWidth: 1400,
     marginHorizontal: 'auto',
     width: '100%',
   },
@@ -233,20 +533,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 24,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
     color: '#6b7280',
   },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  addButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   filtersContainer: {
-    marginBottom: 24,
+    marginBottom: 20,
     gap: 12,
   },
   searchContainer: {
@@ -289,81 +606,114 @@ const styles = StyleSheet.create({
   roleFilterTextActive: {
     color: '#ffffff',
   },
-  usersList: {
-    gap: 16,
-  },
-  userCard: {
+  tableContainer: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    minWidth: 1000,
   },
-  userInfo: {
-    marginBottom: 12,
-  },
-  userHeader: {
+  tableHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    backgroundColor: '#f9fafb',
+    borderBottomWidth: 2,
+    borderBottomColor: '#e5e7eb',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  userName: {
-    fontSize: 18,
+  tableHeaderCell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tableHeaderText: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+  },
+  tableBody: {
+    maxHeight: 600,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  tableRowEven: {
+    backgroundColor: '#f9fafb',
+  },
+  tableCell: {
+    justifyContent: 'center',
+  },
+  tableCellText: {
+    fontSize: 14,
     color: '#111827',
-    flex: 1,
+  },
+  nameColumn: {
+    width: 200,
+  },
+  emailColumn: {
+    width: 250,
+  },
+  roleColumn: {
+    width: 150,
+  },
+  phoneColumn: {
+    width: 150,
+  },
+  dateColumn: {
+    width: 120,
+  },
+  actionsColumn: {
+    width: 130,
   },
   roleBadge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    alignSelf: 'flex-start',
   },
   roleBadgeText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  userEmail: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  userDetail: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginBottom: 2,
-  },
-  userDate: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 4,
-  },
-  userActions: {
+  actionButtons: {
     flexDirection: 'row',
     gap: 8,
   },
-  actionButton: {
-    flex: 1,
+  iconButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#f9fafb',
+  },
+  pagination: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
+    alignItems: 'center',
+    marginTop: 20,
+    gap: 16,
   },
-  resetButton: {
-    backgroundColor: '#6366f1',
+  paginationButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
-  deleteButton: {
-    backgroundColor: '#ef4444',
+  paginationButtonDisabled: {
+    opacity: 0.5,
   },
-  actionButtonText: {
-    color: '#ffffff',
+  paginationInfo: {
+    paddingHorizontal: 16,
+  },
+  paginationText: {
     fontSize: 14,
-    fontWeight: '600',
+    color: '#6b7280',
+    fontWeight: '500',
   },
   emptyState: {
     alignItems: 'center',
@@ -373,5 +723,107 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#9ca3af',
     marginTop: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+  },
+  roleSelector: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  roleSelectorButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#ffffff',
+  },
+  roleSelectorButtonActive: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+  },
+  roleSelectorText: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  roleSelectorTextActive: {
+    color: '#ffffff',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  modalButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  modalButtonSecondary: {
+    backgroundColor: '#f3f4f6',
+  },
+  modalButtonPrimary: {
+    backgroundColor: '#6366f1',
+  },
+  modalButtonTextSecondary: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  modalButtonTextPrimary: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });

@@ -1,12 +1,9 @@
 import { Stack, Redirect } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { ActivityIndicator, View, Platform } from 'react-native';
-import WebHeader from '../../components/WebHeader';
-import WebFooter from '../../components/WebFooter';
+import { ActivityIndicator, View } from 'react-native';
 
 export default function AdminLayout() {
   const { user, loading } = useAuth();
-  const isWeb = Platform.OS === 'web';
 
   if (loading) {
     return (
@@ -22,15 +19,11 @@ export default function AdminLayout() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      {isWeb && <WebHeader />}
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="dashboard" />
-        <Stack.Screen name="users" />
-        <Stack.Screen name="upload-location" />
-        <Stack.Screen name="approvals" />
-      </Stack>
-      {isWeb && <WebFooter />}
-    </View>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="dashboard" />
+      <Stack.Screen name="users" />
+      <Stack.Screen name="upload-location" />
+      <Stack.Screen name="approvals" />
+    </Stack>
   );
 }

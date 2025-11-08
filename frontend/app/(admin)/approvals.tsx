@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
+import WebHeader from '../../components/WebHeader';
+import WebFooter from '../../components/WebFooter';
 
 interface ApprovalItem {
   id: string;
@@ -68,8 +70,10 @@ export default function ApprovalsPage() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={[styles.content, isWeb && styles.webContent]}>
+    <View style={styles.container}>
+      {isWeb && <WebHeader />}
+      <ScrollView style={styles.scrollContainer}>
+        <View style={[styles.content, isWeb && styles.webContent]}>
         <View style={styles.header}>
           <Text style={styles.title}>Content Approvals</Text>
           <Text style={styles.subtitle}>Review and approve pending submissions</Text>
@@ -136,7 +140,9 @@ export default function ApprovalsPage() {
           )}
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+      {isWeb && <WebFooter />}
+    </View>
   );
 }
 
@@ -155,8 +161,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
+  scrollContainer: {
+    flex: 1,
+  },
   content: {
     padding: 20,
+    minHeight: '100%',
   },
   webContent: {
     maxWidth: 1200,

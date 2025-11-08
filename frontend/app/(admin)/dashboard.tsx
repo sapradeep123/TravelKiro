@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from '
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import WebHeader from '../../components/WebHeader';
+import WebFooter from '../../components/WebFooter';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -71,8 +73,10 @@ export default function AdminDashboard() {
   );
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={[styles.content, isWeb && styles.webContent]}>
+    <View style={styles.container}>
+      {isWeb && <WebHeader />}
+      <ScrollView style={styles.scrollContainer}>
+        <View style={[styles.content, isWeb && styles.webContent]}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Admin Dashboard</Text>
@@ -104,7 +108,9 @@ export default function AdminDashboard() {
           ))}
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+      {isWeb && <WebFooter />}
+    </View>
   );
 }
 
@@ -113,8 +119,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
+  scrollContainer: {
+    flex: 1,
+  },
   content: {
     padding: 20,
+    minHeight: '100%',
   },
   webContent: {
     maxWidth: 1200,

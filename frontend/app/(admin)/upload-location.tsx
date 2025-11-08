@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../src/services/api';
 import { useRouter } from 'expo-router';
+import WebHeader from '../../components/WebHeader';
+import WebFooter from '../../components/WebFooter';
 
 export default function UploadLocation() {
   const router = useRouter();
@@ -88,8 +90,10 @@ export default function UploadLocation() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={[styles.content, isWeb && styles.webContent]}>
+    <View style={styles.container}>
+      {isWeb && <WebHeader />}
+      <ScrollView style={styles.scrollContainer}>
+        <View style={[styles.content, isWeb && styles.webContent]}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Upload New Location</Text>
@@ -192,7 +196,9 @@ export default function UploadLocation() {
           </Text>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+      {isWeb && <WebFooter />}
+    </View>
   );
 }
 
@@ -201,8 +207,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
+  scrollContainer: {
+    flex: 1,
+  },
   content: {
     padding: 20,
+    minHeight: '100%',
   },
   webContent: {
     maxWidth: 800,

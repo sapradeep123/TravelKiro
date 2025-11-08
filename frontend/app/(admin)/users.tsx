@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
 import WebHeader from '../../components/WebHeader';
-import WebFooter from '../../components/WebFooter';
 
 interface User {
   id: string;
@@ -265,8 +264,7 @@ export default function UserManagement() {
   return (
     <View style={styles.container}>
       {isWeb && <WebHeader />}
-      <ScrollView style={styles.scrollContainer}>
-        <View style={[styles.content, isWeb && styles.webContent]}>
+      <View style={[styles.content, isWeb && styles.webContent]}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -502,9 +500,7 @@ export default function UserManagement() {
             <Text style={styles.emptyStateText}>No users found</Text>
           </View>
         )}
-        </View>
-      </ScrollView>
-      {isWeb && <WebFooter />}
+      </View>
 
       {/* Add User Modal */}
       <Modal
@@ -733,12 +729,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
-  scrollContainer: {
-    flex: 1,
-  },
   content: {
+    flex: 1,
     padding: 20,
-    minHeight: '100%',
   },
   webContent: {
     maxWidth: 1400,

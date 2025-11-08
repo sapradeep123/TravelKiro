@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Activit
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
 import WebHeader from '../../components/WebHeader';
-import WebFooter from '../../components/WebFooter';
 
 interface ApprovalItem {
   id: string;
@@ -72,8 +71,8 @@ export default function ApprovalsPage() {
   return (
     <View style={styles.container}>
       {isWeb && <WebHeader />}
-      <ScrollView style={styles.scrollContainer}>
-        <View style={[styles.content, isWeb && styles.webContent]}>
+      <ScrollView style={styles.content}>
+        <View style={[styles.contentInner, isWeb && styles.webContent]}>
         <View style={styles.header}>
           <Text style={styles.title}>Content Approvals</Text>
           <Text style={styles.subtitle}>Review and approve pending submissions</Text>
@@ -139,9 +138,8 @@ export default function ApprovalsPage() {
             </View>
           )}
         </View>
-      </View>
+        </View>
       </ScrollView>
-      {isWeb && <WebFooter />}
     </View>
   );
 }
@@ -161,12 +159,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
-  scrollContainer: {
+  content: {
     flex: 1,
   },
-  content: {
+  contentInner: {
     padding: 20,
-    minHeight: '100%',
   },
   webContent: {
     maxWidth: 1200,

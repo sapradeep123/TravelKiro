@@ -5,7 +5,6 @@ import * as ImagePicker from 'expo-image-picker';
 import api from '../../src/services/api';
 import { useRouter } from 'expo-router';
 import WebHeader from '../../components/WebHeader';
-import WebFooter from '../../components/WebFooter';
 
 export default function UploadLocation() {
   const router = useRouter();
@@ -92,8 +91,8 @@ export default function UploadLocation() {
   return (
     <View style={styles.container}>
       {isWeb && <WebHeader />}
-      <ScrollView style={styles.scrollContainer}>
-        <View style={[styles.content, isWeb && styles.webContent]}>
+      <ScrollView style={styles.content}>
+        <View style={[styles.contentInner, isWeb && styles.webContent]}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Upload New Location</Text>
@@ -195,9 +194,8 @@ export default function UploadLocation() {
             * All fields are required. Your submission will be reviewed by the admin team before being published.
           </Text>
         </View>
-      </View>
+        </View>
       </ScrollView>
-      {isWeb && <WebFooter />}
     </View>
   );
 }
@@ -207,12 +205,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
-  scrollContainer: {
+  content: {
     flex: 1,
   },
-  content: {
+  contentInner: {
     padding: 20,
-    minHeight: '100%',
   },
   webContent: {
     maxWidth: 800,

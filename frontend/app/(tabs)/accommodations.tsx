@@ -1,18 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Linking, Alert } from 'react-native';
-import { Card, Text, Chip, ActivityIndicator, Button, IconButton, SegmentedButtons } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, Linking, TouchableOpacity, useWindowDimensions, Platform, Image } from 'react-native';
+import { Card, Text, Chip, ActivityIndicator, Button, IconButton, SegmentedButtons, Searchbar } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { accommodationService } from '../../src/services/accommodationService';
 import { Accommodation } from '../../src/types';
+import WebFooter from '../../components/WebFooter';
 
 export default function AccommodationsScreen() {
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
+  const [filteredAccommodations, setFilteredAccommodations] = useState<Accommodation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedType, setSelectedType] = useState<'ALL' | 'HOTEL' | 'RESTAURANT' | 'RESORT'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const isLargeScreen = width >= 768;
+  const showWebLayout = isWeb && isLargeScreen;
+  
+  const getNumColumns = () => {
+    if (width >= 1400) return 4;
+    if (width >= 1024) return 3;
+    if (width >= 768) return 2;
+    return 1;
+  };
+  const numColumns = getNumColumns();
 
   useEffect(() => {
     loadAccommodations();
   }, [selectedType]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [accommodations, searchQuery]);
 
   const loadAccommodations = async () => {
     try {
@@ -27,163 +48,198 @@ export default function AccommodationsScreen() {
     }
   };
 
+  const applyFilters = () => {
+    let filtered = [...accommodations];
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(acc =>
+        acc.name.toLowerCase().includes(query) ||
+        acc.description.toLowerCase().includes(query) ||
+        acc.address.toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredAccommodations(filtered);
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadAccommodations();
     setRefreshing(false);
   };
 
-  const handleCall = (phone: string) => {
-    Linking.openURL(`tel:${phone}`);
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
   };
 
-  const handleEmail = (email: string) => {
-    Linking.openURL(`mailto:${email}`);
-  };
-
-  const handleWebsite = (website: string) => {
-    Linking.openURL(website);
+  const getCardWidth = () => {
+    const padding = 24;
+    const gap = 16;
+    const availableWidth = width - padding;
+    
+    if (numColumns === 1) return availableWidth;
+    return (availableWidth - (gap * (numColumns - 1))) / numColumns;
   };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'HOTEL':
-        return 'bed';
-      case 'RESTAURANT':
-        return 'silverware-fork-knife';
-      case 'RESORT':
-        return 'palm-tree';
-      default:
-        return 'home';
+      case 'HOTEL': return 'office-building';
+      case 'RESTAURANT': return 'silverware-fork-knife';
+      case 'RESORT': return 'palm-tree';
+      default: return 'home';
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'HOTEL':
-        return '#2196F3';
-      case 'RESTAURANT':
-        return '#FF9800';
-      case 'RESORT':
-        return '#4CAF50';
-      default:
-        return '#666';
+      case 'HOTEL': return '#2196F3';
+      case 'RESTAURANT': return '#FF9800';
+      case 'RESORT': return '#4CAF50';
+      default: return '#9E9E9E';
     }
   };
 
   const renderAccommodation = ({ item }: { item: Accommodation }) => (
-    <Card style={styles.card}>
-      {item.images && item.images.length > 0 && (
-        <Card.Cover source={{ uri: item.images[0] }} style={styles.image} />
-      )}
-      <Card.Content style={styles.cardContent}>
-        <View style={styles.header}>
-          <Text variant="titleLarge" style={styles.title}>
-            {item.name}
-          </Text>
-          {item.isGovtApproved && (
-            <Chip icon="check-decagram" style={styles.govtBadge} textStyle={styles.badgeText}>
-              Govt Approved
-            </Chip>
-          )}
-        </View>
-
-        <View style={styles.typeContainer}>
-          <IconButton
-            icon={getTypeIcon(item.type)}
-            iconColor={getTypeColor(item.type)}
-            size={20}
-            style={styles.typeIcon}
-          />
-          <Text variant="bodyMedium" style={[styles.typeText, { color: getTypeColor(item.type) }]}>
-            {item.type}
-          </Text>
-        </View>
-
-        <Text variant="bodyMedium" numberOfLines={3} style={styles.description}>
-          {item.description}
-        </Text>
-
-        <View style={styles.contactSection}>
-          <Text variant="labelLarge" style={styles.contactTitle}>
-            Contact Information:
-          </Text>
-          
-          <View style={styles.contactItem}>
-            <IconButton icon="phone" size={20} style={styles.contactIcon} />
-            <Text variant="bodyMedium" style={styles.contactText}>
-              {item.contactPhone}
-            </Text>
-          </View>
-
-          {item.contactEmail && (
-            <View style={styles.contactItem}>
-              <IconButton icon="email" size={20} style={styles.contactIcon} />
-              <Text variant="bodyMedium" style={styles.contactText}>
-                {item.contactEmail}
-              </Text>
+    <TouchableOpacity 
+      activeOpacity={0.9}
+      style={[styles.cardWrapper, { width: numColumns > 1 ? getCardWidth() : undefined }]}
+    >
+      <Card style={styles.card} elevation={4}>
+        <View style={styles.imageContainer}>
+          {item.images && item.images.length > 0 ? (
+            <>
+              <Image 
+                source={{ uri: item.images[0] }} 
+                style={styles.image}
+                resizeMode="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.8)']}
+                style={styles.imageGradient}
+              >
+                <View style={styles.typeChip}>
+                  <MaterialCommunityIcons 
+                    name={getTypeIcon(item.type) as any} 
+                    size={16} 
+                    color="#fff" 
+                  />
+                  <Text style={styles.typeText}>{item.type}</Text>
+                </View>
+                <Text variant="headlineSmall" style={styles.imageTitle}>
+                  {item.name}
+                </Text>
+                <View style={styles.imageLocationContainer}>
+                  <Text style={styles.imageLocationText}>
+                    📍 {item.address}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </>
+          ) : (
+            <View style={styles.placeholderImage}>
+              <MaterialCommunityIcons 
+                name={getTypeIcon(item.type) as any} 
+                size={48} 
+                color={getTypeColor(item.type)} 
+              />
+              <Text style={styles.placeholderTitle}>{item.name}</Text>
             </View>
           )}
-
-          <View style={styles.contactItem}>
-            <IconButton icon="map-marker" size={20} style={styles.contactIcon} />
-            <Text variant="bodyMedium" style={styles.contactText} numberOfLines={2}>
-              {item.contactAddress}
-            </Text>
-          </View>
         </View>
-      </Card.Content>
-      <Card.Actions style={styles.actions}>
-        <Button
-          mode="outlined"
-          icon="phone"
-          onPress={() => handleCall(item.contactPhone)}
-          style={styles.actionButton}
-        >
-          Call
-        </Button>
-        {item.contactEmail && (
-          <Button
-            mode="outlined"
-            icon="email"
-            onPress={() => handleEmail(item.contactEmail!)}
-            style={styles.actionButton}
-          >
-            Email
-          </Button>
-        )}
-        {item.contactWebsite && (
-          <Button
-            mode="contained"
-            icon="web"
-            onPress={() => handleWebsite(item.contactWebsite!)}
-            style={styles.actionButton}
-          >
-            Website
-          </Button>
-        )}
-      </Card.Actions>
-    </Card>
+        <Card.Content style={styles.cardContent}>
+          <Text variant="bodyMedium" numberOfLines={2} style={styles.description}>
+            {item.description}
+          </Text>
+          
+          <View style={styles.contactSection}>
+            {item.phone && (
+              <TouchableOpacity 
+                style={styles.contactButton}
+                onPress={() => Linking.openURL(`tel:${item.phone}`)}
+              >
+                <MaterialCommunityIcons name="phone" size={18} color="#667eea" />
+                <Text style={styles.contactText}>Call</Text>
+              </TouchableOpacity>
+            )}
+            {item.email && (
+              <TouchableOpacity 
+                style={styles.contactButton}
+                onPress={() => Linking.openURL(`mailto:${item.email}`)}
+              >
+                <MaterialCommunityIcons name="email" size={18} color="#667eea" />
+                <Text style={styles.contactText}>Email</Text>
+              </TouchableOpacity>
+            )}
+            {item.website && (
+              <TouchableOpacity 
+                style={styles.contactButton}
+                onPress={() => Linking.openURL(item.website!)}
+              >
+                <MaterialCommunityIcons name="web" size={18} color="#667eea" />
+                <Text style={styles.contactText}>Website</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.statusBadge}>
+            <Chip 
+              icon={item.approvalStatus === 'APPROVED' ? 'check-circle' : 'clock'} 
+              style={[
+                styles.statusChip,
+                item.approvalStatus === 'APPROVED' ? styles.approvedChip : styles.pendingChip
+              ]}
+              textStyle={styles.statusChipText}
+              compact
+            >
+              {item.approvalStatus}
+            </Chip>
+          </View>
+        </Card.Content>
+      </Card>
+    </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Loading accommodations...</Text>
-      </View>
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={styles.centerContainer}
+      >
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text style={styles.loadingText}>Discovering places to stay & dine...</Text>
+      </LinearGradient>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.filterContainer}>
+      {!showWebLayout && (
+        <View style={styles.mobileHeader}>
+          <Text variant="headlineMedium" style={styles.mobileHeaderTitle}>
+            Stay & Dine
+          </Text>
+          <Text style={styles.mobileHeaderSubtitle}>
+            Discover {filteredAccommodations.length} of {accommodations.length} places
+          </Text>
+          <Searchbar
+            placeholder="Search hotels, restaurants..."
+            onChangeText={handleSearch}
+            value={searchQuery}
+            style={styles.searchBar}
+            iconColor="#667eea"
+            placeholderTextColor="#999"
+          />
+        </View>
+      )}
+      
+      <View style={styles.typeFilterContainer}>
         <SegmentedButtons
           value={selectedType}
           onValueChange={(value) => setSelectedType(value as any)}
           buttons={[
-            { value: 'ALL', label: 'All' },
-            { value: 'HOTEL', label: 'Hotels', icon: 'bed' },
+            { value: 'ALL', label: 'All', icon: 'view-grid' },
+            { value: 'HOTEL', label: 'Hotels', icon: 'office-building' },
             { value: 'RESTAURANT', label: 'Restaurants', icon: 'silverware-fork-knife' },
             { value: 'RESORT', label: 'Resorts', icon: 'palm-tree' },
           ]}
@@ -192,20 +248,55 @@ export default function AccommodationsScreen() {
       </View>
 
       <FlatList
-        data={accommodations}
+        data={filteredAccommodations}
         renderItem={renderAccommodation}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          showWebLayout && styles.webListContent,
+          !showWebLayout && styles.mobileListContent
+        ]}
+        numColumns={numColumns}
+        key={`columns-${numColumns}`}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh}
+            colors={['#667eea']}
+            tintColor="#667eea"
+          />
         }
+        ListHeaderComponent={showWebLayout ? (
+          <View style={styles.webHeader}>
+            <View style={styles.webHeaderTop}>
+              <View>
+                <Text variant="headlineLarge" style={styles.webHeaderTitle}>
+                  Stay & Dine
+                </Text>
+                <Text style={styles.webHeaderSubtitle}>
+                  Discover {filteredAccommodations.length} of {accommodations.length} amazing places
+                </Text>
+              </View>
+            </View>
+            <Searchbar
+              placeholder="Search hotels, restaurants, resorts..."
+              onChangeText={handleSearch}
+              value={searchQuery}
+              style={styles.webSearchBar}
+              iconColor="#667eea"
+              placeholderTextColor="#999"
+            />
+          </View>
+        ) : null}
+        ListFooterComponent={showWebLayout ? <WebFooter /> : null}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text variant="titleMedium" style={styles.emptyText}>
-              No {selectedType !== 'ALL' ? selectedType.toLowerCase() + 's' : 'accommodations'} found
+            <Text style={styles.emptyIcon}>🏨</Text>
+            <Text variant="titleLarge" style={styles.emptyText}>
+              No accommodations found
             </Text>
             <Text variant="bodyMedium" style={styles.emptySubtext}>
-              Try selecting a different category
+              Try adjusting your filters or pull to refresh
             </Text>
           </View>
         }
@@ -217,7 +308,7 @@ export default function AccommodationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
   centerContainer: {
     flex: 1,
@@ -225,106 +316,212 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
-    color: '#666',
+    marginTop: 16,
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '500',
   },
-  filterContainer: {
-    padding: 10,
+  mobileHeader: {
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
     backgroundColor: '#fff',
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  mobileHeaderTitle: {
+    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  mobileHeaderSubtitle: {
+    color: '#666',
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  searchBar: {
+    backgroundColor: '#f8f9fa',
+    elevation: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  typeFilterContainer: {
+    padding: 16,
+    backgroundColor: '#fff',
   },
   segmentedButtons: {
-    marginBottom: 5,
+    backgroundColor: '#fff',
   },
   listContent: {
-    padding: 10,
+    padding: 12,
   },
-  card: {
-    marginBottom: 15,
-    elevation: 3,
+  mobileListContent: {
+    paddingBottom: 160,
   },
-  image: {
-    height: 200,
+  webListContent: {
+    maxWidth: 1400,
+    marginHorizontal: 'auto',
+    width: '100%',
   },
-  cardContent: {
-    paddingTop: 15,
+  webHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 24,
+    backgroundColor: '#ffffff',
   },
-  header: {
+  webHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  webHeaderTitle: {
+    color: '#333',
+    fontWeight: 'bold',
     marginBottom: 8,
   },
-  title: {
-    fontWeight: 'bold',
-    flex: 1,
-    marginRight: 10,
+  webHeaderSubtitle: {
+    color: '#666',
+    fontSize: 16,
   },
-  govtBadge: {
-    backgroundColor: '#4CAF50',
+  webSearchBar: {
+    backgroundColor: '#f8f9fa',
+    elevation: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
+  cardWrapper: {
+    marginBottom: 16,
+    marginHorizontal: 8,
   },
-  typeContainer: {
+  card: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+    width: '100%',
+  },
+  imageContainer: {
+    position: 'relative',
+    height: 220,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  imageGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    justifyContent: 'flex-end',
+  },
+  typeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  typeIcon: {
-    margin: 0,
-    marginLeft: -8,
+    backgroundColor: 'rgba(102, 126, 234, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    gap: 6,
   },
   typeText: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: '600',
-    textTransform: 'capitalize',
   },
-  description: {
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 15,
+  imageTitle: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
-  contactSection: {
-    backgroundColor: '#f9f9f9',
-    padding: 10,
-    borderRadius: 8,
-  },
-  contactTitle: {
-    marginBottom: 8,
-    color: '#2196F3',
-  },
-  contactItem: {
+  imageLocationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
   },
-  contactIcon: {
-    margin: 0,
-    marginLeft: -8,
+  imageLocationText: {
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 13,
+  },
+  placeholderImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e9ecef',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#495057',
+    marginTop: 8,
+  },
+  cardContent: {
+    padding: 16,
+  },
+  description: {
+    color: '#6c757d',
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  contactSection: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#f0f4ff',
+    borderRadius: 8,
   },
   contactText: {
-    color: '#666',
-    flex: 1,
+    color: '#667eea',
+    fontSize: 13,
+    fontWeight: '600',
   },
-  actions: {
-    flexWrap: 'wrap',
-    paddingHorizontal: 8,
+  statusBadge: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
-  actionButton: {
-    marginHorizontal: 4,
-    marginVertical: 4,
+  statusChip: {
+    height: 28,
+  },
+  statusChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  approvedChip: {
+    backgroundColor: '#d4edda',
+  },
+  pendingChip: {
+    backgroundColor: '#fff3cd',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 50,
+    paddingTop: 60,
+    paddingHorizontal: 40,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
   },
   emptyText: {
-    color: '#666',
-    marginBottom: 5,
+    color: '#495057',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtext: {
-    color: '#999',
+    color: '#6c757d',
+    textAlign: 'center',
   },
 });

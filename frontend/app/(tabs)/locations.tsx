@@ -1,18 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, Image, RefreshControl } from 'react-native';
-import { Card, Text, Searchbar, Chip, ActivityIndicator } from 'react-native-paper';
+import { View, FlatList, StyleSheet, Image, RefreshControl, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
+import { Card, Text, Searchbar, Chip, ActivityIndicator, Menu, Button } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { locationService } from '../../src/services/locationService';
 import { Location } from '../../src/types';
+import { useRouter } from 'expo-router';
+import WebFooter from '../../components/WebFooter';
 
 export default function LocationsScreen() {
+  const router = useRouter();
   const [locations, setLocations] = useState<Location[]>([]);
+  const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'approved' | 'pending'>('all');
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [selectedSort, setSelectedSort] = useState<'name' | 'recent'>('name');
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const isLargeScreen = width >= 768;
+  const showWebLayout = isWeb && isLargeScreen;
+  
+  // Calculate number of columns based on screen width
+  const getNumColumns = () => {
+    if (width >= 1400) return 4;
+    if (width >= 1024) return 3;
+    if (width >= 768) return 2;
+    return 1;
+  };
+  const numColumns = getNumColumns();
 
   useEffect(() => {
     loadLocations();
   }, []);
+
+  useEffect(() => {
+    applyFiltersAndSort();
+  }, [locations, selectedFilter, selectedSort, searchQuery]);
 
   const loadLocations = async () => {
     try {
@@ -26,75 +52,242 @@ export default function LocationsScreen() {
     }
   };
 
+  const applyFiltersAndSort = () => {
+    let filtered = [...locations];
+
+    // Apply status filter
+    if (selectedFilter !== 'all') {
+      filtered = filtered.filter(loc => 
+        loc.approvalStatus === (selectedFilter === 'approved' ? 'APPROVED' : 'PENDING')
+      );
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(loc =>
+        loc.area.toLowerCase().includes(query) ||
+        loc.state.toLowerCase().includes(query) ||
+        loc.country.toLowerCase().includes(query) ||
+        loc.description.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply sorting
+    if (selectedSort === 'name') {
+      filtered.sort((a, b) => a.area.localeCompare(b.area));
+    } else {
+      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    setFilteredLocations(filtered);
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadLocations();
     setRefreshing(false);
   };
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (query.trim()) {
-      try {
-        const results = await locationService.searchLocations(query);
-        setLocations(results);
-      } catch (error) {
-        console.error('Error searching:', error);
-      }
-    } else {
-      loadLocations();
-    }
+  };
+
+  const handleFilterChange = (filter: 'all' | 'approved' | 'pending') => {
+    setSelectedFilter(filter);
+    setFilterMenuVisible(false);
+  };
+
+  const handleSortChange = (sort: 'name' | 'recent') => {
+    setSelectedSort(sort);
+    setSortMenuVisible(false);
+  };
+
+  const getCardWidth = () => {
+    const padding = 24; // Total horizontal padding
+    const gap = 16; // Gap between cards
+    const availableWidth = width - padding;
+    
+    if (numColumns === 1) return availableWidth;
+    return (availableWidth - (gap * (numColumns - 1))) / numColumns;
   };
 
   const renderLocation = ({ item }: { item: Location }) => (
-    <Card style={styles.card}>
-      {item.images && item.images.length > 0 && (
-        <Card.Cover source={{ uri: item.images[0] }} style={styles.image} />
-      )}
-      <Card.Content style={styles.cardContent}>
-        <Text variant="titleLarge" style={styles.title}>
-          {item.area}
-        </Text>
-        <View style={styles.locationInfo}>
-          <Chip icon="map-marker" style={styles.chip} compact>
-            {item.state}, {item.country}
-          </Chip>
+    <TouchableOpacity 
+      activeOpacity={0.9}
+      onPress={() => router.push(`/(tabs)/location-detail?id=${item.id}`)}
+      style={[styles.cardWrapper, { width: numColumns > 1 ? getCardWidth() : undefined }]}
+    >
+      <Card style={styles.card} elevation={4}>
+        <View style={styles.imageContainer}>
+          {item.images && item.images.length > 0 ? (
+            <>
+              <Image 
+                source={{ uri: item.images[0] }} 
+                style={styles.image}
+                resizeMode="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.8)']}
+                style={styles.imageGradient}
+              >
+                <Text variant="headlineSmall" style={styles.imageTitle}>
+                  {item.area}
+                </Text>
+                <View style={styles.imageLocation}>
+                  <Text style={styles.imageLocationText}>
+                    📍 {item.state}, {item.country}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </>
+          ) : (
+            <View style={styles.placeholderImage}>
+              <Text style={styles.placeholderText}>🌍</Text>
+              <Text style={styles.placeholderTitle}>{item.area}</Text>
+            </View>
+          )}
         </View>
-        <Text variant="bodyMedium" numberOfLines={3} style={styles.description}>
-          {item.description}
-        </Text>
-      </Card.Content>
-    </Card>
+        <Card.Content style={styles.cardContent}>
+          <Text variant="bodyMedium" numberOfLines={3} style={styles.description}>
+            {item.description}
+          </Text>
+          <View style={styles.statusBadge}>
+            <Chip 
+              icon={item.approvalStatus === 'APPROVED' ? 'check-circle' : 'clock'} 
+              style={[
+                styles.statusChip,
+                item.approvalStatus === 'APPROVED' ? styles.approvedChip : styles.pendingChip
+              ]}
+              textStyle={styles.statusChipText}
+              compact
+            >
+              {item.approvalStatus}
+            </Chip>
+          </View>
+        </Card.Content>
+      </Card>
+    </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Loading locations...</Text>
-      </View>
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={styles.centerContainer}
+      >
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text style={styles.loadingText}>Discovering amazing places...</Text>
+      </LinearGradient>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Searchbar
-        placeholder="Search locations..."
-        onChangeText={handleSearch}
-        value={searchQuery}
-        style={styles.searchBar}
-      />
+      {!showWebLayout && (
+        <View style={styles.mobileHeader}>
+          <Text variant="headlineMedium" style={styles.mobileHeaderTitle}>
+            Explore Locations
+          </Text>
+          <Text style={styles.mobileHeaderSubtitle}>
+            Discover {filteredLocations.length} of {locations.length} destinations
+          </Text>
+          <Searchbar
+            placeholder="Search destinations..."
+            onChangeText={handleSearch}
+            value={searchQuery}
+            style={styles.searchBar}
+            iconColor="#667eea"
+            placeholderTextColor="#999"
+          />
+        </View>
+      )}
+      
       <FlatList
-        data={locations}
+        data={filteredLocations}
         renderItem={renderLocation}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          showWebLayout && styles.webListContent,
+          !showWebLayout && styles.mobileListContent
+        ]}
+        numColumns={numColumns}
+        key={`columns-${numColumns}`}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh}
+            colors={['#667eea']}
+            tintColor="#667eea"
+          />
         }
+        ListHeaderComponent={showWebLayout ? (
+          <View style={styles.webHeader}>
+            <View style={styles.webHeaderTop}>
+              <View>
+                <Text variant="headlineLarge" style={styles.webHeaderTitle}>
+                  Explore Locations
+                </Text>
+                <Text style={styles.webHeaderSubtitle}>
+                  Discover {filteredLocations.length} of {locations.length} amazing destinations
+                </Text>
+              </View>
+            </View>
+            <View style={styles.filterRow}>
+              <Searchbar
+                placeholder="Search destinations..."
+                onChangeText={handleSearch}
+                value={searchQuery}
+                style={styles.webSearchBar}
+                iconColor="#667eea"
+                placeholderTextColor="#999"
+              />
+              <View style={styles.filterButtons}>
+                <Menu
+                  visible={filterMenuVisible}
+                  onDismiss={() => setFilterMenuVisible(false)}
+                  anchor={
+                    <Button
+                      mode="outlined"
+                      icon="filter-variant"
+                      onPress={() => setFilterMenuVisible(true)}
+                      style={styles.filterButton}
+                    >
+                      {selectedFilter === 'all' ? 'All Status' : selectedFilter === 'approved' ? 'Approved' : 'Pending'}
+                    </Button>
+                  }
+                >
+                  <Menu.Item onPress={() => handleFilterChange('all')} title="All Status" />
+                  <Menu.Item onPress={() => handleFilterChange('approved')} title="Approved Only" />
+                  <Menu.Item onPress={() => handleFilterChange('pending')} title="Pending Only" />
+                </Menu>
+                <Menu
+                  visible={sortMenuVisible}
+                  onDismiss={() => setSortMenuVisible(false)}
+                  anchor={
+                    <Button
+                      mode="outlined"
+                      icon="sort"
+                      onPress={() => setSortMenuVisible(true)}
+                      style={styles.filterButton}
+                    >
+                      {selectedSort === 'name' ? 'A-Z' : 'Recent'}
+                    </Button>
+                  }
+                >
+                  <Menu.Item onPress={() => handleSortChange('name')} title="Sort by Name (A-Z)" />
+                  <Menu.Item onPress={() => handleSortChange('recent')} title="Sort by Recent" />
+                </Menu>
+              </View>
+            </View>
+          </View>
+        ) : null}
+        ListFooterComponent={showWebLayout ? <WebFooter /> : null}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text variant="titleMedium" style={styles.emptyText}>
+            <Text style={styles.emptyIcon}>🗺️</Text>
+            <Text variant="titleLarge" style={styles.emptyText}>
               No locations found
             </Text>
             <Text variant="bodyMedium" style={styles.emptySubtext}>
@@ -110,7 +303,7 @@ export default function LocationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
   centerContainer: {
     flex: 1,
@@ -118,51 +311,185 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  mobileHeader: {
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  mobileHeaderTitle: {
+    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  mobileHeaderSubtitle: {
     color: '#666',
+    fontSize: 14,
+    marginBottom: 16,
   },
   searchBar: {
-    margin: 10,
-    elevation: 2,
+    backgroundColor: '#f8f9fa',
+    elevation: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   listContent: {
-    padding: 10,
+    padding: 12,
+  },
+  mobileListContent: {
+    paddingBottom: 160, // Extra padding to avoid FAB overlap
+  },
+  cardWrapper: {
+    marginBottom: 16,
+    marginHorizontal: 8,
   },
   card: {
-    marginBottom: 15,
-    elevation: 3,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+    width: '100%',
+  },
+  imageContainer: {
+    position: 'relative',
+    height: 220,
   },
   image: {
-    height: 200,
+    width: '100%',
+    height: '100%',
   },
-  cardContent: {
-    paddingTop: 15,
+  imageGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    justifyContent: 'flex-end',
   },
-  title: {
+  imageTitle: {
+    color: '#ffffff',
     fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  imageLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  imageLocationText: {
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 14,
+  },
+  placeholderImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e9ecef',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 48,
     marginBottom: 8,
   },
-  locationInfo: {
-    flexDirection: 'row',
-    marginBottom: 10,
+  placeholderTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#495057',
   },
-  chip: {
-    marginRight: 5,
+  cardContent: {
+    padding: 16,
   },
   description: {
-    color: '#666',
-    lineHeight: 20,
+    color: '#6c757d',
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  statusChip: {
+    height: 28,
+  },
+  statusChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  approvedChip: {
+    backgroundColor: '#d4edda',
+  },
+  pendingChip: {
+    backgroundColor: '#fff3cd',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 50,
+    paddingTop: 60,
+    paddingHorizontal: 40,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
   },
   emptyText: {
-    color: '#666',
-    marginBottom: 5,
+    color: '#495057',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtext: {
-    color: '#999',
+    color: '#6c757d',
+    textAlign: 'center',
+  },
+  webListContent: {
+    maxWidth: 1400,
+    marginHorizontal: 'auto',
+    width: '100%',
+  },
+  webHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 24,
+    backgroundColor: '#ffffff',
+  },
+  webHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  webHeaderTitle: {
+    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  webHeaderSubtitle: {
+    color: '#666',
+    fontSize: 16,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  webSearchBar: {
+    backgroundColor: '#f8f9fa',
+    elevation: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    flex: 1,
+  },
+  filterButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterButton: {
+    borderColor: '#667eea',
   },
 });

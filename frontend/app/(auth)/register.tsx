@@ -51,7 +51,7 @@ export default function RegisterScreen() {
             Create Account
           </Text>
           <Text variant="titleMedium" style={styles.subtitle}>
-            Join Travel Encyclopedia
+            Join Butterfliy
           </Text>
 
           <TextInput

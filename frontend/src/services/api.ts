@@ -1,7 +1,35 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+// Storage wrapper that works on both web and native
+const storage = {
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
+  },
+
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    } else {
+      return await SecureStore.getItemAsync(key);
+    }
+  },
+
+  async deleteItem(key: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(key);
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  },
+};
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
@@ -13,7 +41,7 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   async (config) => {
-    const token = await SecureStore.getItemAsync('accessToken');
+    const token = await storage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -34,7 +62,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = await SecureStore.getItemAsync('refreshToken');
+        const refreshToken = await storage.getItem('refreshToken');
         if (refreshToken) {
           const response = await axios.post(`${API_URL}/api/auth/refresh-token`, {
             refreshToken,
@@ -42,17 +70,17 @@ api.interceptors.response.use(
 
           const { accessToken, refreshToken: newRefreshToken } = response.data.data;
 
-          await SecureStore.setItemAsync('accessToken', accessToken);
-          await SecureStore.setItemAsync('refreshToken', newRefreshToken);
+          await storage.setItem('accessToken', accessToken);
+          await storage.setItem('refreshToken', newRefreshToken);
 
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
         }
       } catch (refreshError) {
         // Refresh failed, clear tokens and redirect to login
-        await SecureStore.deleteItemAsync('accessToken');
-        await SecureStore.deleteItemAsync('refreshToken');
-        await SecureStore.deleteItemAsync('user');
+        await storage.deleteItem('accessToken');
+        await storage.deleteItem('refreshToken');
+        await storage.deleteItem('user');
         return Promise.reject(refreshError);
       }
     }

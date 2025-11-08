@@ -21,7 +21,7 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <Text variant="headlineLarge" style={styles.title}>
-        Travel Encyclopedia
+        Butterfliy
       </Text>
       <ActivityIndicator size="large" color="#2196F3" style={styles.loader} />
     </View>

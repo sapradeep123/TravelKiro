@@ -1,17 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Alert } from 'react-native';
-import { Card, Text, Chip, ActivityIndicator, Button, IconButton } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, Alert, TouchableOpacity, useWindowDimensions, Platform, Image } from 'react-native';
+import { Card, Text, Chip, ActivityIndicator, Button, IconButton, Searchbar, Menu } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { packageService } from '../../src/services/packageService';
 import { Package } from '../../src/types';
+import WebFooter from '../../components/WebFooter';
 
 export default function PackagesScreen() {
   const [packages, setPackages] = useState<Package[]>([]);
+  const [filteredPackages, setFilteredPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'approved' | 'pending'>('all');
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const isLargeScreen = width >= 768;
+  const showWebLayout = isWeb && isLargeScreen;
+  
+  const getNumColumns = () => {
+    if (width >= 1400) return 4;
+    if (width >= 1024) return 3;
+    if (width >= 768) return 2;
+    return 1;
+  };
+  const numColumns = getNumColumns();
 
   useEffect(() => {
     loadPackages();
   }, []);
+
+  useEffect(() => {
+    applyFiltersAndSort();
+  }, [packages, selectedFilter, searchQuery]);
 
   const loadPackages = async () => {
     try {
@@ -25,10 +47,48 @@ export default function PackagesScreen() {
     }
   };
 
+  const applyFiltersAndSort = () => {
+    let filtered = [...packages];
+
+    if (selectedFilter !== 'all') {
+      filtered = filtered.filter(pkg => 
+        pkg.approvalStatus === (selectedFilter === 'approved' ? 'APPROVED' : 'PENDING')
+      );
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(pkg =>
+        pkg.title.toLowerCase().includes(query) ||
+        pkg.description.toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredPackages(filtered);
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadPackages();
     setRefreshing(false);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const handleFilterChange = (filter: 'all' | 'approved' | 'pending') => {
+    setSelectedFilter(filter);
+    setFilterMenuVisible(false);
+  };
+
+  const getCardWidth = () => {
+    const padding = 24;
+    const gap = 16;
+    const availableWidth = width - padding;
+    
+    if (numColumns === 1) return availableWidth;
+    return (availableWidth - (gap * (numColumns - 1))) / numColumns;
   };
 
   const handleExpressInterest = async (packageId: string, packageTitle: string) => {
@@ -40,93 +100,208 @@ export default function PackagesScreen() {
     }
   };
 
+  const showPackageDetails = (item: Package) => {
+    console.log('Package clicked:', item.title);
+    const itineraryText = item.itinerary && item.itinerary.length > 0 
+      ? '\n\nItinerary:\n' + item.itinerary.map(day => `Day ${day.day}: ${day.title}`).join('\n')
+      : '';
+    
+    const buttons: any[] = [
+      { text: 'Close', style: 'cancel' }
+    ];
+    
+    if (item.approvalStatus === 'APPROVED') {
+      buttons.push({
+        text: 'Express Interest',
+        onPress: () => handleExpressInterest(item.id, item.title)
+      });
+    }
+    
+    Alert.alert(
+      item.title,
+      `${item.description}\n\n💰 Price: ₹${item.price.toLocaleString()}\n📅 Duration: ${item.duration} Days${itineraryText}\n\n✅ Status: ${item.approvalStatus}`,
+      buttons
+    );
+  };
+
   const renderPackage = ({ item }: { item: Package }) => (
-    <Card style={styles.card}>
-      {item.images && item.images.length > 0 && (
-        <Card.Cover source={{ uri: item.images[0] }} style={styles.image} />
-      )}
-      <Card.Content style={styles.cardContent}>
-        <Text variant="titleLarge" style={styles.title}>
-          {item.title}
-        </Text>
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <IconButton icon="calendar-range" size={20} style={styles.iconButton} />
-            <Text variant="bodyMedium" style={styles.infoText}>
-              {item.duration} Days
-            </Text>
-          </View>
-          <View style={styles.infoItem}>
-            <IconButton icon="currency-inr" size={20} style={styles.iconButton} />
-            <Text variant="bodyMedium" style={styles.priceText}>
-              ₹{item.price.toLocaleString()}
-            </Text>
-          </View>
+    <TouchableOpacity 
+      activeOpacity={0.9}
+      style={[styles.cardWrapper, { width: numColumns > 1 ? getCardWidth() : undefined }]}
+      onPress={() => showPackageDetails(item)}
+    >
+      <Card style={styles.card} elevation={4}>
+        <View style={styles.imageContainer}>
+          {item.images && item.images.length > 0 ? (
+            <>
+              <Image 
+                source={{ uri: item.images[0] }} 
+                style={styles.image}
+                resizeMode="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.8)']}
+                style={styles.imageGradient}
+              >
+                <Text variant="headlineSmall" style={styles.imageTitle}>
+                  {item.title}
+                </Text>
+                <View style={styles.imagePriceContainer}>
+                  <Text style={styles.imagePriceText}>
+                    ₹{item.price.toLocaleString()} • {item.duration} Days
+                  </Text>
+                </View>
+              </LinearGradient>
+            </>
+          ) : (
+            <View style={styles.placeholderImage}>
+              <Text style={styles.placeholderText}>📦</Text>
+              <Text style={styles.placeholderTitle}>{item.title}</Text>
+            </View>
+          )}
         </View>
-        <Text variant="bodyMedium" numberOfLines={3} style={styles.description}>
-          {item.description}
-        </Text>
-        {item.itinerary && item.itinerary.length > 0 && (
-          <View style={styles.itineraryPreview}>
-            <Text variant="labelLarge" style={styles.itineraryLabel}>
-              Itinerary Highlights:
-            </Text>
-            {item.itinerary.slice(0, 2).map((day) => (
-              <Text key={day.day} variant="bodySmall" style={styles.itineraryItem}>
-                • Day {day.day}: {day.title}
+        <Card.Content style={styles.cardContent}>
+          <Text variant="bodyMedium" numberOfLines={3} style={styles.description}>
+            {item.description}
+          </Text>
+          {item.itinerary && item.itinerary.length > 0 && (
+            <View style={styles.itineraryPreview}>
+              <Text variant="labelMedium" style={styles.itineraryLabel}>
+                Highlights:
               </Text>
-            ))}
-            {item.itinerary.length > 2 && (
-              <Text variant="bodySmall" style={styles.moreText}>
-                +{item.itinerary.length - 2} more days
-              </Text>
-            )}
+              {item.itinerary.slice(0, 2).map((day) => (
+                <Text key={day.day} variant="bodySmall" style={styles.itineraryItem}>
+                  • Day {day.day}: {day.title}
+                </Text>
+              ))}
+              {item.itinerary.length > 2 && (
+                <Text variant="bodySmall" style={styles.moreText}>
+                  +{item.itinerary.length - 2} more days
+                </Text>
+              )}
+            </View>
+          )}
+          <View style={styles.statusBadge}>
+            <Chip 
+              icon={item.approvalStatus === 'APPROVED' ? 'check-circle' : 'clock'} 
+              style={[
+                styles.statusChip,
+                item.approvalStatus === 'APPROVED' ? styles.approvedChip : styles.pendingChip
+              ]}
+              textStyle={styles.statusChipText}
+              compact
+            >
+              {item.approvalStatus}
+            </Chip>
           </View>
-        )}
-        {item.approvalStatus === 'PENDING' && (
-          <Chip icon="clock" style={styles.pendingChip} textStyle={styles.chipText}>
-            Pending Approval
-          </Chip>
-        )}
-      </Card.Content>
-      <Card.Actions>
-        <Button 
-          mode="contained" 
-          onPress={() => handleExpressInterest(item.id, item.title)}
-          disabled={item.approvalStatus !== 'APPROVED'}
-        >
-          Express Interest
-        </Button>
-      </Card.Actions>
-    </Card>
+        </Card.Content>
+      </Card>
+    </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Loading packages...</Text>
-      </View>
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={styles.centerContainer}
+      >
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text style={styles.loadingText}>Discovering amazing packages...</Text>
+      </LinearGradient>
     );
   }
 
   return (
     <View style={styles.container}>
+      {!showWebLayout && (
+        <View style={styles.mobileHeader}>
+          <Text variant="headlineMedium" style={styles.mobileHeaderTitle}>
+            Travel Packages
+          </Text>
+          <Text style={styles.mobileHeaderSubtitle}>
+            Discover {filteredPackages.length} of {packages.length} packages
+          </Text>
+          <Searchbar
+            placeholder="Search packages..."
+            onChangeText={handleSearch}
+            value={searchQuery}
+            style={styles.searchBar}
+            iconColor="#667eea"
+            placeholderTextColor="#999"
+          />
+        </View>
+      )}
+      
       <FlatList
-        data={packages}
+        data={filteredPackages}
         renderItem={renderPackage}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          showWebLayout && styles.webListContent,
+          !showWebLayout && styles.mobileListContent
+        ]}
+        numColumns={numColumns}
+        key={`columns-${numColumns}`}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh}
+            colors={['#667eea']}
+            tintColor="#667eea"
+          />
         }
+        ListHeaderComponent={showWebLayout ? (
+          <View style={styles.webHeader}>
+            <View style={styles.webHeaderTop}>
+              <View>
+                <Text variant="headlineLarge" style={styles.webHeaderTitle}>
+                  Travel Packages
+                </Text>
+                <Text style={styles.webHeaderSubtitle}>
+                  Discover {filteredPackages.length} of {packages.length} amazing packages
+                </Text>
+              </View>
+            </View>
+            <View style={styles.filterRow}>
+              <Searchbar
+                placeholder="Search packages..."
+                onChangeText={handleSearch}
+                value={searchQuery}
+                style={styles.webSearchBar}
+                iconColor="#667eea"
+                placeholderTextColor="#999"
+              />
+              <Menu
+                visible={filterMenuVisible}
+                onDismiss={() => setFilterMenuVisible(false)}
+                anchor={
+                  <Button
+                    mode="outlined"
+                    icon="filter-variant"
+                    onPress={() => setFilterMenuVisible(true)}
+                    style={styles.filterButton}
+                  >
+                    {selectedFilter === 'all' ? 'All Status' : selectedFilter === 'approved' ? 'Approved' : 'Pending'}
+                  </Button>
+                }
+              >
+                <Menu.Item onPress={() => handleFilterChange('all')} title="All Status" />
+                <Menu.Item onPress={() => handleFilterChange('approved')} title="Approved Only" />
+                <Menu.Item onPress={() => handleFilterChange('pending')} title="Pending Only" />
+              </Menu>
+            </View>
+          </View>
+        ) : null}
+        ListFooterComponent={showWebLayout ? <WebFooter /> : null}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text variant="titleMedium" style={styles.emptyText}>
+            <Text style={styles.emptyIcon}>📦</Text>
+            <Text variant="titleLarge" style={styles.emptyText}>
               No packages found
             </Text>
             <Text variant="bodyMedium" style={styles.emptySubtext}>
-              Check back later for travel packages
+              Try adjusting your search or pull to refresh
             </Text>
           </View>
         }
@@ -138,7 +313,7 @@ export default function PackagesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
   centerContainer: {
     flex: 1,
@@ -146,89 +321,206 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  mobileHeader: {
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  mobileHeaderTitle: {
+    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  mobileHeaderSubtitle: {
     color: '#666',
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  searchBar: {
+    backgroundColor: '#f8f9fa',
+    elevation: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   listContent: {
-    padding: 10,
+    padding: 12,
   },
-  card: {
-    marginBottom: 15,
-    elevation: 3,
+  mobileListContent: {
+    paddingBottom: 160,
   },
-  image: {
-    height: 200,
+  webListContent: {
+    maxWidth: 1400,
+    marginHorizontal: 'auto',
+    width: '100%',
   },
-  cardContent: {
-    paddingTop: 15,
+  webHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 24,
+    backgroundColor: '#ffffff',
   },
-  title: {
+  webHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  webHeaderTitle: {
+    color: '#333',
     fontWeight: 'bold',
     marginBottom: 8,
   },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  iconButton: {
-    margin: 0,
-    marginLeft: -8,
-  },
-  infoText: {
+  webHeaderSubtitle: {
     color: '#666',
-    fontWeight: '600',
-  },
-  priceText: {
-    color: '#4CAF50',
-    fontWeight: 'bold',
     fontSize: 16,
   },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  webSearchBar: {
+    backgroundColor: '#f8f9fa',
+    elevation: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    flex: 1,
+  },
+  filterButton: {
+    borderColor: '#667eea',
+  },
+  cardWrapper: {
+    marginBottom: 16,
+    marginHorizontal: 8,
+  },
+  card: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+    width: '100%',
+  },
+  imageContainer: {
+    position: 'relative',
+    height: 220,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  imageGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    justifyContent: 'flex-end',
+  },
+  imageTitle: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  imagePriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  imagePriceText: {
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  placeholderImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e9ecef',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  placeholderTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#495057',
+  },
+  cardContent: {
+    padding: 16,
+  },
   description: {
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 10,
+    color: '#6c757d',
+    lineHeight: 22,
+    marginBottom: 12,
   },
   itineraryPreview: {
     backgroundColor: '#e3f2fd',
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   itineraryLabel: {
-    marginBottom: 5,
-    color: '#2196F3',
+    marginBottom: 6,
+    color: '#667eea',
+    fontWeight: '600',
   },
   itineraryItem: {
     color: '#666',
     marginBottom: 3,
   },
   moreText: {
-    color: '#2196F3',
+    color: '#667eea',
     fontStyle: 'italic',
     marginTop: 3,
   },
-  pendingChip: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFC107',
+  statusBadge: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 12,
   },
-  chipText: {
-    color: '#000',
+  statusChip: {
+    height: 28,
+  },
+  statusChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  approvedChip: {
+    backgroundColor: '#d4edda',
+  },
+  pendingChip: {
+    backgroundColor: '#fff3cd',
+  },
+  interestButton: {
+    backgroundColor: '#667eea',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 50,
+    paddingTop: 60,
+    paddingHorizontal: 40,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
   },
   emptyText: {
-    color: '#666',
-    marginBottom: 5,
+    color: '#495057',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtext: {
-    color: '#999',
+    color: '#6c757d',
+    textAlign: 'center',
   },
 });

@@ -1,6 +1,34 @@
 import api from './api';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { AuthResponse, UserRole } from '../types';
+
+// Storage wrapper that works on both web and native
+const storage = {
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
+  },
+
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    } else {
+      return await SecureStore.getItemAsync(key);
+    }
+  },
+
+  async deleteItem(key: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(key);
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  },
+};
 
 export const authService = {
   async register(email: string, password: string, name: string, role?: UserRole): Promise<AuthResponse> {
@@ -25,9 +53,9 @@ export const authService = {
     try {
       await api.post('/auth/logout');
     } finally {
-      await SecureStore.deleteItemAsync('accessToken');
-      await SecureStore.deleteItemAsync('refreshToken');
-      await SecureStore.deleteItemAsync('user');
+      await storage.deleteItem('accessToken');
+      await storage.deleteItem('refreshToken');
+      await storage.deleteItem('user');
     }
   },
 
@@ -37,13 +65,13 @@ export const authService = {
   },
 
   async saveTokens(accessToken: string, refreshToken: string, user: any): Promise<void> {
-    await SecureStore.setItemAsync('accessToken', accessToken);
-    await SecureStore.setItemAsync('refreshToken', refreshToken);
-    await SecureStore.setItemAsync('user', JSON.stringify(user));
+    await storage.setItem('accessToken', accessToken);
+    await storage.setItem('refreshToken', refreshToken);
+    await storage.setItem('user', JSON.stringify(user));
   },
 
   async getStoredUser() {
-    const userStr = await SecureStore.getItemAsync('user');
+    const userStr = await storage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
   },
 };

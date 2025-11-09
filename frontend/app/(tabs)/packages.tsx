@@ -140,15 +140,6 @@ export default function PackagesScreen() {
     });
   };
 
-  const getCardWidth = () => {
-    const padding = 24;
-    const gap = 16;
-    const availableWidth = width - padding;
-    
-    if (numColumns === 1) return availableWidth;
-    return (availableWidth - (gap * (numColumns - 1))) / numColumns;
-  };
-
   const handleExpressInterest = async (packageId: string, packageTitle: string) => {
     try {
       await packageService.expressInterest(packageId);
@@ -185,7 +176,7 @@ export default function PackagesScreen() {
   const renderPackage = ({ item }: { item: Package }) => (
     <TouchableOpacity 
       activeOpacity={0.9}
-      style={[styles.cardWrapper, { width: numColumns > 1 ? getCardWidth() : undefined }]}
+      style={styles.cardWrapper}
       onPress={() => showPackageDetails(item)}
     >
       <Card style={styles.card} elevation={4}>
@@ -557,8 +548,10 @@ const styles = StyleSheet.create({
     borderColor: '#667eea',
   },
   cardWrapper: {
+    flex: 1,
     marginBottom: 16,
     marginHorizontal: 8,
+    maxWidth: 400,
   },
   card: {
     borderRadius: 16,

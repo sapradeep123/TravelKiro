@@ -169,7 +169,10 @@ export default function ManageEvents() {
   return (
     <View style={styles.container}>
       {isWeb && <WebHeader />}
-      <ScrollView style={styles.scrollContainer}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={[styles.content, isWeb && styles.webContent]}>
           {/* Header */}
           <View style={styles.header}>
@@ -395,8 +398,8 @@ export default function ManageEvents() {
             </View>
           )}
         </View>
+        {isWeb && <WebFooter />}
       </ScrollView>
-      {isWeb && <WebFooter />}
     </View>
   );
 }
@@ -409,9 +412,11 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   content: {
     padding: 20,
-    paddingBottom: 400,
   },
   webContent: {
     maxWidth: 1400,

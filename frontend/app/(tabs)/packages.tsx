@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Alert, TouchableOpacity, useWindowDimensions, Platform, Image } from 'react-native';
-import { Card, Text, Chip, ActivityIndicator, Button, IconButton, Searchbar, Menu } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, Alert, TouchableOpacity, useWindowDimensions, Platform, Image, ScrollView } from 'react-native';
+import { Card, Text, Chip, ActivityIndicator, Button, IconButton, Searchbar, Menu, Portal, Dialog, TextInput } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { packageService } from '../../src/services/packageService';
 import { Package } from '../../src/types';
+import { useAuth } from '../../src/contexts/AuthContext';
 import WebFooter from '../../components/WebFooter';
+
+// Declare window for web platform
+declare const window: any;
 
 export default function PackagesScreen() {
   const [packages, setPackages] = useState<Package[]>([]);
@@ -14,6 +18,16 @@ export default function PackagesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMenuVisible, setFilterMenuVisible] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'approved' | 'pending'>('all');
+  const [callbackModalVisible, setCallbackModalVisible] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+  const [callbackForm, setCallbackForm] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    message: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width >= 768;
@@ -80,6 +94,50 @@ export default function PackagesScreen() {
   const handleFilterChange = (filter: 'all' | 'approved' | 'pending') => {
     setSelectedFilter(filter);
     setFilterMenuVisible(false);
+  };
+
+  const handleExpressInterest = (pkg: Package) => {
+    setSelectedPackage(pkg);
+    setCallbackForm({
+      name: user?.profile?.name || '',
+      phone: user?.profile?.phone || '',
+      email: user?.email || '',
+      message: '',
+    });
+    setCallbackModalVisible(true);
+  };
+
+  const handleSubmitCallback = async () => {
+    if (!selectedPackage) return;
+    if (!callbackForm.name.trim() || !callbackForm.phone.trim()) {
+      Alert.alert('Error', 'Please provide your name and phone number');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await packageService.createCallbackRequest(selectedPackage.id, {
+        name: callbackForm.name,
+        phone: callbackForm.phone,
+        email: callbackForm.email,
+        message: callbackForm.message,
+      });
+      Alert.alert('Success!', `Your callback request for "${selectedPackage.title}" has been submitted!`);
+      setCallbackModalVisible(false);
+      setCallbackForm({ name: '', phone: '', email: '', message: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.error || 'Could not submit callback request');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
   };
 
   const getCardWidth = () => {
@@ -194,6 +252,20 @@ export default function PackagesScreen() {
               {item.approvalStatus}
             </Chip>
           </View>
+          {item.approvalStatus === 'APPROVED' && (
+            <Button
+              mode="contained"
+              icon="phone"
+              onPress={(e) => {
+                e.stopPropagation();
+                handleExpressInterest(item);
+              }}
+              style={styles.interestButton}
+              labelStyle={styles.interestButtonLabel}
+            >
+              Request Callback
+            </Button>
+          )}
         </Card.Content>
       </Card>
     </TouchableOpacity>
@@ -306,6 +378,91 @@ export default function PackagesScreen() {
           </View>
         }
       />
+
+      {/* Callback Request Modal */}
+      <Portal>
+        <Dialog 
+          visible={callbackModalVisible} 
+          onDismiss={() => setCallbackModalVisible(false)}
+          style={styles.dialog}
+        >
+          <Dialog.Title style={styles.dialogTitle}>Request Callback</Dialog.Title>
+          <Dialog.Content>
+            <ScrollView>
+              {selectedPackage && (
+                <View style={styles.packageInfo}>
+                  <Text variant="titleMedium" style={styles.packageInfoTitle}>
+                    {selectedPackage.title}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.packageInfoDetails}>
+                    💰 ₹{selectedPackage.price.toLocaleString()} • 📅 {selectedPackage.duration} Days
+                  </Text>
+                </View>
+              )}
+              
+              <TextInput
+                label="Your Name *"
+                value={callbackForm.name}
+                onChangeText={(text) => setCallbackForm({ ...callbackForm, name: text })}
+                mode="outlined"
+                style={styles.input}
+                disabled={submitting}
+              />
+              
+              <TextInput
+                label="Phone Number *"
+                value={callbackForm.phone}
+                onChangeText={(text) => setCallbackForm({ ...callbackForm, phone: text })}
+                mode="outlined"
+                keyboardType="phone-pad"
+                style={styles.input}
+                disabled={submitting}
+              />
+              
+              <TextInput
+                label="Email (Optional)"
+                value={callbackForm.email}
+                onChangeText={(text) => setCallbackForm({ ...callbackForm, email: text })}
+                mode="outlined"
+                keyboardType="email-address"
+                style={styles.input}
+                disabled={submitting}
+              />
+              
+              <TextInput
+                label="Message (Optional)"
+                value={callbackForm.message}
+                onChangeText={(text) => setCallbackForm({ ...callbackForm, message: text })}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                style={styles.input}
+                disabled={submitting}
+              />
+              
+              <Text variant="bodySmall" style={styles.helperText}>
+                The package host will contact you at the provided phone number.
+              </Text>
+            </ScrollView>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button 
+              onPress={() => setCallbackModalVisible(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onPress={handleSubmitCallback}
+              mode="contained"
+              loading={submitting}
+              disabled={submitting}
+            >
+              Submit Request
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -522,5 +679,41 @@ const styles = StyleSheet.create({
   emptySubtext: {
     color: '#6c757d',
     textAlign: 'center',
+  },
+  interestButtonLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  dialog: {
+    maxWidth: 500,
+    alignSelf: 'center',
+    width: '90%',
+  },
+  dialogTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  packageInfo: {
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  packageInfoTitle: {
+    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  packageInfoDetails: {
+    color: '#666',
+  },
+  input: {
+    marginBottom: 12,
+  },
+  helperText: {
+    color: '#666',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

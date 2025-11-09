@@ -121,18 +121,10 @@ export default function EventsScreen() {
     }
   };
 
-  const getResponsiveCardWidth = () => {
-    if (!showWebLayout) return '100%';
-    if (width >= 1400) return '23%';
-    if (width >= 1024) return '31%';
-    if (width >= 768) return '47%';
-    return '100%';
-  };
-
   const renderEvent = ({ item }: { item: Event }) => (
     <TouchableOpacity 
       activeOpacity={0.9}
-      style={[styles.cardWrapper, { width: getResponsiveCardWidth() }]}
+      style={styles.cardWrapper}
       onPress={() => showEventDetails(item)}
     >
       <Card style={styles.card} elevation={4}>
@@ -229,6 +221,8 @@ export default function EventsScreen() {
           showWebLayout && styles.webListContent,
           !showWebLayout && styles.mobileListContent
         ]}
+        numColumns={numColumns}
+        key={`columns-${numColumns}`}
         refreshControl={
           <RefreshControl 
             refreshing={refreshing} 
@@ -338,7 +332,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   listContent: {
-    padding: 20,
+    padding: 12,
   },
   mobileListContent: {
     paddingBottom: 160,
@@ -347,11 +341,6 @@ const styles = StyleSheet.create({
     maxWidth: 1400,
     marginHorizontal: 'auto',
     width: '100%',
-    paddingHorizontal: 40,
-    display: 'flex',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
   },
   webHeader: {
     paddingHorizontal: 24,
@@ -391,14 +380,15 @@ const styles = StyleSheet.create({
     borderColor: '#667eea',
   },
   cardWrapper: {
-    marginBottom: 20,
-    paddingHorizontal: 10,
+    flex: 1,
+    marginBottom: 16,
+    marginHorizontal: 8,
+    maxWidth: 400,
   },
   card: {
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#ffffff',
-    width: '100%',
   },
   imageContainer: {
     position: 'relative',

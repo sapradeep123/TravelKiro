@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Image, Platform, useWindowDimensions, TouchableOpacity } from 'react-native';
-import { Text, Card, Chip, ActivityIndicator, Button, Divider } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, ScrollView, StyleSheet, Image, Platform, TouchableOpacity, Linking } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { locationService } from '../../src/services/locationService';
 import { Location } from '../../src/types';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import WebHeader from '../../components/WebHeader';
 import WebFooter from '../../components/WebFooter';
 
-export default function LocationDetailScreen() {
+export default function LocationDetailEnhanced() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [location, setLocation] = useState<Location | null>(null);
   const [loading, setLoading] = useState(true);
-  const { width } = useWindowDimensions();
+  const [selectedImage, setSelectedImage] = useState(0);
   const isWeb = Platform.OS === 'web';
-  const isLargeScreen = width >= 768;
-  const showWebLayout = isWeb && isLargeScreen;
 
   useEffect(() => {
     loadLocationDetail();
@@ -34,313 +32,401 @@ export default function LocationDetailScreen() {
     }
   };
 
+  const openMap = () => {
+    if (location?.latitude && location?.longitude) {
+      const url = Platform.select({
+        ios: `maps:0,0?q=${location.latitude},${location.longitude}`,
+        android: `geo:0,0?q=${location.latitude},${location.longitude}`,
+        default: `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`
+      });
+      Linking.openURL(url);
+    }
+  };
+
+  const openDirections = () => {
+    if (location?.latitude && location?.longitude) {
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`;
+      Linking.openURL(url);
+    }
+  };
+
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#667eea" />
+      <View style={styles.loadingContainer}>
+        <Text>Loading...</Text>
       </View>
     );
   }
 
   if (!location) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles.loadingContainer}>
         <Text>Location not found</Text>
-        <Button mode="contained" onPress={() => router.back()} style={{ marginTop: 16 }}>
-          Go Back
-        </Button>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-        <View style={[styles.content, showWebLayout && styles.webContent]}>
-          {/* Back Button */}
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
-            <Text style={styles.backText}>Back to Locations</Text>
-          </TouchableOpacity>
-
-        {/* Hero Image */}
-        {location.images && location.images.length > 0 ? (
-          <View style={styles.heroContainer}>
+    <View style={styles.container}>
+      {isWeb && <WebHeader />}
+      <ScrollView style={styles.scrollView}>
+        <View style={[styles.content, isWeb && styles.webContent]}>
+          {/* Image Gallery */}
+          <View style={styles.imageSection}>
             <Image 
-              source={{ uri: location.images[0] }} 
-              style={styles.heroImage}
+              source={{ uri: location.images[selectedImage] }} 
+              style={styles.mainImage}
               resizeMode="cover"
             />
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.7)']}
-              style={styles.heroGradient}
-            >
-              <Text variant="displaySmall" style={styles.heroTitle}>
-                {location.area}
-              </Text>
-              <View style={styles.heroLocation}>
-                <MaterialCommunityIcons name="map-marker" size={20} color="#fff" />
-                <Text style={styles.heroLocationText}>
-                  {location.state}, {location.country}
-                </Text>
-              </View>
-            </LinearGradient>
-          </View>
-        ) : (
-          <View style={styles.heroPlaceholder}>
-            <Text style={styles.heroPlaceholderIcon}>🌍</Text>
-            <Text variant="displaySmall" style={styles.heroPlaceholderTitle}>
-              {location.area}
-            </Text>
-          </View>
-        )}
-
-        {/* Status Badge */}
-        <View style={styles.statusContainer}>
-          <Chip 
-            icon={location.approvalStatus === 'APPROVED' ? 'check-circle' : 'clock'} 
-            style={[
-              styles.statusChip,
-              location.approvalStatus === 'APPROVED' ? styles.approvedChip : styles.pendingChip
-            ]}
-          >
-            {location.approvalStatus}
-          </Chip>
-        </View>
-
-        {/* Description Card */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="headlineSmall" style={styles.sectionTitle}>
-              About this Location
-            </Text>
-            <Text variant="bodyLarge" style={styles.description}>
-              {location.description}
-            </Text>
-          </Card.Content>
-        </Card>
-
-        {/* Location Details */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="headlineSmall" style={styles.sectionTitle}>
-              Location Details
-            </Text>
-            <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="map-marker" size={24} color="#667eea" />
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Area</Text>
-                <Text style={styles.detailValue}>{location.area}</Text>
-              </View>
-            </View>
-            <Divider style={styles.divider} />
-            <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="city" size={24} color="#667eea" />
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>State</Text>
-                <Text style={styles.detailValue}>{location.state}</Text>
-              </View>
-            </View>
-            <Divider style={styles.divider} />
-            <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="earth" size={24} color="#667eea" />
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Country</Text>
-                <Text style={styles.detailValue}>{location.country}</Text>
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Image Gallery */}
-        {location.images && location.images.length > 1 && (
-          <Card style={styles.card}>
-            <Card.Content>
-              <Text variant="headlineSmall" style={styles.sectionTitle}>
-                Photo Gallery
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.gallery}>
-                {location.images.map((image, index) => (
-                  <Image 
+            {location.images.length > 1 && (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.thumbnailScroll}
+              >
+                {location.images.map((img, index) => (
+                  <TouchableOpacity
                     key={index}
-                    source={{ uri: image }} 
-                    style={styles.galleryImage}
-                    resizeMode="cover"
-                  />
+                    onPress={() => setSelectedImage(index)}
+                    style={[
+                      styles.thumbnail,
+                      selectedImage === index && styles.thumbnailActive
+                    ]}
+                  >
+                    <Image source={{ uri: img }} style={styles.thumbnailImage} />
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
-            </Card.Content>
-          </Card>
-        )}
+            )}
+          </View>
 
-        {/* Action Buttons */}
-        <View style={[styles.actionButtons, !isLargeScreen && styles.actionButtonsMobile]}>
-          <Button 
-            mode="contained" 
-            icon="share-variant"
-            style={styles.actionButton}
-            buttonColor="#667eea"
-          >
-            Share Location
-          </Button>
-          <Button 
-            mode="outlined" 
-            icon="heart-outline"
-            style={styles.actionButton}
-            textColor="#667eea"
-          >
-            Save to Favorites
-          </Button>
+          {/* Header Info */}
+          <View style={styles.headerSection}>
+            <Text style={styles.locationName}>{location.area}</Text>
+            <View style={styles.locationMeta}>
+              <Ionicons name="location" size={16} color="#6b7280" />
+              <Text style={styles.locationMetaText}>
+                {location.state}, {location.country}
+              </Text>
+            </View>
+          </View>
+
+          {/* Description */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>About</Text>
+            <Text style={styles.description}>{location.description}</Text>
+          </View>
+
+          {/* Map Section */}
+          {location.latitude && location.longitude && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Location on Map</Text>
+              <View style={styles.mapPlaceholder}>
+                <Ionicons name="map" size={48} color="#6366f1" />
+                <Text style={styles.mapText}>
+                  {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                </Text>
+                <View style={styles.mapButtons}>
+                  <TouchableOpacity style={styles.mapButton} onPress={openMap}>
+                    <Ionicons name="navigate" size={20} color="#ffffff" />
+                    <Text style={styles.mapButtonText}>Open in Maps</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.mapButton, styles.mapButtonSecondary]} onPress={openDirections}>
+                    <Ionicons name="compass" size={20} color="#6366f1" />
+                    <Text style={[styles.mapButtonText, styles.mapButtonTextSecondary]}>Get Directions</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* How to Reach */}
+          {location.howToReach && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="car" size={24} color="#6366f1" />
+                <Text style={styles.sectionTitle}>How to Reach</Text>
+              </View>
+              <Text style={styles.description}>{location.howToReach}</Text>
+            </View>
+          )}
+
+          {/* Transportation */}
+          {(location.nearestAirport || location.nearestRailway || location.nearestBusStation) && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="airplane" size={24} color="#6366f1" />
+                <Text style={styles.sectionTitle}>Transportation</Text>
+              </View>
+              
+              <View style={styles.transportGrid}>
+                {location.nearestAirport && (
+                  <View style={styles.transportCard}>
+                    <View style={styles.transportIcon}>
+                      <Ionicons name="airplane" size={24} color="#6366f1" />
+                    </View>
+                    <Text style={styles.transportLabel}>Nearest Airport</Text>
+                    <Text style={styles.transportName}>{location.nearestAirport}</Text>
+                    {location.airportDistance && (
+                      <Text style={styles.transportDistance}>{location.airportDistance}</Text>
+                    )}
+                  </View>
+                )}
+
+                {location.nearestRailway && (
+                  <View style={styles.transportCard}>
+                    <View style={styles.transportIcon}>
+                      <Ionicons name="train" size={24} color="#10b981" />
+                    </View>
+                    <Text style={styles.transportLabel}>Nearest Railway</Text>
+                    <Text style={styles.transportName}>{location.nearestRailway}</Text>
+                    {location.railwayDistance && (
+                      <Text style={styles.transportDistance}>{location.railwayDistance}</Text>
+                    )}
+                  </View>
+                )}
+
+                {location.nearestBusStation && (
+                  <View style={styles.transportCard}>
+                    <View style={styles.transportIcon}>
+                      <Ionicons name="bus" size={24} color="#f59e0b" />
+                    </View>
+                    <Text style={styles.transportLabel}>Nearest Bus Station</Text>
+                    <Text style={styles.transportName}>{location.nearestBusStation}</Text>
+                    {location.busStationDistance && (
+                      <Text style={styles.transportDistance}>{location.busStationDistance}</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Attractions */}
+          {location.attractions && location.attractions.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="star" size={24} color="#f59e0b" />
+                <Text style={styles.sectionTitle}>Attractions to Visit</Text>
+              </View>
+              <View style={styles.attractionsList}>
+                {location.attractions.map((attraction, index) => (
+                  <View key={index} style={styles.attractionItem}>
+                    <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                    <Text style={styles.attractionText}>{attraction}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Kids Attractions */}
+          {location.kidsAttractions && location.kidsAttractions.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="happy" size={24} color="#ec4899" />
+                <Text style={styles.sectionTitle}>Kids Attractions</Text>
+              </View>
+              <View style={styles.attractionsList}>
+                {location.kidsAttractions.map((attraction, index) => (
+                  <View key={index} style={styles.attractionItem}>
+                    <Ionicons name="heart" size={20} color="#ec4899" />
+                    <Text style={styles.attractionText}>{attraction}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
-
-        {showWebLayout && <WebFooter />}
-      </View>
-    </ScrollView>
+      </ScrollView>
+      {isWeb && <WebFooter />}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f9fafb',
   },
-  centerContainer: {
+  scrollView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
   },
   content: {
-    flex: 1,
-    paddingBottom: 20,
-    width: '100%',
+    paddingBottom: 40,
   },
   webContent: {
     maxWidth: 1200,
     marginHorizontal: 'auto',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 8,
-  },
-  backText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-  heroContainer: {
-    height: Platform.select({ web: 400, default: 300 }),
-    position: 'relative',
-  },
-  heroImage: {
     width: '100%',
-    height: '100%',
   },
-  heroGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    justifyContent: 'flex-end',
-  },
-  heroTitle: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  heroLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  heroLocationText: {
-    color: '#ffffff',
-    fontSize: 18,
-  },
-  heroPlaceholder: {
-    height: Platform.select({ web: 400, default: 300 }),
-    backgroundColor: '#e9ecef',
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroPlaceholderIcon: {
-    fontSize: 80,
-    marginBottom: 16,
+  imageSection: {
+    backgroundColor: '#000',
   },
-  heroPlaceholderTitle: {
-    color: '#495057',
-    fontWeight: 'bold',
+  mainImage: {
+    width: '100%',
+    height: 400,
   },
-  statusContainer: {
-    padding: 16,
-    alignItems: 'flex-start',
+  thumbnailScroll: {
+    padding: 12,
+    backgroundColor: '#000',
   },
-  statusChip: {
-    height: 32,
+  thumbnail: {
+    width: 80,
+    height: 80,
+    marginRight: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  approvedChip: {
-    backgroundColor: '#d4edda',
+  thumbnailActive: {
+    borderColor: '#6366f1',
   },
-  pendingChip: {
-    backgroundColor: '#fff3cd',
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
   },
-  card: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 12,
+  headerSection: {
+    padding: 20,
     backgroundColor: '#ffffff',
   },
-  sectionTitle: {
+  locationName: {
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
+    color: '#111827',
+    marginBottom: 8,
   },
-  description: {
-    color: '#6c757d',
-    lineHeight: 28,
-  },
-  detailRow: {
+  locationMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingVertical: 12,
+    gap: 6,
   },
-  detailContent: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: '#6c757d',
-    marginBottom: 4,
-  },
-  detailValue: {
+  locationMetaText: {
     fontSize: 16,
-    color: '#333',
-    fontWeight: '600',
+    color: '#6b7280',
   },
-  divider: {
-    backgroundColor: '#e9ecef',
-  },
-  gallery: {
+  section: {
+    padding: 20,
+    backgroundColor: '#ffffff',
     marginTop: 8,
   },
-  galleryImage: {
-    width: 200,
-    height: 150,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  actionButtons: {
+  sectionHeader: {
     flexDirection: 'row',
-    padding: 16,
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  description: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#374151',
+  },
+  mapPlaceholder: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    padding: 40,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    borderStyle: 'dashed',
+  },
+  mapText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  mapButtons: {
+    flexDirection: 'row',
     gap: 12,
   },
-  actionButtonsMobile: {
-    flexDirection: 'column',
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
-  actionButton: {
+  mapButtonSecondary: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#6366f1',
+  },
+  mapButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  mapButtonTextSecondary: {
+    color: '#6366f1',
+  },
+  transportGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  transportCard: {
     flex: 1,
+    minWidth: 200,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  transportIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  transportLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  transportName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  transportDistance: {
+    fontSize: 14,
+    color: '#6366f1',
+    fontWeight: '500',
+  },
+  attractionsList: {
+    gap: 12,
+  },
+  attractionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  attractionText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#374151',
+    lineHeight: 22,
   },
 });

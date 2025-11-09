@@ -31,6 +31,17 @@ export interface Location {
   area: string;
   description: string;
   images: string[];
+  latitude?: number;
+  longitude?: number;
+  howToReach?: string;
+  nearestAirport?: string;
+  airportDistance?: string;
+  nearestRailway?: string;
+  railwayDistance?: string;
+  nearestBusStation?: string;
+  busStationDistance?: string;
+  attractions?: string[];
+  kidsAttractions?: string[];
   createdByRole: UserRole;
   approvalStatus: string;
   createdAt: string;

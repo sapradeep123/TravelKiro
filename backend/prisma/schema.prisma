@@ -149,21 +149,30 @@ model Location {
 }
 
 model Event {
-  id             String         @id @default(uuid())
-  title          String
-  description    String
-  locationId     String?
-  customCountry  String?
-  customState    String?
-  customArea     String?
-  startDate      DateTime
-  endDate        DateTime
-  images         String[]
-  hostId         String
-  hostRole       UserRole
-  approvalStatus ApprovalStatus @default(PENDING)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                  String         @id @default(uuid())
+  title               String
+  description         String
+  eventType           String         // Festival, Concert, Sports, Cultural, Religious, etc.
+  locationId          String?
+  customCountry       String?
+  customState         String?
+  customArea          String?
+  venue               String?        // Specific venue name
+  startDate           DateTime
+  endDate             DateTime
+  images              String[]
+  nearestAirport      String?
+  airportDistance     String?
+  nearestRailway      String?
+  railwayDistance     String?
+  nearestBusStation   String?
+  busStationDistance  String?
+  hostId              String
+  hostRole            UserRole
+  approvalStatus      ApprovalStatus @default(PENDING)
+  isActive            Boolean        @default(true)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   host             User            @relation(fields: [hostId], references: [id])
   location         Location?       @relation(fields: [locationId], references: [id])

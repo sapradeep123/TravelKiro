@@ -50,10 +50,10 @@ export default function AdminDashboard() {
     {
       id: 'events',
       title: 'Manage Events',
-      description: 'View and manage all events',
+      description: 'View, edit, and manage all events',
       icon: 'calendar',
       color: '#ec4899',
-      route: '/(admin)/events',
+      route: '/(admin)/manage-events',
       roles: ['SITE_ADMIN', 'GOVT_DEPARTMENT']
     },
     {

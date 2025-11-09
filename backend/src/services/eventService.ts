@@ -5,13 +5,21 @@ export class EventService {
   async createEvent(data: {
     title: string;
     description: string;
+    eventType: string;
     locationId?: string;
     customCountry?: string;
     customState?: string;
     customArea?: string;
+    venue?: string;
     startDate: Date;
     endDate: Date;
     images: string[];
+    nearestAirport?: string;
+    airportDistance?: string;
+    nearestRailway?: string;
+    railwayDistance?: string;
+    nearestBusStation?: string;
+    busStationDistance?: string;
     hostId: string;
     hostRole: UserRole;
   }) {
@@ -25,6 +33,7 @@ export class EventService {
       data: {
         ...data,
         approvalStatus,
+        isActive: true,
       },
       include: {
         host: {
@@ -53,7 +62,8 @@ export class EventService {
 
   async getAllEvents(filters?: {
     locationId?: string;
-    approvalStatus?: ApprovalStatus;
+    approvalStatus?: ApprovalStatus | string;
+    isActive?: boolean;
   }) {
     const where: any = {};
 
@@ -61,10 +71,14 @@ export class EventService {
       where.locationId = filters.locationId;
     }
 
-    if (filters?.approvalStatus) {
+    if (filters?.approvalStatus && filters.approvalStatus !== 'all') {
       where.approvalStatus = filters.approvalStatus;
-    } else {
+    } else if (!filters?.approvalStatus) {
       where.approvalStatus = 'APPROVED';
+    }
+
+    if (filters?.isActive !== undefined) {
+      where.isActive = filters.isActive;
     }
 
     const events = await prisma.event.findMany({
@@ -174,6 +188,82 @@ export class EventService {
     });
 
     return interest;
+  }
+
+  async updateEvent(id: string, userId: string, userRole: UserRole, data: {
+    title?: string;
+    description?: string;
+    eventType?: string;
+    locationId?: string;
+    customCountry?: string;
+    customState?: string;
+    customArea?: string;
+    venue?: string;
+    startDate?: Date;
+    endDate?: Date;
+    images?: string[];
+    nearestAirport?: string;
+    airportDistance?: string;
+    nearestRailway?: string;
+    railwayDistance?: string;
+    nearestBusStation?: string;
+    busStationDistance?: string;
+  }) {
+    const event = await prisma.event.findUnique({
+      where: { id },
+    });
+
+    if (!event) {
+      throw new Error('Event not found');
+    }
+
+    if (event.hostId !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('Unauthorized to update this event');
+    }
+
+    const updated = await prisma.event.update({
+      where: { id },
+      data,
+      include: {
+        host: {
+          include: {
+            profile: true,
+          },
+        },
+        location: true,
+      },
+    });
+
+    return updated;
+  }
+
+  async toggleEventStatus(id: string, isActive: boolean, userId: string, userRole: UserRole) {
+    const event = await prisma.event.findUnique({
+      where: { id },
+    });
+
+    if (!event) {
+      throw new Error('Event not found');
+    }
+
+    if (event.hostId !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('Unauthorized to update this event');
+    }
+
+    const updated = await prisma.event.update({
+      where: { id },
+      data: { isActive },
+      include: {
+        host: {
+          include: {
+            profile: true,
+          },
+        },
+        location: true,
+      },
+    });
+
+    return updated;
   }
 
   async deleteEvent(id: string, userId: string, userRole: UserRole) {

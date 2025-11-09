@@ -218,6 +218,133 @@ export class PackageService {
 
     return { message: 'Package deleted successfully' };
   }
+
+  async createCallbackRequest(data: {
+    packageId: string;
+    name: string;
+    phone: string;
+    email?: string;
+    message?: string;
+    userId?: string;
+  }) {
+    const pkg = await prisma.package.findUnique({
+      where: { id: data.packageId },
+    });
+
+    if (!pkg) {
+      throw new Error('Package not found');
+    }
+
+    if (pkg.approvalStatus !== 'APPROVED') {
+      throw new Error('Cannot request callback for unapproved package');
+    }
+
+    const callbackRequest = await prisma.packageCallbackRequest.create({
+      data: {
+        packageId: data.packageId,
+        name: data.name,
+        phone: data.phone,
+        email: data.email,
+        message: data.message,
+        userId: data.userId,
+      },
+    });
+
+    // Create notification for package host
+    await prisma.notification.create({
+      data: {
+        userId: pkg.hostId,
+        title: 'New Callback Request',
+        message: `${data.name} requested a callback for your package: ${pkg.title}`,
+      },
+    });
+
+    return callbackRequest;
+  }
+
+  async getPackageCallbackRequests(packageId: string, userId: string, userRole: UserRole) {
+    const pkg = await prisma.package.findUnique({
+      where: { id: packageId },
+    });
+
+    if (!pkg) {
+      throw new Error('Package not found');
+    }
+
+    // Only package host or admin can view callback requests
+    if (pkg.hostId !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('Unauthorized to view callback requests');
+    }
+
+    const requests = await prisma.packageCallbackRequest.findMany({
+      where: { packageId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return requests;
+  }
+
+  async getAllCallbackRequests(userId: string, userRole: UserRole) {
+    if (userRole === 'SITE_ADMIN') {
+      // Admin can see all callback requests
+      const requests = await prisma.packageCallbackRequest.findMany({
+        include: {
+          package: {
+            include: {
+              host: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      return requests;
+    } else if (userRole === 'GOVT_DEPARTMENT' || userRole === 'TOURIST_GUIDE') {
+      // Hosts can see callback requests for their packages
+      const requests = await prisma.packageCallbackRequest.findMany({
+        where: {
+          package: {
+            hostId: userId,
+          },
+        },
+        include: {
+          package: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      return requests;
+    } else {
+      throw new Error('Unauthorized to view callback requests');
+    }
+  }
+
+  async markAsContacted(requestId: string, userId: string, userRole: UserRole) {
+    const request = await prisma.packageCallbackRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        package: true,
+      },
+    });
+
+    if (!request) {
+      throw new Error('Callback request not found');
+    }
+
+    // Only package host or admin can mark as contacted
+    if (request.package.hostId !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('Unauthorized to update this callback request');
+    }
+
+    const updated = await prisma.packageCallbackRequest.update({
+      where: { id: requestId },
+      data: { isContacted: true },
+    });
+
+    return updated;
+  }
 }
 
 export default new PackageService();

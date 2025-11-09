@@ -41,4 +41,27 @@ export const packageService = {
     const response = await api.post('/packages', data);
     return response.data.data;
   },
+
+  async createCallbackRequest(packageId: string, data: {
+    name: string;
+    phone: string;
+    email?: string;
+    message?: string;
+  }): Promise<void> {
+    await api.post(`/packages/${packageId}/callback-request`, data);
+  },
+
+  async getPackageCallbackRequests(packageId: string): Promise<any[]> {
+    const response = await api.get(`/packages/${packageId}/callback-requests`);
+    return response.data.data;
+  },
+
+  async getAllCallbackRequests(): Promise<any[]> {
+    const response = await api.get('/packages/callback-requests/all');
+    return response.data.data;
+  },
+
+  async markAsContacted(requestId: string): Promise<void> {
+    await api.patch(`/packages/callback-requests/${requestId}/contacted`);
+  },
 };

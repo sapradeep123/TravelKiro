@@ -23,6 +23,8 @@ export default function AdminLayout() {
       <Stack.Screen name="dashboard" />
       <Stack.Screen name="users" />
       <Stack.Screen name="upload-location" />
+      <Stack.Screen name="manage-locations" />
+      <Stack.Screen name="edit-location" />
       <Stack.Screen name="approvals" />
     </Stack>
   );

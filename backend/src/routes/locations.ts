@@ -12,6 +12,7 @@ router.get('/:id', locationController.getLocationById);
 // Protected routes
 router.post('/', authenticate, locationController.createLocation);
 router.put('/:id', authenticate, locationController.updateLocation);
+router.patch('/:id/status', authenticate, locationController.updateLocationStatus);
 router.delete('/:id', authenticate, locationController.deleteLocation);
 
 export default router;

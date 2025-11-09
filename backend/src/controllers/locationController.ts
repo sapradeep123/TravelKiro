@@ -77,7 +77,7 @@ export class LocationController {
       const locations = await locationService.getAllLocations({
         country: country as string,
         state: state as string,
-        approvalStatus: approvalStatus as ApprovalStatus,
+        approvalStatus: approvalStatus as ApprovalStatus | string,
       });
 
       res.status(200).json({ data: locations });
@@ -150,6 +150,35 @@ export class LocationController {
 
       res.status(200).json({
         message: 'Location updated successfully',
+        data: location,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
+  async updateLocationStatus(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      if (!['APPROVED', 'PENDING', 'REJECTED'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+      }
+
+      const location = await locationService.updateLocationStatus(id, status, user.userId, user.role);
+
+      res.status(200).json({
+        message: 'Location status updated successfully',
         data: location,
       });
     } catch (error) {

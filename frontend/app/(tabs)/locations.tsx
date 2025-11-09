@@ -18,6 +18,8 @@ export default function LocationsScreen() {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'approved' | 'pending'>('all');
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [selectedSort, setSelectedSort] = useState<'name' | 'recent'>('name');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'govt' | 'agent'>('all');
+  const [sourceMenuVisible, setSourceMenuVisible] = useState(false);
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width >= 768;
@@ -38,7 +40,7 @@ export default function LocationsScreen() {
 
   useEffect(() => {
     applyFiltersAndSort();
-  }, [locations, selectedFilter, selectedSort, searchQuery]);
+  }, [locations, selectedFilter, selectedSort, searchQuery, sourceFilter]);
 
   const loadLocations = async () => {
     try {
@@ -62,6 +64,13 @@ export default function LocationsScreen() {
       );
     }
 
+    // Apply source filter
+    if (sourceFilter === 'govt') {
+      filtered = filtered.filter(loc => loc.createdByRole === 'GOVT_DEPARTMENT');
+    } else if (sourceFilter === 'agent') {
+      filtered = filtered.filter(loc => loc.createdByRole === 'TOURIST_GUIDE');
+    }
+
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -73,14 +82,36 @@ export default function LocationsScreen() {
       );
     }
 
-    // Apply sorting
-    if (selectedSort === 'name') {
-      filtered.sort((a, b) => a.area.localeCompare(b.area));
-    } else {
-      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
+    // Apply sorting - Government content first, then by selected sort
+    filtered.sort((a, b) => {
+      // First priority: Government content
+      if (a.createdByRole === 'GOVT_DEPARTMENT' && b.createdByRole !== 'GOVT_DEPARTMENT') return -1;
+      if (a.createdByRole !== 'GOVT_DEPARTMENT' && b.createdByRole === 'GOVT_DEPARTMENT') return 1;
+      
+      // Second priority: State grouping for government content
+      if (a.createdByRole === 'GOVT_DEPARTMENT' && b.createdByRole === 'GOVT_DEPARTMENT') {
+        const stateCompare = a.state.localeCompare(b.state);
+        if (stateCompare !== 0) return stateCompare;
+      }
+      
+      // Third priority: Selected sort
+      if (selectedSort === 'name') {
+        return a.area.localeCompare(b.area);
+      } else {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
 
     setFilteredLocations(filtered);
+  };
+
+  const getSourceBadge = (role: string) => {
+    if (role === 'GOVT_DEPARTMENT') {
+      return { label: 'Official Tourism', color: '#10b981', icon: '🏛️' };
+    } else if (role === 'TOURIST_GUIDE') {
+      return { label: 'Travel Agent', color: '#6366f1', icon: '✈️' };
+    }
+    return { label: 'Verified', color: '#6b7280', icon: '✓' };
   };
 
   const handleRefresh = async () => {
@@ -103,63 +134,74 @@ export default function LocationsScreen() {
     setSortMenuVisible(false);
   };
 
-  const renderLocation = ({ item }: { item: Location }) => (
-    <TouchableOpacity 
-      activeOpacity={0.9}
-      onPress={() => router.push(`/(tabs)/location-detail?id=${item.id}`)}
-      style={styles.cardWrapper}
-    >
-      <Card style={styles.card} elevation={4}>
-        <View style={styles.imageContainer}>
-          {item.images && item.images.length > 0 ? (
-            <>
-              <Image 
-                source={{ uri: item.images[0] }} 
-                style={styles.image}
-                resizeMode="cover"
-              />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)']}
-                style={styles.imageGradient}
-              >
-                <Text variant="headlineSmall" style={styles.imageTitle}>
-                  {item.area}
-                </Text>
-                <View style={styles.imageLocation}>
-                  <Text style={styles.imageLocationText}>
-                    📍 {item.state}, {item.country}
+  const renderLocation = ({ item }: { item: Location }) => {
+    const sourceBadge = getSourceBadge(item.createdByRole);
+    const isGovt = item.createdByRole === 'GOVT_DEPARTMENT';
+    
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.9}
+        onPress={() => router.push(`/(tabs)/location-detail?id=${item.id}`)}
+        style={styles.cardWrapper}
+      >
+        <Card style={[styles.card, isGovt && styles.govtCard]} elevation={4}>
+          <View style={styles.imageContainer}>
+            {item.images && item.images.length > 0 ? (
+              <>
+                <Image 
+                  source={{ uri: item.images[0] }} 
+                  style={styles.image}
+                  resizeMode="cover"
+                />
+                {/* Source Badge Overlay */}
+                <View style={[styles.sourceBadgeOverlay, { backgroundColor: sourceBadge.color }]}>
+                  <Text style={styles.sourceBadgeText}>
+                    {sourceBadge.icon} {sourceBadge.label}
                   </Text>
                 </View>
-              </LinearGradient>
-            </>
-          ) : (
-            <View style={styles.placeholderImage}>
-              <Text style={styles.placeholderText}>🌍</Text>
-              <Text style={styles.placeholderTitle}>{item.area}</Text>
-            </View>
-          )}
-        </View>
-        <Card.Content style={styles.cardContent}>
-          <Text variant="bodyMedium" numberOfLines={3} style={styles.description}>
-            {item.description}
-          </Text>
-          <View style={styles.statusBadge}>
-            <Chip 
-              icon={item.approvalStatus === 'APPROVED' ? 'check-circle' : 'clock'} 
-              style={[
-                styles.statusChip,
-                item.approvalStatus === 'APPROVED' ? styles.approvedChip : styles.pendingChip
-              ]}
-              textStyle={styles.statusChipText}
-              compact
-            >
-              {item.approvalStatus}
-            </Chip>
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.8)']}
+                  style={styles.imageGradient}
+                >
+                  <Text variant="headlineSmall" style={styles.imageTitle}>
+                    {item.area}
+                  </Text>
+                  <View style={styles.imageLocation}>
+                    <Text style={styles.imageLocationText}>
+                      📍 {item.state}, {item.country}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </>
+            ) : (
+              <View style={styles.placeholderImage}>
+                <Text style={styles.placeholderText}>🌍</Text>
+                <Text style={styles.placeholderTitle}>{item.area}</Text>
+              </View>
+            )}
           </View>
-        </Card.Content>
-      </Card>
-    </TouchableOpacity>
-  );
+          <Card.Content style={styles.cardContent}>
+            <Text variant="bodyMedium" numberOfLines={3} style={styles.description}>
+              {item.description}
+            </Text>
+            <View style={styles.statusBadge}>
+              <Chip 
+                icon={item.approvalStatus === 'APPROVED' ? 'check-circle' : 'clock'} 
+                style={[
+                  styles.statusChip,
+                  item.approvalStatus === 'APPROVED' ? styles.approvedChip : styles.pendingChip
+                ]}
+                textStyle={styles.statusChipText}
+                compact
+              >
+                {item.approvalStatus}
+              </Chip>
+            </View>
+          </Card.Content>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -235,6 +277,25 @@ export default function LocationsScreen() {
                 placeholderTextColor="#999"
               />
               <View style={styles.filterButtons}>
+                <Menu
+                  visible={sourceMenuVisible}
+                  onDismiss={() => setSourceMenuVisible(false)}
+                  anchor={
+                    <Button
+                      mode="contained"
+                      icon="shield-check"
+                      onPress={() => setSourceMenuVisible(true)}
+                      style={[styles.filterButton, styles.sourceFilterButton]}
+                      buttonColor={sourceFilter === 'govt' ? '#10b981' : sourceFilter === 'agent' ? '#6366f1' : '#667eea'}
+                    >
+                      {sourceFilter === 'all' ? 'All Sources' : sourceFilter === 'govt' ? '🏛️ Official' : '✈️ Agents'}
+                    </Button>
+                  }
+                >
+                  <Menu.Item onPress={() => { setSourceFilter('all'); setSourceMenuVisible(false); }} title="All Sources" />
+                  <Menu.Item onPress={() => { setSourceFilter('govt'); setSourceMenuVisible(false); }} title="🏛️ Official Tourism Only" />
+                  <Menu.Item onPress={() => { setSourceFilter('agent'); setSourceMenuVisible(false); }} title="✈️ Travel Agents Only" />
+                </Menu>
                 <Menu
                   visible={filterMenuVisible}
                   onDismiss={() => setFilterMenuVisible(false)}
@@ -349,9 +410,32 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#ffffff',
   },
+  govtCard: {
+    borderWidth: 2,
+    borderColor: '#10b981',
+  },
   imageContainer: {
     position: 'relative',
     height: 220,
+  },
+  sourceBadgeOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  sourceBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   image: {
     width: '100%',
@@ -483,5 +567,8 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     borderColor: '#667eea',
+  },
+  sourceFilterButton: {
+    marginRight: 8,
   },
 });

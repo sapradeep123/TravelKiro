@@ -30,6 +30,15 @@ export default function AdminDashboard() {
       roles: ['SITE_ADMIN', 'GOVT_DEPARTMENT']
     },
     {
+      id: 'manage-locations',
+      title: 'Manage Locations',
+      description: 'View, edit, and manage all locations',
+      icon: 'list',
+      color: '#8b5cf6',
+      route: '/(admin)/manage-locations',
+      roles: ['SITE_ADMIN']
+    },
+    {
       id: 'approvals',
       title: 'Content Approvals',
       description: 'Review and approve pending content submissions',

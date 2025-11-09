@@ -68,7 +68,7 @@ export class LocationService {
   async getAllLocations(filters?: {
     country?: string;
     state?: string;
-    approvalStatus?: ApprovalStatus;
+    approvalStatus?: ApprovalStatus | string;
   }) {
     const where: any = {};
 
@@ -80,12 +80,14 @@ export class LocationService {
       where.state = filters.state;
     }
 
-    if (filters?.approvalStatus) {
+    // Handle approvalStatus filter
+    if (filters?.approvalStatus && filters.approvalStatus !== 'all') {
       where.approvalStatus = filters.approvalStatus;
-    } else {
+    } else if (!filters?.approvalStatus) {
       // By default, only show approved locations
       where.approvalStatus = 'APPROVED';
     }
+    // If approvalStatus is 'all', don't add any filter (show all)
 
     const locations = await prisma.location.findMany({
       where,
@@ -181,6 +183,39 @@ export class LocationService {
     });
 
     return updated;
+  }
+
+  async updateLocationStatus(id: string, status: string, userId: string, userRole: UserRole) {
+    const location = await prisma.location.findUnique({
+      where: { id },
+    });
+
+    if (!location) {
+      throw new Error('Location not found');
+    }
+
+    // Only admins and the creator can update status
+    if (location.createdBy !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('You do not have permission to update this location');
+    }
+
+    const updatedLocation = await prisma.location.update({
+      where: { id },
+      data: {
+        approvalStatus: status as ApprovalStatus,
+        approvedBy: userRole === 'SITE_ADMIN' ? userId : undefined,
+        approvedAt: status === 'APPROVED' ? new Date() : null,
+      },
+      include: {
+        creator: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+
+    return updatedLocation;
   }
 
   async deleteLocation(id: string, userId: string, userRole: UserRole) {

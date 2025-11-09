@@ -15,8 +15,19 @@ export default function UploadLocation() {
     state: '',
     area: '',
     description: '',
+    latitude: '',
+    longitude: '',
+    howToReach: '',
+    nearestAirport: '',
+    airportDistance: '',
+    nearestRailway: '',
+    railwayDistance: '',
+    nearestBusStation: '',
+    busStationDistance: '',
   });
   const [images, setImages] = useState<string[]>([]);
+  const [attractions, setAttractions] = useState<string[]>(['']);
+  const [kidsAttractions, setKidsAttractions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (field: string, value: string) => {
@@ -46,10 +57,34 @@ export default function UploadLocation() {
     setImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const addAttraction = () => {
+    setAttractions(prev => [...prev, '']);
+  };
+
+  const removeAttraction = (index: number) => {
+    setAttractions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateAttraction = (index: number, value: string) => {
+    setAttractions(prev => prev.map((item, i) => i === index ? value : item));
+  };
+
+  const addKidsAttraction = () => {
+    setKidsAttractions(prev => [...prev, '']);
+  };
+
+  const removeKidsAttraction = (index: number) => {
+    setKidsAttractions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateKidsAttraction = (index: number, value: string) => {
+    setKidsAttractions(prev => prev.map((item, i) => i === index ? value : item));
+  };
+
   const handleSubmit = async () => {
     // Validation
     if (!formData.country || !formData.state || !formData.area || !formData.description) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
@@ -60,11 +95,16 @@ export default function UploadLocation() {
 
     setLoading(true);
     try {
-      // In a real app, you'd upload images to a storage service first
-      // For now, we'll send the URIs directly
+      const filteredAttractions = attractions.filter(a => a.trim() !== '');
+      const filteredKidsAttractions = kidsAttractions.filter(a => a.trim() !== '');
+
       const response = await api.post('/locations', {
         ...formData,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         images: images,
+        attractions: filteredAttractions,
+        kidsAttractions: filteredKidsAttractions,
       });
 
       Alert.alert('Success', 'Location uploaded successfully! It will be reviewed by admin.');
@@ -75,8 +115,19 @@ export default function UploadLocation() {
         state: '',
         area: '',
         description: '',
+        latitude: '',
+        longitude: '',
+        howToReach: '',
+        nearestAirport: '',
+        airportDistance: '',
+        nearestRailway: '',
+        railwayDistance: '',
+        nearestBusStation: '',
+        busStationDistance: '',
       });
       setImages([]);
+      setAttractions(['']);
+      setKidsAttractions([]);
       
       router.back();
     } catch (error: any) {

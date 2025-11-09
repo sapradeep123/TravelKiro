@@ -120,6 +120,17 @@ model Location {
   area           String
   description    String
   images         String[]
+  latitude       Float?
+  longitude      Float?
+  howToReach     String?
+  nearestAirport String?
+  airportDistance String?
+  nearestRailway String?
+  railwayDistance String?
+  nearestBusStation String?
+  busStationDistance String?
+  attractions    String[]
+  kidsAttractions String[]
   createdBy      String
   createdByRole  UserRole
   approvalStatus ApprovalStatus @default(PENDING)

@@ -62,23 +62,30 @@ export default function EventCallbackRequestsScreen() {
   const loadData = async () => {
     const eventId = getEventId();
     if (!eventId) {
+      console.error('No event ID found');
+      setLoading(false);
       Alert.alert('Error', 'Event ID is required');
-      router.back();
       return;
     }
 
     try {
       setLoading(true);
+      console.log('Loading data for event:', eventId);
+      
       // Load event details
       const eventData = await eventService.getEventById(eventId);
+      console.log('Event data loaded:', eventData);
       setEvent(eventData);
       
       // Load callback requests for this event
       const requestsData = await eventService.getEventCallbackRequests(eventId);
+      console.log('Callback requests loaded:', requestsData);
       setRequests(requestsData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading data:', error);
-      Alert.alert('Error', 'Failed to load callback requests');
+      console.error('Error details:', error.response?.data);
+      setLoading(false);
+      Alert.alert('Error', error.response?.data?.error || 'Failed to load callback requests');
     } finally {
       setLoading(false);
     }

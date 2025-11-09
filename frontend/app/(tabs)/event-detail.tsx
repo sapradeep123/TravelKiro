@@ -3,8 +3,6 @@ import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Platform, 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import api from '../../src/services/api';
-import WebHeader from '../../components/WebHeader';
-import WebFooter from '../../components/WebFooter';
 
 interface Event {
   id: string;
@@ -91,7 +89,6 @@ export default function EventDetail() {
 
   return (
     <View style={styles.container}>
-      {isWeb && <WebHeader />}
       <ScrollView style={styles.scrollContainer}>
         <View style={[styles.content, isWeb && styles.webContent]}>
           {/* Back Button */}
@@ -259,7 +256,6 @@ export default function EventDetail() {
           </View>
         </View>
       </ScrollView>
-      {isWeb && <WebFooter />}
     </View>
   );
 }

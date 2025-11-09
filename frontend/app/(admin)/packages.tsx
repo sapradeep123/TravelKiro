@@ -181,10 +181,10 @@ export default function ManagePackages() {
             </View>
             <TouchableOpacity 
               style={styles.addButton} 
-              onPress={() => router.push('/(admin)/create-event' as any)}
+              onPress={() => router.push('/(admin)/create-package' as any)}
             >
               <Ionicons name="add-circle" size={20} color="#ffffff" />
-              <Text style={styles.addButtonText}>Create Event</Text>
+              <Text style={styles.addButtonText}>Create Package</Text>
             </TouchableOpacity>
           </View>
 

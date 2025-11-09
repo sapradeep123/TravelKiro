@@ -354,30 +354,34 @@ export class EventService {
   async getAllCallbackRequests(userId: string, userRole: UserRole) {
     if (userRole === 'SITE_ADMIN') {
       // Admin can see all callback requests
-      const requests = await prisma.$queryRaw`
-        SELECT ecr.*, 
-               e.id as "event_id", 
-               e.title as "event_title",
-               e."hostId" as "event_hostId",
-               up.name as "host_name"
-        FROM event_callback_requests ecr
-        LEFT JOIN events e ON ecr."eventId" = e.id
-        LEFT JOIN users u ON e."hostId" = u.id
-        LEFT JOIN user_profiles up ON u.id = up."userId"
-        ORDER BY ecr."createdAt" DESC
-      `;
+      const requests = await prisma.eventCallbackRequest.findMany({
+        include: {
+          event: {
+            include: {
+              host: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
       return requests;
     } else if (userRole === 'GOVT_DEPARTMENT' || userRole === 'TOURIST_GUIDE') {
       // Hosts can see callback requests for their events
-      const requests = await prisma.$queryRaw`
-        SELECT ecr.*, 
-               e.id as "event_id", 
-               e.title as "event_title"
-        FROM event_callback_requests ecr
-        LEFT JOIN events e ON ecr."eventId" = e.id
-        WHERE e."hostId" = ${userId}
-        ORDER BY ecr."createdAt" DESC
-      `;
+      const requests = await prisma.eventCallbackRequest.findMany({
+        where: {
+          event: {
+            hostId: userId,
+          },
+        },
+        include: {
+          event: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
       return requests;
     } else {
       throw new Error('Unauthorized to view callback requests');

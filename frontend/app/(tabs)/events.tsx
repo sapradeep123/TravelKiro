@@ -7,6 +7,9 @@ import { Event } from '../../src/types';
 import { useAuth } from '../../src/contexts/AuthContext';
 import WebFooter from '../../components/WebFooter';
 
+// Declare window for web platform
+declare const window: any;
+
 export default function EventsScreen() {
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
@@ -155,8 +158,10 @@ export default function EventsScreen() {
 
   const showEventDetails = (item: Event) => {
     // Navigate to event detail page
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      (window as any).location.href = `/event-detail?id=${item.id}`;
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.location) {
+        window.location.href = `/event-detail?id=${item.id}`;
+      }
     } else {
       // For mobile, you would use router.push
       console.log('Navigate to event detail:', item.id);

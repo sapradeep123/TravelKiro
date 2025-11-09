@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl, Alert, TouchableOpacity, Platform } from 'react-native';
 import { Text, Card, Chip, Button, ActivityIndicator, DataTable, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { eventService } from '../../src/services/eventService';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
+
+// Declare window for web platform
+declare const window: any;
 
 interface CallbackRequest {
   id: string;
@@ -83,13 +86,13 @@ export default function EventCallbacksScreen() {
   };
 
   const handleCallPhone = (phone: string) => {
-    if (typeof window !== 'undefined' && window.open) {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       window.open(`tel:${phone}`, '_self');
     }
   };
 
   const handleEmailContact = (email: string) => {
-    if (typeof window !== 'undefined' && window.open) {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       window.open(`mailto:${email}`, '_blank');
     }
   };
@@ -233,8 +236,6 @@ export default function EventCallbacksScreen() {
     </ScrollView>
   );
 }
-
-import { TouchableOpacity } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {

@@ -103,20 +103,11 @@ export default function LocationsScreen() {
     setSortMenuVisible(false);
   };
 
-  const getCardWidth = () => {
-    const padding = 24; // Total horizontal padding
-    const gap = 16; // Gap between cards
-    const availableWidth = width - padding;
-    
-    if (numColumns === 1) return availableWidth;
-    return (availableWidth - (gap * (numColumns - 1))) / numColumns;
-  };
-
   const renderLocation = ({ item }: { item: Location }) => (
     <TouchableOpacity 
       activeOpacity={0.9}
       onPress={() => router.push(`/(tabs)/location-detail?id=${item.id}`)}
-      style={[styles.cardWrapper, { width: numColumns > 1 ? getCardWidth() : undefined }]}
+      style={styles.cardWrapper}
     >
       <Card style={styles.card} elevation={4}>
         <View style={styles.imageContainer}>
@@ -348,14 +339,15 @@ const styles = StyleSheet.create({
     paddingBottom: 160, // Extra padding to avoid FAB overlap
   },
   cardWrapper: {
+    flex: 1,
     marginBottom: 16,
     marginHorizontal: 8,
+    maxWidth: 400,
   },
   card: {
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#ffffff',
-    width: '100%',
   },
   imageContainer: {
     position: 'relative',

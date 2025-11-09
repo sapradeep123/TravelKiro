@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Image, Platform, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Platform, TouchableOpacity, Linking, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { locationService } from '../../src/services/locationService';
 import { Location } from '../../src/types';
 
-export default function LocationDetailEnhanced() {
+export default function LocationDetailCompact() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [location, setLocation] = useState<Location | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
+  const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
+  const isLargeScreen = width >= 1024;
 
   useEffect(() => {
     loadLocationDetail();
@@ -73,172 +75,134 @@ export default function LocationDetailEnhanced() {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
         <View style={[styles.content, isWeb && styles.webContent]}>
-          {/* Image Gallery */}
-          <View style={styles.imageSection}>
-            <Image 
-              source={{ uri: location.images[selectedImage] }} 
-              style={styles.mainImage}
-              resizeMode="cover"
-            />
-            {location.images.length > 1 && (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={styles.thumbnailScroll}
-              >
-                {location.images.map((img, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => setSelectedImage(index)}
-                    style={[
-                      styles.thumbnail,
-                      selectedImage === index && styles.thumbnailActive
-                    ]}
-                  >
-                    <Image source={{ uri: img }} style={styles.thumbnailImage} />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-
-          {/* Header Info */}
+          {/* Compact Header with Image */}
           <View style={styles.headerSection}>
-            <Text style={styles.locationName}>{location.area}</Text>
-            <View style={styles.locationMeta}>
-              <Ionicons name="location" size={16} color="#6b7280" />
-              <Text style={styles.locationMetaText}>
-                {location.state}, {location.country}
-              </Text>
+            <View style={styles.imageGallery}>
+              <Image 
+                source={{ uri: location.images[selectedImage] }} 
+                style={styles.headerImage}
+                resizeMode="cover"
+              />
+              {location.images.length > 1 && (
+                <View style={styles.thumbnailRow}>
+                  {location.images.slice(0, 4).map((img, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => setSelectedImage(index)}
+                      style={[styles.miniThumb, selectedImage === index && styles.miniThumbActive]}
+                    >
+                      <Image source={{ uri: img }} style={styles.miniThumbImage} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
-          </View>
-
-          {/* Description */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About</Text>
-            <Text style={styles.description}>{location.description}</Text>
-          </View>
-
-          {/* Map Section */}
-          {location.latitude && location.longitude && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Location on Map</Text>
-              <View style={styles.mapPlaceholder}>
-                <Ionicons name="map" size={48} color="#6366f1" />
-                <Text style={styles.mapText}>
-                  {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
-                </Text>
-                <View style={styles.mapButtons}>
-                  <TouchableOpacity style={styles.mapButton} onPress={openMap}>
-                    <Ionicons name="navigate" size={20} color="#ffffff" />
-                    <Text style={styles.mapButtonText}>Open in Maps</Text>
+            
+            <View style={styles.headerInfo}>
+              <Text style={styles.locationName}>{location.area}</Text>
+              <View style={styles.locationMeta}>
+                <Ionicons name="location" size={16} color="#6b7280" />
+                <Text style={styles.locationMetaText}>{location.state}, {location.country}</Text>
+              </View>
+              <Text style={styles.descriptionCompact} numberOfLines={3}>{location.description}</Text>
+              
+              {location.latitude && location.longitude && (
+                <View style={styles.quickActions}>
+                  <TouchableOpacity style={styles.quickButton} onPress={openMap}>
+                    <Ionicons name="map" size={18} color="#ffffff" />
+                    <Text style={styles.quickButtonText}>Map</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.mapButton, styles.mapButtonSecondary]} onPress={openDirections}>
-                    <Ionicons name="compass" size={20} color="#6366f1" />
-                    <Text style={[styles.mapButtonText, styles.mapButtonTextSecondary]}>Get Directions</Text>
+                  <TouchableOpacity style={[styles.quickButton, styles.quickButtonSecondary]} onPress={openDirections}>
+                    <Ionicons name="navigate" size={18} color="#6366f1" />
+                    <Text style={[styles.quickButtonText, styles.quickButtonTextSecondary]}>Directions</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              )}
             </View>
-          )}
+          </View>
 
-          {/* How to Reach */}
-          {location.howToReach && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="car" size={24} color="#6366f1" />
-                <Text style={styles.sectionTitle}>How to Reach</Text>
-              </View>
-              <Text style={styles.description}>{location.howToReach}</Text>
-            </View>
-          )}
-
-          {/* Transportation */}
-          {(location.nearestAirport || location.nearestRailway || location.nearestBusStation) && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="airplane" size={24} color="#6366f1" />
-                <Text style={styles.sectionTitle}>Transportation</Text>
-              </View>
-              
-              <View style={styles.transportGrid}>
-                {location.nearestAirport && (
-                  <View style={styles.transportCard}>
-                    <View style={styles.transportIcon}>
-                      <Ionicons name="airplane" size={24} color="#6366f1" />
-                    </View>
-                    <Text style={styles.transportLabel}>Nearest Airport</Text>
-                    <Text style={styles.transportName}>{location.nearestAirport}</Text>
-                    {location.airportDistance && (
-                      <Text style={styles.transportDistance}>{location.airportDistance}</Text>
+          {/* Two Column Layout for Web */}
+          <View style={[styles.mainContent, isLargeScreen && styles.twoColumnLayout]}>
+            {/* Left Column */}
+            <View style={[styles.column, isLargeScreen && styles.leftColumn]}>
+              {/* Transportation - Compact Cards */}
+              {(location.nearestAirport || location.nearestRailway || location.nearestBusStation) && (
+                <View style={styles.compactSection}>
+                  <Text style={styles.sectionTitle}>🚗 Getting There</Text>
+                  <View style={styles.transportCompact}>
+                    {location.nearestAirport && (
+                      <View style={styles.transportRow}>
+                        <Ionicons name="airplane" size={20} color="#6366f1" />
+                        <View style={styles.transportInfo}>
+                          <Text style={styles.transportName}>{location.nearestAirport}</Text>
+                          <Text style={styles.transportDist}>{location.airportDistance}</Text>
+                        </View>
+                      </View>
+                    )}
+                    {location.nearestRailway && (
+                      <View style={styles.transportRow}>
+                        <Ionicons name="train" size={20} color="#10b981" />
+                        <View style={styles.transportInfo}>
+                          <Text style={styles.transportName}>{location.nearestRailway}</Text>
+                          <Text style={styles.transportDist}>{location.railwayDistance}</Text>
+                        </View>
+                      </View>
+                    )}
+                    {location.nearestBusStation && (
+                      <View style={styles.transportRow}>
+                        <Ionicons name="bus" size={20} color="#f59e0b" />
+                        <View style={styles.transportInfo}>
+                          <Text style={styles.transportName}>{location.nearestBusStation}</Text>
+                          <Text style={styles.transportDist}>{location.busStationDistance}</Text>
+                        </View>
+                      </View>
                     )}
                   </View>
-                )}
+                </View>
+              )}
 
-                {location.nearestRailway && (
-                  <View style={styles.transportCard}>
-                    <View style={styles.transportIcon}>
-                      <Ionicons name="train" size={24} color="#10b981" />
-                    </View>
-                    <Text style={styles.transportLabel}>Nearest Railway</Text>
-                    <Text style={styles.transportName}>{location.nearestRailway}</Text>
-                    {location.railwayDistance && (
-                      <Text style={styles.transportDistance}>{location.railwayDistance}</Text>
-                    )}
-                  </View>
-                )}
-
-                {location.nearestBusStation && (
-                  <View style={styles.transportCard}>
-                    <View style={styles.transportIcon}>
-                      <Ionicons name="bus" size={24} color="#f59e0b" />
-                    </View>
-                    <Text style={styles.transportLabel}>Nearest Bus Station</Text>
-                    <Text style={styles.transportName}>{location.nearestBusStation}</Text>
-                    {location.busStationDistance && (
-                      <Text style={styles.transportDistance}>{location.busStationDistance}</Text>
-                    )}
-                  </View>
-                )}
-              </View>
+              {/* How to Reach - Compact */}
+              {location.howToReach && (
+                <View style={styles.compactSection}>
+                  <Text style={styles.sectionTitle}>📍 How to Reach</Text>
+                  <Text style={styles.compactText}>{location.howToReach}</Text>
+                </View>
+              )}
             </View>
-          )}
 
-          {/* Attractions */}
-          {location.attractions && location.attractions.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="star" size={24} color="#f59e0b" />
-                <Text style={styles.sectionTitle}>Attractions to Visit</Text>
-              </View>
-              <View style={styles.attractionsList}>
-                {location.attractions.map((attraction, index) => (
-                  <View key={index} style={styles.attractionItem}>
-                    <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-                    <Text style={styles.attractionText}>{attraction}</Text>
+            {/* Right Column */}
+            <View style={[styles.column, isLargeScreen && styles.rightColumn]}>
+              {/* Attractions - Compact List */}
+              {location.attractions && location.attractions.length > 0 && (
+                <View style={styles.compactSection}>
+                  <Text style={styles.sectionTitle}>⭐ Top Attractions</Text>
+                  <View style={styles.attractionsCompact}>
+                    {location.attractions.map((attraction, index) => (
+                      <View key={index} style={styles.attractionRow}>
+                        <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                        <Text style={styles.attractionText}>{attraction}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
-            </View>
-          )}
+                </View>
+              )}
 
-          {/* Kids Attractions */}
-          {location.kidsAttractions && location.kidsAttractions.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="happy" size={24} color="#ec4899" />
-                <Text style={styles.sectionTitle}>Kids Attractions</Text>
-              </View>
-              <View style={styles.attractionsList}>
-                {location.kidsAttractions.map((attraction, index) => (
-                  <View key={index} style={styles.attractionItem}>
-                    <Ionicons name="heart" size={20} color="#ec4899" />
-                    <Text style={styles.attractionText}>{attraction}</Text>
+              {/* Kids Attractions - Compact */}
+              {location.kidsAttractions && location.kidsAttractions.length > 0 && (
+                <View style={styles.compactSection}>
+                  <Text style={styles.sectionTitle}>👨‍👩‍👧‍👦 For Kids</Text>
+                  <View style={styles.attractionsCompact}>
+                    {location.kidsAttractions.map((attraction, index) => (
+                      <View key={index} style={styles.attractionRow}>
+                        <Ionicons name="heart" size={16} color="#ec4899" />
+                        <Text style={styles.attractionText}>{attraction}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                </View>
+              )}
             </View>
-          )}
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -254,10 +218,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   webContent: {
-    maxWidth: 1200,
+    maxWidth: 1400,
     marginHorizontal: 'auto',
     width: '100%',
   },
@@ -289,36 +253,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  imageSection: {
-    backgroundColor: '#000',
+  headerSection: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    padding: 20,
+    gap: 20,
+    flexWrap: 'wrap',
   },
-  mainImage: {
+  imageGallery: {
+    flex: 1,
+    minWidth: 300,
+  },
+  headerImage: {
     width: '100%',
-    height: 400,
+    height: 300,
+    borderRadius: 12,
   },
-  thumbnailScroll: {
-    padding: 12,
-    backgroundColor: '#000',
+  thumbnailRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
   },
-  thumbnail: {
-    width: 80,
-    height: 80,
-    marginRight: 8,
+  miniThumb: {
+    width: 60,
+    height: 60,
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  thumbnailActive: {
+  miniThumbActive: {
     borderColor: '#6366f1',
   },
-  thumbnailImage: {
+  miniThumbImage: {
     width: '100%',
     height: '100%',
   },
-  headerSection: {
-    padding: 20,
-    backgroundColor: '#ffffff',
+  headerInfo: {
+    flex: 1,
+    minWidth: 300,
   },
   locationName: {
     fontSize: 32,
@@ -330,127 +303,115 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginBottom: 16,
   },
   locationMetaText: {
     fontSize: 16,
     color: '#6b7280',
   },
-  section: {
-    padding: 20,
-    backgroundColor: '#ffffff',
-    marginTop: 8,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  descriptionCompact: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#374151',
     marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  description: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#374151',
-  },
-  mapPlaceholder: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    padding: 40,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    borderStyle: 'dashed',
-  },
-  mapText: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 12,
-    marginBottom: 20,
-  },
-  mapButtons: {
+  quickActions: {
     flexDirection: 'row',
     gap: 12,
   },
-  mapButton: {
+  quickButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#6366f1',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
   },
-  mapButtonSecondary: {
+  quickButtonSecondary: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#6366f1',
   },
-  mapButtonText: {
+  quickButtonText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },
-  mapButtonTextSecondary: {
+  quickButtonTextSecondary: {
     color: '#6366f1',
   },
-  transportGrid: {
+  mainContent: {
+    padding: 20,
+    gap: 20,
+  },
+  twoColumnLayout: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    gap: 20,
+  },
+  column: {
+    flex: 1,
     gap: 16,
   },
-  transportCard: {
+  leftColumn: {
     flex: 1,
-    minWidth: 200,
-    backgroundColor: '#f9fafb',
+  },
+  rightColumn: {
+    flex: 1,
+  },
+  compactSection: {
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  transportIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  transportLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
-  transportName: {
-    fontSize: 16,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 4,
+    marginBottom: 12,
   },
-  transportDistance: {
+  compactText: {
     fontSize: 14,
-    color: '#6366f1',
-    fontWeight: '500',
+    lineHeight: 20,
+    color: '#374151',
   },
-  attractionsList: {
+  transportCompact: {
     gap: 12,
   },
-  attractionItem: {
+  transportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  transportInfo: {
+    flex: 1,
+  },
+  transportName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  transportDist: {
+    fontSize: 13,
+    color: '#6366f1',
+  },
+  attractionsCompact: {
+    gap: 8,
+  },
+  attractionRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    paddingVertical: 8,
+    gap: 8,
   },
   attractionText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: '#374151',
-    lineHeight: 22,
+    lineHeight: 20,
   },
 });

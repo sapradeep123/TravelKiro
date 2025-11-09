@@ -322,6 +322,16 @@ export default function ManageEvents() {
                         <View style={styles.actionButtons}>
                           <TouchableOpacity
                             style={styles.iconButton}
+                            onPress={() => {
+                              if (Platform.OS === 'web') {
+                                (window as any).open(`/event-detail?id=${event.id}`, '_blank');
+                              }
+                            }}
+                          >
+                            <Ionicons name="eye" size={18} color="#3b82f6" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.iconButton}
                             onPress={() => handleEdit(event.id)}
                           >
                             <Ionicons name="create" size={18} color="#6366f1" />
@@ -557,7 +567,7 @@ const styles = StyleSheet.create({
     width: 100,
   },
   actionsColumn: {
-    width: 180,
+    width: 220,
   },
   thumbnail: {
     width: 60,

@@ -85,12 +85,12 @@ export default function EventsScreen() {
   };
 
   const getCardWidth = () => {
-    const padding = 24;
+    const padding = 48; // Total horizontal padding (24 on each side)
     const gap = 16;
     const availableWidth = width - padding;
     
-    if (numColumns === 1) return availableWidth;
-    return (availableWidth - (gap * (numColumns - 1))) / numColumns;
+    if (numColumns === 1) return availableWidth - 16; // Extra margin for single column
+    return (availableWidth - (gap * (numColumns - 1))) / numColumns - 16; // Account for card margins
   };
 
   const handleExpressInterest = async (eventId: string, eventTitle: string) => {
@@ -112,23 +112,13 @@ export default function EventsScreen() {
   };
 
   const showEventDetails = (item: Event) => {
-    console.log('Event clicked:', item.title);
-    const buttons: any[] = [
-      { text: 'Close', style: 'cancel' }
-    ];
-    
-    if (item.approvalStatus === 'APPROVED') {
-      buttons.push({
-        text: 'Express Interest',
-        onPress: () => handleExpressInterest(item.id, item.title)
-      });
+    // Navigate to event detail page
+    if (Platform.OS === 'web') {
+      (window as any).location.href = `/event-detail?id=${item.id}`;
+    } else {
+      // For mobile, you would use router.push
+      console.log('Navigate to event detail:', item.id);
     }
-    
-    Alert.alert(
-      item.title,
-      `${item.description}\n\n📅 Start: ${formatDate(item.startDate)}\n📅 End: ${formatDate(item.endDate)}\n\n✅ Status: ${item.approvalStatus}`,
-      buttons
-    );
   };
 
   const renderEvent = ({ item }: { item: Event }) => (
@@ -343,6 +333,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 12,
+    paddingHorizontal: 24,
   },
   mobileListContent: {
     paddingBottom: 160,
@@ -351,6 +342,7 @@ const styles = StyleSheet.create({
     maxWidth: 1400,
     marginHorizontal: 'auto',
     width: '100%',
+    paddingHorizontal: 24,
   },
   webHeader: {
     paddingHorizontal: 24,
@@ -391,7 +383,7 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     marginBottom: 16,
-    marginHorizontal: 8,
+    paddingHorizontal: 8,
   },
   card: {
     borderRadius: 16,

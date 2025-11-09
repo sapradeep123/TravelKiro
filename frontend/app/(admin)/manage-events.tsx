@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    minHeight: '100%',
+    paddingBottom: 400,
   },
   webContent: {
     maxWidth: 1400,

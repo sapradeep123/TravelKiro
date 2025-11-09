@@ -163,7 +163,13 @@ export default function EventCallbackRequestsScreen() {
           {/* Back Button */}
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => {
+              if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                window.location.href = '/manage-events';
+              } else {
+                router.push('/(admin)/manage-events' as any);
+              }
+            }}
           >
             <Ionicons name="arrow-back" size={20} color="#6366f1" />
             <Text style={styles.backButtonText}>Back to Events</Text>

@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import api from '../../src/services/api';
 
+// Declare window for web platform
+declare const window: any;
+
 interface Event {
   id: string;
   title: string;
@@ -92,7 +95,16 @@ export default function EventDetail() {
       <ScrollView style={styles.scrollContainer}>
         <View style={[styles.content, isWeb && styles.webContent]}>
           {/* Back Button */}
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity 
+            onPress={() => {
+              if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                window.location.href = '/events';
+              } else {
+                router.push('/(tabs)/events' as any);
+              }
+            }} 
+            style={styles.backBtn}
+          >
             <Ionicons name="arrow-back" size={24} color="#111827" />
             <Text style={styles.backText}>Back to Events</Text>
           </TouchableOpacity>

@@ -334,6 +334,16 @@ export default function ManageEvents() {
                             <Ionicons name="eye" size={18} color="#3b82f6" />
                           </TouchableOpacity>
                           <TouchableOpacity
+                            style={[styles.iconButton, styles.callbackButton]}
+                            onPress={() => {
+                              if (Platform.OS === 'web') {
+                                (window as any).open(`/event-callback-requests?eventId=${event.id}`, '_blank');
+                              }
+                            }}
+                          >
+                            <Ionicons name="call" size={18} color="#10b981" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
                             style={styles.iconButton}
                             onPress={() => handleEdit(event.id)}
                           >
@@ -572,7 +582,7 @@ const styles = StyleSheet.create({
     width: 100,
   },
   actionsColumn: {
-    width: 220,
+    width: 270,
   },
   thumbnail: {
     width: 60,
@@ -615,6 +625,9 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 6,
     backgroundColor: '#f9fafb',
+  },
+  callbackButton: {
+    backgroundColor: '#d1fae5',
   },
   pagination: {
     flexDirection: 'row',

@@ -207,17 +207,27 @@ model EventInterest {
   @@map("event_interests")
 }
 
+enum CallbackStatus {
+  PENDING
+  CONTACTED
+  NOT_INTERESTED
+  FOLLOW_UP_REQUIRED
+}
+
 model EventCallbackRequest {
-  id          String   @id @default(uuid())
+  id          String         @id @default(uuid())
   eventId     String
   name        String
   phone       String
   email       String?
   message     String?
-  userId      String?  // Optional - if user is logged in
-  isContacted Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  userId      String?        // Optional - if user is logged in
+  status      CallbackStatus @default(PENDING)
+  notes       String?        // Admin/Host notes about the conversation
+  contactedAt DateTime?      // When they were contacted
+  contactedBy String?        // Who contacted them
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 

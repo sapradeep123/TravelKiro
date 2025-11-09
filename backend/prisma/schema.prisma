@@ -251,10 +251,11 @@ model Package {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  host             User              @relation(fields: [hostId], references: [id])
-  location         Location?         @relation(fields: [locationId], references: [id])
+  host             User                      @relation(fields: [hostId], references: [id])
+  location         Location?                 @relation(fields: [locationId], references: [id])
   itinerary        ItineraryDay[]
   interestedUsers  PackageInterest[]
+  callbackRequests PackageCallbackRequest[]
 
   @@map("packages")
 }
@@ -284,6 +285,23 @@ model PackageInterest {
 
   @@unique([packageId, userId])
   @@map("package_interests")
+}
+
+model PackageCallbackRequest {
+  id          String   @id @default(uuid())
+  packageId   String
+  name        String
+  phone       String
+  email       String?
+  message     String?
+  userId      String?  // Optional - if user is logged in
+  isContacted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@map("package_callback_requests")
 }
 
 model Accommodation {

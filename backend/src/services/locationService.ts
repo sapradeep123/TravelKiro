@@ -8,6 +8,17 @@ export class LocationService {
     area: string;
     description: string;
     images: string[];
+    latitude?: number;
+    longitude?: number;
+    howToReach?: string;
+    nearestAirport?: string;
+    airportDistance?: string;
+    nearestRailway?: string;
+    railwayDistance?: string;
+    nearestBusStation?: string;
+    busStationDistance?: string;
+    attractions?: string[];
+    kidsAttractions?: string[];
     createdBy: string;
     createdByRole: UserRole;
   }) {
@@ -133,6 +144,17 @@ export class LocationService {
     area?: string;
     description?: string;
     images?: string[];
+    latitude?: number;
+    longitude?: number;
+    howToReach?: string;
+    nearestAirport?: string;
+    airportDistance?: string;
+    nearestRailway?: string;
+    railwayDistance?: string;
+    nearestBusStation?: string;
+    busStationDistance?: string;
+    attractions?: string[];
+    kidsAttractions?: string[];
   }) {
     const location = await prisma.location.findUnique({
       where: { id },

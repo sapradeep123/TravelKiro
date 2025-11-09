@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Image, Platform, TouchableOpacity, Linking } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Platform, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { locationService } from '../../src/services/locationService';
 import { Location } from '../../src/types';
-import WebHeader from '../../components/WebHeader';
-import WebFooter from '../../components/WebFooter';
 
 export default function LocationDetailEnhanced() {
   const { id } = useLocalSearchParams();
@@ -53,7 +51,8 @@ export default function LocationDetailEnhanced() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Loading...</Text>
+        <ActivityIndicator size="large" color="#6366f1" />
+        <Text style={styles.loadingText}>Loading location...</Text>
       </View>
     );
   }
@@ -61,14 +60,17 @@ export default function LocationDetailEnhanced() {
   if (!location) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Location not found</Text>
+        <Ionicons name="location-outline" size={64} color="#d1d5db" />
+        <Text style={styles.errorText}>Location not found</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {isWeb && <WebHeader />}
       <ScrollView style={styles.scrollView}>
         <View style={[styles.content, isWeb && styles.webContent]}>
           {/* Image Gallery */}
@@ -239,7 +241,6 @@ export default function LocationDetailEnhanced() {
           )}
         </View>
       </ScrollView>
-      {isWeb && <WebFooter />}
     </View>
   );
 }
@@ -264,6 +265,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  errorText: {
+    marginTop: 16,
+    fontSize: 18,
+    color: '#6b7280',
+    marginBottom: 24,
+  },
+  backButton: {
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   imageSection: {
     backgroundColor: '#000',

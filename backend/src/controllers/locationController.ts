@@ -7,7 +7,24 @@ export class LocationController {
   async createLocation(req: Request, res: Response) {
     try {
       const user = (req as AuthRequest).user;
-      const { country, state, area, description, images } = req.body;
+      const { 
+        country, 
+        state, 
+        area, 
+        description, 
+        images,
+        latitude,
+        longitude,
+        howToReach,
+        nearestAirport,
+        airportDistance,
+        nearestRailway,
+        railwayDistance,
+        nearestBusStation,
+        busStationDistance,
+        attractions,
+        kidsAttractions
+      } = req.body;
 
       if (!user) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -25,6 +42,17 @@ export class LocationController {
         area,
         description,
         images: images || [],
+        latitude,
+        longitude,
+        howToReach,
+        nearestAirport,
+        airportDistance,
+        nearestRailway,
+        railwayDistance,
+        nearestBusStation,
+        busStationDistance,
+        attractions,
+        kidsAttractions,
         createdBy: user.userId,
         createdByRole: user.role,
       });
@@ -78,7 +106,24 @@ export class LocationController {
     try {
       const user = (req as AuthRequest).user;
       const { id } = req.params;
-      const { country, state, area, description, images } = req.body;
+      const { 
+        country, 
+        state, 
+        area, 
+        description, 
+        images,
+        latitude,
+        longitude,
+        howToReach,
+        nearestAirport,
+        airportDistance,
+        nearestRailway,
+        railwayDistance,
+        nearestBusStation,
+        busStationDistance,
+        attractions,
+        kidsAttractions
+      } = req.body;
 
       if (!user) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -90,6 +135,17 @@ export class LocationController {
         area,
         description,
         images,
+        latitude,
+        longitude,
+        howToReach,
+        nearestAirport,
+        airportDistance,
+        nearestRailway,
+        railwayDistance,
+        nearestBusStation,
+        busStationDistance,
+        attractions,
+        kidsAttractions,
       });
 
       res.status(200).json({

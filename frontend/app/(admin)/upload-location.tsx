@@ -199,6 +199,187 @@ export default function UploadLocation() {
             />
           </View>
 
+          {/* GPS Coordinates Section */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="location" size={20} color="#6366f1" />
+            <Text style={styles.sectionTitle}>GPS Coordinates (Optional)</Text>
+          </View>
+
+          <View style={styles.row}>
+            <View style={[styles.formGroup, styles.halfWidth]}>
+              <Text style={styles.label}>Latitude</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., 10.0889"
+                value={formData.latitude}
+                onChangeText={(value) => handleInputChange('latitude', value)}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={[styles.formGroup, styles.halfWidth]}>
+              <Text style={styles.label}>Longitude</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., 77.0595"
+                value={formData.longitude}
+                onChangeText={(value) => handleInputChange('longitude', value)}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+
+          {/* How to Reach */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>How to Reach</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Provide detailed directions on how to reach this location..."
+              value={formData.howToReach}
+              onChangeText={(value) => handleInputChange('howToReach', value)}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Transportation Section */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="airplane" size={20} color="#6366f1" />
+            <Text style={styles.sectionTitle}>Transportation Details</Text>
+          </View>
+
+          {/* Airport */}
+          <View style={styles.row}>
+            <View style={[styles.formGroup, styles.twoThirds]}>
+              <Text style={styles.label}>Nearest Airport</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Cochin International Airport"
+                value={formData.nearestAirport}
+                onChangeText={(value) => handleInputChange('nearestAirport', value)}
+              />
+            </View>
+            <View style={[styles.formGroup, styles.oneThird]}>
+              <Text style={styles.label}>Distance</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., 110 km"
+                value={formData.airportDistance}
+                onChangeText={(value) => handleInputChange('airportDistance', value)}
+              />
+            </View>
+          </View>
+
+          {/* Railway */}
+          <View style={styles.row}>
+            <View style={[styles.formGroup, styles.twoThirds]}>
+              <Text style={styles.label}>Nearest Railway Station</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Aluva Railway Station"
+                value={formData.nearestRailway}
+                onChangeText={(value) => handleInputChange('nearestRailway', value)}
+              />
+            </View>
+            <View style={[styles.formGroup, styles.oneThird]}>
+              <Text style={styles.label}>Distance</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., 40 km"
+                value={formData.railwayDistance}
+                onChangeText={(value) => handleInputChange('railwayDistance', value)}
+              />
+            </View>
+          </View>
+
+          {/* Bus Station */}
+          <View style={styles.row}>
+            <View style={[styles.formGroup, styles.twoThirds]}>
+              <Text style={styles.label}>Nearest Bus Station</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Munnar Bus Stand"
+                value={formData.nearestBusStation}
+                onChangeText={(value) => handleInputChange('nearestBusStation', value)}
+              />
+            </View>
+            <View style={[styles.formGroup, styles.oneThird]}>
+              <Text style={styles.label}>Distance</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., 2 km"
+                value={formData.busStationDistance}
+                onChangeText={(value) => handleInputChange('busStationDistance', value)}
+              />
+            </View>
+          </View>
+
+          {/* Attractions Section */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="star" size={20} color="#6366f1" />
+            <Text style={styles.sectionTitle}>Attractions to Visit</Text>
+          </View>
+
+          {attractions.map((attraction, index) => (
+            <View key={index} style={styles.dynamicFieldRow}>
+              <TextInput
+                style={[styles.input, styles.dynamicInput]}
+                placeholder={`Attraction ${index + 1}`}
+                value={attraction}
+                onChangeText={(value) => updateAttraction(index, value)}
+              />
+              {attractions.length > 1 && (
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeAttraction(index)}
+                >
+                  <Ionicons name="close-circle" size={24} color="#ef4444" />
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+
+          <TouchableOpacity style={styles.addButton} onPress={addAttraction}>
+            <Ionicons name="add-circle" size={20} color="#6366f1" />
+            <Text style={styles.addButtonText}>Add Another Attraction</Text>
+          </TouchableOpacity>
+
+          {/* Kids Attractions Section */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="happy" size={20} color="#f59e0b" />
+            <Text style={styles.sectionTitle}>Kids Attractions (Optional)</Text>
+          </View>
+
+          {kidsAttractions.length === 0 ? (
+            <TouchableOpacity style={styles.addButton} onPress={addKidsAttraction}>
+              <Ionicons name="add-circle" size={20} color="#f59e0b" />
+              <Text style={styles.addButtonText}>Add Kids Attraction</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              {kidsAttractions.map((attraction, index) => (
+                <View key={index} style={styles.dynamicFieldRow}>
+                  <TextInput
+                    style={[styles.input, styles.dynamicInput]}
+                    placeholder={`Kids Attraction ${index + 1}`}
+                    value={attraction}
+                    onChangeText={(value) => updateKidsAttraction(index, value)}
+                  />
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => removeKidsAttraction(index)}
+                  >
+                    <Ionicons name="close-circle" size={24} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity style={styles.addButton} onPress={addKidsAttraction}>
+                <Ionicons name="add-circle" size={20} color="#f59e0b" />
+                <Text style={styles.addButtonText}>Add Another Kids Attraction</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
           {/* Images */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Images *</Text>
@@ -379,5 +560,64 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 16,
     fontStyle: 'italic',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 24,
+    marginBottom: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfWidth: {
+    flex: 1,
+  },
+  twoThirds: {
+    flex: 2,
+  },
+  oneThird: {
+    flex: 1,
+  },
+  dynamicFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  dynamicInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  removeButton: {
+    padding: 4,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderStyle: 'dashed',
+    backgroundColor: '#f9fafb',
+    marginBottom: 20,
+  },
+  addButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
   },
 });

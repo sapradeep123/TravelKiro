@@ -52,12 +52,8 @@ export default function ManagePackages() {
     try {
       setLoading(true);
       const response = await api.get('/packages?approvalStatus=all');
-      // Filter out past packages
-      const now = new Date();
-      const futurepackages = (response.data.data || response.data).filter((package: Event) => 
-        new Date(event.endDate) >= now
-      );
-      setPackages(futurepackages);
+      const packagesData = response.data.data || response.data;
+      setPackages(packagesData);
     } catch (error) {
       console.error('Error fetching packages:', error);
       Alert.alert('Error', 'Failed to fetch packages');

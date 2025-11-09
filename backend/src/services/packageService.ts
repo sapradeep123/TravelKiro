@@ -77,9 +77,8 @@ export class PackageService {
 
     if (filters?.approvalStatus) {
       where.approvalStatus = filters.approvalStatus;
-    } else {
-      where.approvalStatus = 'APPROVED';
     }
+    // Don't default to APPROVED - return all packages if no status specified
 
     const packages = await prisma.package.findMany({
       where,
@@ -344,6 +343,57 @@ export class PackageService {
     });
 
     return updated;
+  }
+  async updatePackageStatus(id: string, approvalStatus: ApprovalStatus, userId: string, userRole: UserRole) {
+    if (userRole !== 'SITE_ADMIN' && userRole !== 'GOVT_DEPARTMENT') {
+      throw new Error('Unauthorized to update package status');
+    }
+
+    const pkg = await prisma.package.findUnique({
+      where: { id },
+    });
+
+    if (!pkg) {
+      throw new Error('Package not found');
+    }
+
+    const updatedPackage = await prisma.package.update({
+      where: { id },
+      data: { approvalStatus },
+      include: {
+        host: {
+          include: {
+            profile: true,
+          },
+        },
+        location: true,
+        itinerary: true,
+      },
+    });
+
+    // Update approval queue
+    await prisma.approvalQueue.updateMany({
+      where: {
+        contentType: 'PACKAGE',
+        contentId: id,
+      },
+      data: {
+        status: approvalStatus,
+        reviewedBy: userId,
+        reviewedAt: new Date(),
+      },
+    });
+
+    // Notify package host
+    await prisma.notification.create({
+      data: {
+        userId: pkg.hostId,
+        title: 'Package Status Updated',
+        message: `Your package "${pkg.title}" has been ${approvalStatus.toLowerCase()}`,
+      },
+    });
+
+    return updatedPackage;
   }
 }
 

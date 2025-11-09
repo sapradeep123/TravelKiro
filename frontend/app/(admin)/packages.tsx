@@ -6,6 +6,8 @@ import api from '../../src/services/api';
 import WebHeader from '../../components/WebHeader';
 import WebFooter from '../../components/WebFooter';
 
+declare const window: any;
+
 interface Package {
   id: string;
   title: string;
@@ -51,8 +53,10 @@ export default function ManagePackages() {
   const fetchPackages = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/packages?approvalStatus=all');
+      // Don't pass approvalStatus to get all packages (backend will return all when not specified for admin)
+      const response = await api.get('/packages');
       const packagesData = response.data.data || response.data;
+      console.log('Fetched packages:', packagesData);
       setPackages(packagesData);
     } catch (error) {
       console.error('Error fetching packages:', error);
@@ -64,35 +68,37 @@ export default function ManagePackages() {
 
   const filterPackages = () => {
     let filtered = [...packages];
+    console.log('Filtering packages, total:', packages.length);
 
     // Filter by tab
     if (activeTab === 'active') {
-      filtered = filtered.filter(Package => event.isActive);
+      filtered = filtered.filter(pkg => pkg.approvalStatus === 'APPROVED');
     } else if (activeTab === 'inactive') {
-      filtered = filtered.filter(Package => !event.isActive);
+      filtered = filtered.filter(pkg => pkg.approvalStatus !== 'APPROVED');
     }
 
     // Filter by search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(Package =>
-        event.title.toLowerCase().includes(query) ||
-        event.packageType.toLowerCase().includes(query) ||
-        event.venue?.toLowerCase().includes(query)
+      filtered = filtered.filter(pkg =>
+        pkg.title.toLowerCase().includes(query) ||
+        pkg.description.toLowerCase().includes(query)
       );
     }
 
+    console.log('Filtered packages:', filtered.length);
     setFilteredPackages(filtered);
     setCurrentPage(1);
   };
 
   const handleEdit = (packageId: string) => {
-    router.push(`/(admin)/edit-event?id=${packageId}` as any);
+    Alert.alert('Edit Package', 'Package editing feature coming soon!');
+    // TODO: router.push(`/(admin)/edit-package?id=${packageId}` as any);
   };
 
   const handleDelete = (packageId: string, packageTitle: string) => {
     Alert.alert(
-      'Delete Event',
+      'Delete Package',
       `Are you sure you want to delete "${packageTitle}"? This action cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -104,34 +110,34 @@ export default function ManagePackages() {
   const performDelete = async (packageId: string) => {
     try {
       await api.delete(`/packages/${packageId}`);
-      setPackages(packages.filter(Package => event.id !== packageId));
+      setPackages(packages.filter(pkg => pkg.id !== packageId));
       Alert.alert('Success', 'Package deleted successfully');
     } catch (error) {
       console.error('Error deleting package:', error);
-      Alert.alert('Error', 'Failed to delete event');
+      Alert.alert('Error', 'Failed to delete package');
     }
   };
 
-  const handleToggleStatus = async (packageId: string, currentStatus: boolean) => {
-    const newStatus = !currentStatus;
-    const action = newStatus ? 'activate' : 'deactivate';
+  const handleToggleStatus = async (packageId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'APPROVED' ? 'PENDING' : 'APPROVED';
+    const action = newStatus === 'APPROVED' ? 'approve' : 'unapprove';
     
     try {
-      await api.patch(`/packages/${packageId}/status`, { isActive: newStatus });
-      setPackages(packages.map(Package => 
-        event.id === packageId ? { ...event, isActive: newStatus } : event
+      await api.patch(`/packages/${packageId}/status`, { approvalStatus: newStatus });
+      setPackages(packages.map(pkg => 
+        pkg.id === packageId ? { ...pkg, approvalStatus: newStatus } : pkg
       ));
       Alert.alert('Success', `Package ${action}d successfully`);
     } catch (error) {
       console.error(`Error ${action}ing package:`, error);
-      Alert.alert('Error', `Failed to ${action} event`);
+      Alert.alert('Error', `Failed to ${action} package`);
     }
   };
 
   const getTabCount = (tab: TabType) => {
     if (tab === 'all') return packages.length;
-    if (tab === 'active') return packages.filter(e => e.isActive).length;
-    if (tab === 'inactive') return packages.filter(e => !e.isActive).length;
+    if (tab === 'active') return packages.filter(pkg => pkg.approvalStatus === 'APPROVED').length;
+    if (tab === 'inactive') return packages.filter(pkg => pkg.approvalStatus !== 'APPROVED').length;
     return 0;
   };
 
@@ -236,16 +242,16 @@ export default function ManagePackages() {
                   <Text style={styles.tableHeaderText}>Image</Text>
                 </View>
                 <View style={[styles.tableHeaderCell, styles.nameColumn]}>
-                  <Text style={styles.tableHeaderText}>Event</Text>
+                  <Text style={styles.tableHeaderText}>Package</Text>
                 </View>
                 <View style={[styles.tableHeaderCell, styles.typeColumn]}>
-                  <Text style={styles.tableHeaderText}>Type</Text>
+                  <Text style={styles.tableHeaderText}>Duration</Text>
                 </View>
                 <View style={[styles.tableHeaderCell, styles.dateColumn]}>
-                  <Text style={styles.tableHeaderText}>Start Date</Text>
+                  <Text style={styles.tableHeaderText}>Created</Text>
                 </View>
                 <View style={[styles.tableHeaderCell, styles.dateColumn]}>
-                  <Text style={styles.tableHeaderText}>End Date</Text>
+                  <Text style={styles.tableHeaderText}>-</Text>
                 </View>
                 <View style={[styles.tableHeaderCell, styles.roleColumn]}>
                   <Text style={styles.tableHeaderText}>Source</Text>
@@ -260,43 +266,41 @@ export default function ManagePackages() {
 
               {/* Table Body */}
               <ScrollView style={styles.tableBody}>
-                {paginatedpackages.map((event, index) => {
-                  const roleBadge = getRoleBadge(event.hostRole);
+                {paginatedpackages.map((pkg, index) => {
+                  const roleBadge = getRoleBadge(pkg.hostRole);
                   return (
                     <View 
-                      key={event.id} 
+                      key={pkg.id} 
                       style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
                     >
                       <View style={[styles.tableCell, styles.imageColumn]}>
-                        {event.images && event.images[0] ? (
+                        {pkg.images && pkg.images[0] ? (
                           <Image 
-                            source={{ uri: event.images[0] }} 
+                            source={{ uri: pkg.images[0] }} 
                             style={styles.thumbnail}
                           />
                         ) : (
                           <View style={styles.thumbnailPlaceholder}>
-                            <Ionicons name="calendar-outline" size={24} color="#d1d5db" />
+                            <Ionicons name="briefcase-outline" size={24} color="#d1d5db" />
                           </View>
                         )}
                       </View>
                       <View style={[styles.tableCell, styles.nameColumn]}>
                         <Text style={styles.tableCellText} numberOfLines={2}>
-                          {event.title}
+                          {pkg.title}
                         </Text>
-                        {event.venue && (
-                          <Text style={styles.venueText} numberOfLines={1}>
-                            📍 {event.venue}
-                          </Text>
-                        )}
+                        <Text style={styles.venueText} numberOfLines={1}>
+                          💰 ₹{pkg.price.toLocaleString()}
+                        </Text>
                       </View>
                       <View style={[styles.tableCell, styles.typeColumn]}>
-                        <Text style={styles.tableCellText}>{event.packageType}</Text>
+                        <Text style={styles.tableCellText}>{pkg.duration} Days</Text>
                       </View>
                       <View style={[styles.tableCell, styles.dateColumn]}>
-                        <Text style={styles.tableCellText}>{formatDate(event.startDate)}</Text>
+                        <Text style={styles.tableCellText}>{formatDate(pkg.createdAt)}</Text>
                       </View>
                       <View style={[styles.tableCell, styles.dateColumn]}>
-                        <Text style={styles.tableCellText}>{formatDate(event.endDate)}</Text>
+                        <Text style={styles.tableCellText}>-</Text>
                       </View>
                       <View style={[styles.tableCell, styles.roleColumn]}>
                         <View style={[styles.roleBadge, { backgroundColor: roleBadge.color + '20' }]}>
@@ -308,13 +312,13 @@ export default function ManagePackages() {
                       <View style={[styles.tableCell, styles.statusColumn]}>
                         <View style={[
                           styles.statusBadge,
-                          { backgroundColor: event.isActive ? '#10b98120' : '#ef444420' }
+                          { backgroundColor: pkg.approvalStatus === 'APPROVED' ? '#10b98120' : '#ef444420' }
                         ]}>
                           <Text style={[
                             styles.statusText,
-                            { color: event.isActive ? '#10b981' : '#ef4444' }
+                            { color: pkg.approvalStatus === 'APPROVED' ? '#10b981' : '#ef4444' }
                           ]}>
-                            {event.isActive ? 'Active' : 'Inactive'}
+                            {pkg.approvalStatus}
                           </Text>
                         </View>
                       </View>
@@ -323,9 +327,11 @@ export default function ManagePackages() {
                           <TouchableOpacity
                             style={styles.iconButton}
                             onPress={() => {
-                              if (Platform.OS === 'web') {
-                                (window as any).open(`/event-detail?id=${event.id}`, '_blank');
-                              }
+                              Alert.alert(
+                                pkg.title,
+                                `${pkg.description}\n\n💰 Price: ₹${pkg.price.toLocaleString()}\n📅 Duration: ${pkg.duration} Days\n✅ Status: ${pkg.approvalStatus}`,
+                                [{ text: 'Close' }]
+                              );
                             }}
                           >
                             <Ionicons name="eye" size={18} color="#3b82f6" />
@@ -334,7 +340,7 @@ export default function ManagePackages() {
                             style={[styles.iconButton, styles.callbackButton]}
                             onPress={() => {
                               if (Platform.OS === 'web') {
-                                (window as any).open(`/event-callback-requests?packageId=${event.id}`, '_blank');
+                                router.push(`/(admin)/package-callback-requests?packageId=${pkg.id}` as any);
                               }
                             }}
                           >
@@ -342,23 +348,23 @@ export default function ManagePackages() {
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.iconButton}
-                            onPress={() => handleEdit(event.id)}
+                            onPress={() => handleEdit(pkg.id)}
                           >
                             <Ionicons name="create" size={18} color="#6366f1" />
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.iconButton}
-                            onPress={() => handleToggleStatus(event.id, event.isActive)}
+                            onPress={() => handleToggleStatus(pkg.id, pkg.approvalStatus)}
                           >
                             <Ionicons 
-                              name={event.isActive ? 'pause-circle' : 'play-circle'} 
+                              name={pkg.approvalStatus === 'APPROVED' ? 'checkmark-circle' : 'close-circle'} 
                               size={18} 
-                              color={event.isActive ? '#f59e0b' : '#10b981'} 
+                              color={pkg.approvalStatus === 'APPROVED' ? '#10b981' : '#f59e0b'} 
                             />
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.iconButton}
-                            onPress={() => handleDelete(event.id, event.title)}
+                            onPress={() => handleDelete(pkg.id, pkg.title)}
                           >
                             <Ionicons name="trash" size={18} color="#ef4444" />
                           </TouchableOpacity>

@@ -14,6 +14,7 @@ router.get('/:id/callback-requests', authenticate, packageController.getPackageC
 router.post('/', authenticate, packageController.createPackage);
 router.post('/:id/interest', authenticate, packageController.expressInterest);
 router.post('/:id/callback-request', packageController.createCallbackRequest);
+router.patch('/:id/status', authenticate, packageController.updatePackageStatus);
 router.delete('/:id', authenticate, packageController.deletePackage);
 
 export default router;

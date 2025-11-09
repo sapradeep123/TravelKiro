@@ -219,6 +219,34 @@ export class PackageController {
       }
     }
   }
+  async updatePackageStatus(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+      const { id } = req.params;
+      const { approvalStatus } = req.body;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      if (!approvalStatus || !['APPROVED', 'PENDING', 'REJECTED'].includes(approvalStatus)) {
+        return res.status(400).json({ error: 'Valid approval status is required' });
+      }
+
+      const pkg = await packageService.updatePackageStatus(id, approvalStatus, user.userId, user.role);
+
+      res.status(200).json({
+        message: 'Package status updated successfully',
+        data: pkg,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
 }
 
 export default new PackageController();

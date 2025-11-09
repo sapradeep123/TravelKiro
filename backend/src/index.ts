@@ -13,6 +13,7 @@ import groupTravelRoutes from './routes/groupTravel';
 import approvalRoutes from './routes/approvals';
 import notificationRoutes from './routes/notifications';
 import seedRoutes from './routes/seed';
+import eventTypeRoutes from './routes/eventTypes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -46,6 +47,7 @@ app.use('/api/group-travel', groupTravelRoutes);
 app.use('/api/approvals', approvalRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/seed', seedRoutes);
+app.use('/api/event-types', eventTypeRoutes);
 
 // Error handling
 app.use(notFoundHandler);

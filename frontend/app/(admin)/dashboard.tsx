@@ -57,6 +57,15 @@ export default function AdminDashboard() {
       roles: ['SITE_ADMIN', 'GOVT_DEPARTMENT']
     },
     {
+      id: 'event-types',
+      title: 'Event Types',
+      description: 'Manage event categories and types',
+      icon: 'pricetags',
+      color: '#14b8a6',
+      route: '/(admin)/manage-event-types',
+      roles: ['SITE_ADMIN']
+    },
+    {
       id: 'packages',
       title: 'Manage Packages',
       description: 'View and manage travel packages',

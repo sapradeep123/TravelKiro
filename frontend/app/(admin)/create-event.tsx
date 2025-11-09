@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -6,18 +6,12 @@ import api from '../../src/services/api';
 import WebHeader from '../../components/WebHeader';
 import WebFooter from '../../components/WebFooter';
 
-const EVENT_TYPES = [
-  'Festival',
-  'Concert',
-  'Sports',
-  'Cultural',
-  'Religious',
-  'Exhibition',
-  'Conference',
-  'Workshop',
-  'Food & Drink',
-  'Other'
-];
+interface EventType {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+}
 
 interface FormData {
   title: string;
@@ -42,6 +36,8 @@ export default function CreateEvent() {
   const isWeb = Platform.OS === 'web';
   const [submitting, setSubmitting] = useState(false);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const [eventTypes, setEventTypes] = useState<EventType[]>([]);
+  const [loadingTypes, setLoadingTypes] = useState(true);
   
   const [formData, setFormData] = useState<FormData>({
     title: '',
@@ -60,6 +56,23 @@ export default function CreateEvent() {
     nearestBusStation: '',
     busStationDistance: '',
   });
+
+  useEffect(() => {
+    fetchEventTypes();
+  }, []);
+
+  const fetchEventTypes = async () => {
+    try {
+      setLoadingTypes(true);
+      const response = await api.get('/event-types?isActive=true');
+      setEventTypes(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching event types:', error);
+      Alert.alert('Error', 'Failed to load event types');
+    } finally {
+      setLoadingTypes(false);
+    }
+  };
 
   const getTomorrowDate = () => {
     const tomorrow = new Date();
@@ -168,18 +181,31 @@ export default function CreateEvent() {
                 </TouchableOpacity>
                 {showTypeDropdown && (
                   <View style={styles.dropdownMenu}>
-                    {EVENT_TYPES.map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setFormData({ ...formData, eventType: type });
-                          setShowTypeDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.dropdownItemText}>{type}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {loadingTypes ? (
+                      <View style={styles.dropdownItem}>
+                        <ActivityIndicator size="small" color="#6366f1" />
+                      </View>
+                    ) : eventTypes.length > 0 ? (
+                      eventTypes.map((type) => (
+                        <TouchableOpacity
+                          key={type.id}
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            setFormData({ ...formData, eventType: type.name });
+                            setShowTypeDropdown(false);
+                          }}
+                        >
+                          <Text style={styles.dropdownItemText}>{type.name}</Text>
+                          {type.description && (
+                            <Text style={styles.dropdownItemDesc}>{type.description}</Text>
+                          )}
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <View style={styles.dropdownItem}>
+                        <Text style={styles.dropdownItemText}>No event types available</Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -491,6 +517,11 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     fontSize: 14,
     color: '#111827',
+  },
+  dropdownItemDesc: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
   },
   row: {
     flexDirection: 'row',

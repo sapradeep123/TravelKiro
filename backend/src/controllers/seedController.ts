@@ -2,6 +2,42 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 
 export class SeedController {
+  async seedEventTypes(req: Request, res: Response) {
+    try {
+      // Delete existing event types
+      await prisma.eventType.deleteMany({});
+
+      // Create default event types
+      const eventTypes = [
+        { name: 'Festival', description: 'Cultural and traditional festivals' },
+        { name: 'Concert', description: 'Music concerts and performances' },
+        { name: 'Sports', description: 'Sports events and competitions' },
+        { name: 'Cultural', description: 'Cultural events and exhibitions' },
+        { name: 'Religious', description: 'Religious ceremonies and gatherings' },
+        { name: 'Exhibition', description: 'Trade shows and exhibitions' },
+        { name: 'Conference', description: 'Professional conferences and seminars' },
+        { name: 'Workshop', description: 'Educational workshops and training' },
+        { name: 'Food & Drink', description: 'Food festivals and culinary events' },
+        { name: 'Official', description: 'Official government events' },
+        { name: 'Educational', description: 'Educational programs and seminars' },
+        { name: 'Other', description: 'Other types of events' }
+      ];
+
+      const createdTypes = await Promise.all(
+        eventTypes.map(type => prisma.eventType.create({ data: type }))
+      );
+
+      res.status(200).json({
+        message: 'Successfully seeded event types',
+        count: createdTypes.length,
+        data: createdTypes
+      });
+    } catch (error) {
+      console.error('Error seeding event types:', error);
+      res.status(500).json({ error: 'Failed to seed event types' });
+    }
+  }
+
   async seedEvents(req: Request, res: Response) {
     try {
       // Get or create users

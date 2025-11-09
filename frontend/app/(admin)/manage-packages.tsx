@@ -41,14 +41,14 @@ export default function ManagePackages() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    fetchpackages();
+    fetchPackages();
   }, []);
 
   useEffect(() => {
-    filterpackages();
+    filterPackages();
   }, [packages, activeTab, searchQuery]);
 
-  const fetchpackages = async () => {
+  const fetchPackages = async () => {
     try {
       setLoading(true);
       const response = await api.get('/packages?approvalStatus=all');
@@ -66,7 +66,7 @@ export default function ManagePackages() {
     }
   };
 
-  const filterpackages = () => {
+  const filterPackages = () => {
     let filtered = [...packages];
 
     // Filter by tab

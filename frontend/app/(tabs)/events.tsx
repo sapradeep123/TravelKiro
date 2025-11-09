@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, Image, RefreshControl, Alert, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
-import { Card, Text, Chip, ActivityIndicator, Button, IconButton, Searchbar, Menu } from 'react-native-paper';
+import { View, FlatList, StyleSheet, Image, RefreshControl, Alert, TouchableOpacity, useWindowDimensions, Platform, Modal, ScrollView } from 'react-native';
+import { Card, Text, Chip, ActivityIndicator, Button, IconButton, Searchbar, Menu, TextInput, Portal, Dialog } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { eventService } from '../../src/services/eventService';
 import { Event } from '../../src/types';
@@ -15,6 +15,15 @@ export default function EventsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMenuVisible, setFilterMenuVisible] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'approved' | 'pending'>('all');
+  const [callbackModalVisible, setCallbackModalVisible] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [callbackForm, setCallbackForm] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    message: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
@@ -93,12 +102,45 @@ export default function EventsScreen() {
     return (availableWidth - (gap * (numColumns - 1))) / numColumns - 16; // Account for card margins
   };
 
-  const handleExpressInterest = async (eventId: string, eventTitle: string) => {
+  const handleExpressInterest = (event: Event) => {
+    setSelectedEvent(event);
+    setCallbackForm({
+      name: user?.profile?.name || '',
+      phone: user?.profile?.phone || '',
+      email: user?.email || '',
+      message: '',
+    });
+    setCallbackModalVisible(true);
+  };
+
+  const handleSubmitCallback = async () => {
+    if (!selectedEvent) return;
+
+    if (!callbackForm.name.trim() || !callbackForm.phone.trim()) {
+      Alert.alert('Error', 'Please provide your name and phone number');
+      return;
+    }
+
     try {
-      await eventService.expressInterest(eventId);
-      Alert.alert('Success', `You expressed interest in "${eventTitle}". The host will contact you soon!`);
+      setSubmitting(true);
+      await eventService.createCallbackRequest(selectedEvent.id, {
+        name: callbackForm.name,
+        phone: callbackForm.phone,
+        email: callbackForm.email,
+        message: callbackForm.message,
+      });
+      
+      Alert.alert(
+        'Success!', 
+        `Your callback request for "${selectedEvent.title}" has been submitted. The event host will contact you soon!`
+      );
+      
+      setCallbackModalVisible(false);
+      setCallbackForm({ name: '', phone: '', email: '', message: '' });
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.error || 'Could not express interest');
+      Alert.alert('Error', error.response?.data?.error || 'Could not submit callback request');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -113,7 +155,7 @@ export default function EventsScreen() {
 
   const showEventDetails = (item: Event) => {
     // Navigate to event detail page
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       (window as any).location.href = `/event-detail?id=${item.id}`;
     } else {
       // For mobile, you would use router.push
@@ -174,6 +216,20 @@ export default function EventsScreen() {
               {item.approvalStatus}
             </Chip>
           </View>
+          {item.approvalStatus === 'APPROVED' && (
+            <Button
+              mode="contained"
+              icon="phone"
+              onPress={(e) => {
+                e.stopPropagation();
+                handleExpressInterest(item);
+              }}
+              style={styles.interestButton}
+              labelStyle={styles.interestButtonLabel}
+            >
+              Request Callback
+            </Button>
+          )}
         </Card.Content>
       </Card>
     </TouchableOpacity>
@@ -286,6 +342,91 @@ export default function EventsScreen() {
           </View>
         }
       />
+
+      {/* Callback Request Modal */}
+      <Portal>
+        <Dialog 
+          visible={callbackModalVisible} 
+          onDismiss={() => setCallbackModalVisible(false)}
+          style={styles.dialog}
+        >
+          <Dialog.Title style={styles.dialogTitle}>Request Callback</Dialog.Title>
+          <Dialog.Content>
+            <ScrollView>
+              {selectedEvent && (
+                <View style={styles.eventInfo}>
+                  <Text variant="titleMedium" style={styles.eventInfoTitle}>
+                    {selectedEvent.title}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.eventInfoDate}>
+                    📅 {formatDate(selectedEvent.startDate)}
+                  </Text>
+                </View>
+              )}
+              
+              <TextInput
+                label="Your Name *"
+                value={callbackForm.name}
+                onChangeText={(text) => setCallbackForm({ ...callbackForm, name: text })}
+                mode="outlined"
+                style={styles.input}
+                disabled={submitting}
+              />
+              
+              <TextInput
+                label="Phone Number *"
+                value={callbackForm.phone}
+                onChangeText={(text) => setCallbackForm({ ...callbackForm, phone: text })}
+                mode="outlined"
+                keyboardType="phone-pad"
+                style={styles.input}
+                disabled={submitting}
+              />
+              
+              <TextInput
+                label="Email (Optional)"
+                value={callbackForm.email}
+                onChangeText={(text) => setCallbackForm({ ...callbackForm, email: text })}
+                mode="outlined"
+                keyboardType="email-address"
+                style={styles.input}
+                disabled={submitting}
+              />
+              
+              <TextInput
+                label="Message (Optional)"
+                value={callbackForm.message}
+                onChangeText={(text) => setCallbackForm({ ...callbackForm, message: text })}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                style={styles.input}
+                disabled={submitting}
+              />
+              
+              <Text variant="bodySmall" style={styles.helperText}>
+                The event host will contact you at the provided phone number.
+              </Text>
+            </ScrollView>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button 
+              onPress={() => setCallbackModalVisible(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onPress={handleSubmitCallback}
+              mode="contained"
+              loading={submitting}
+              disabled={submitting}
+            >
+              Submit Request
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -482,5 +623,41 @@ const styles = StyleSheet.create({
   emptySubtext: {
     color: '#6c757d',
     textAlign: 'center',
+  },
+  interestButtonLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  dialog: {
+    maxWidth: 500,
+    alignSelf: 'center',
+    width: '90%',
+  },
+  dialogTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  eventInfo: {
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  eventInfoTitle: {
+    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  eventInfoDate: {
+    color: '#666',
+  },
+  input: {
+    marginBottom: 12,
+  },
+  helperText: {
+    color: '#666',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

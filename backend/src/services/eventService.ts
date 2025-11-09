@@ -285,6 +285,129 @@ export class EventService {
 
     return { message: 'Event deleted successfully' };
   }
+
+  async createCallbackRequest(data: {
+    eventId: string;
+    name: string;
+    phone: string;
+    email?: string;
+    message?: string;
+    userId?: string;
+  }) {
+    const event = await prisma.event.findUnique({
+      where: { id: data.eventId },
+    });
+
+    if (!event) {
+      throw new Error('Event not found');
+    }
+
+    if (event.approvalStatus !== 'APPROVED') {
+      throw new Error('Cannot request callback for unapproved event');
+    }
+
+    const callbackRequest = await prisma.eventCallbackRequest.create({
+      data: {
+        eventId: data.eventId,
+        name: data.name,
+        phone: data.phone,
+        email: data.email,
+        message: data.message,
+        userId: data.userId,
+      },
+    });
+
+    // Create notification for event host
+    await prisma.notification.create({
+      data: {
+        userId: event.hostId,
+        title: 'New Callback Request',
+        message: `${data.name} requested a callback for your event: ${event.title}`,
+      },
+    });
+
+    return callbackRequest;
+  }
+
+  async getEventCallbackRequests(eventId: string, userId: string, userRole: UserRole) {
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      throw new Error('Event not found');
+    }
+
+    // Only event host or admin can view callback requests
+    if (event.hostId !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('Unauthorized to view callback requests');
+    }
+
+    const requests = await prisma.eventCallbackRequest.findMany({
+      where: { eventId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return requests;
+  }
+
+  async getAllCallbackRequests(userId: string, userRole: UserRole) {
+    if (userRole === 'SITE_ADMIN') {
+      // Admin can see all callback requests
+      const requests = await prisma.$queryRaw`
+        SELECT ecr.*, 
+               e.id as "event_id", 
+               e.title as "event_title",
+               e."hostId" as "event_hostId",
+               up.name as "host_name"
+        FROM event_callback_requests ecr
+        LEFT JOIN events e ON ecr."eventId" = e.id
+        LEFT JOIN users u ON e."hostId" = u.id
+        LEFT JOIN user_profiles up ON u.id = up."userId"
+        ORDER BY ecr."createdAt" DESC
+      `;
+      return requests;
+    } else if (userRole === 'GOVT_DEPARTMENT' || userRole === 'TOURIST_GUIDE') {
+      // Hosts can see callback requests for their events
+      const requests = await prisma.$queryRaw`
+        SELECT ecr.*, 
+               e.id as "event_id", 
+               e.title as "event_title"
+        FROM event_callback_requests ecr
+        LEFT JOIN events e ON ecr."eventId" = e.id
+        WHERE e."hostId" = ${userId}
+        ORDER BY ecr."createdAt" DESC
+      `;
+      return requests;
+    } else {
+      throw new Error('Unauthorized to view callback requests');
+    }
+  }
+
+  async markAsContacted(requestId: string, userId: string, userRole: UserRole) {
+    const request = await prisma.eventCallbackRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        event: true,
+      },
+    });
+
+    if (!request) {
+      throw new Error('Callback request not found');
+    }
+
+    // Only event host or admin can mark as contacted
+    if (request.event.hostId !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('Unauthorized to update this callback request');
+    }
+
+    const updated = await prisma.eventCallbackRequest.update({
+      where: { id: requestId },
+      data: { isContacted: true },
+    });
+
+    return updated;
+  }
 }
 
 export default new EventService();

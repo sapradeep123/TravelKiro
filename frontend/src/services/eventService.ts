@@ -35,4 +35,27 @@ export const eventService = {
     const response = await api.post('/events', data);
     return response.data.data;
   },
+
+  async createCallbackRequest(eventId: string, data: {
+    name: string;
+    phone: string;
+    email?: string;
+    message?: string;
+  }): Promise<void> {
+    await api.post(`/events/${eventId}/callback-request`, data);
+  },
+
+  async getEventCallbackRequests(eventId: string): Promise<any[]> {
+    const response = await api.get(`/events/${eventId}/callback-requests`);
+    return response.data.data;
+  },
+
+  async getAllCallbackRequests(): Promise<any[]> {
+    const response = await api.get('/events/callback-requests/all');
+    return response.data.data;
+  },
+
+  async markAsContacted(requestId: string): Promise<void> {
+    await api.patch(`/events/callback-requests/${requestId}/contacted`);
+  },
 };

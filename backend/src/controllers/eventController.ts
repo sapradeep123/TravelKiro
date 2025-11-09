@@ -238,6 +238,103 @@ export class EventController {
       }
     }
   }
+
+  async createCallbackRequest(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { name, phone, email, message } = req.body;
+      const user = (req as AuthRequest).user;
+
+      if (!name || !phone) {
+        return res.status(400).json({ error: 'Name and phone are required' });
+      }
+
+      const callbackRequest = await eventService.createCallbackRequest({
+        eventId: id,
+        name,
+        phone,
+        email,
+        message,
+        userId: user?.userId,
+      });
+
+      res.status(201).json({
+        message: 'Callback request submitted successfully',
+        data: callbackRequest,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
+  async getEventCallbackRequests(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+      const { id } = req.params;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const requests = await eventService.getEventCallbackRequests(id, user.userId, user.role);
+
+      res.status(200).json({ data: requests });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
+  async getAllCallbackRequests(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const requests = await eventService.getAllCallbackRequests(user.userId, user.role);
+
+      res.status(200).json({ data: requests });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
+  async markAsContacted(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+      const { requestId } = req.params;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const request = await eventService.markAsContacted(requestId, user.userId, user.role);
+
+      res.status(200).json({
+        message: 'Marked as contacted',
+        data: request,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
 }
 
 export default new EventController();

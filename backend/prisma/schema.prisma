@@ -206,6 +206,21 @@ model EventInterest {
   @@map("event_interests")
 }
 
+model EventCallbackRequest {
+  id          String   @id @default(uuid())
+  eventId     String
+  name        String
+  phone       String
+  email       String?
+  message     String?
+  userId      String?  // Optional - if user is logged in
+  isContacted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("event_callback_requests")
+}
+
 model Package {
   id             String         @id @default(uuid())
   title          String

@@ -96,7 +96,7 @@ export default function PackagesScreen() {
     setFilterMenuVisible(false);
   };
 
-  const handleExpressInterest = (pkg: Package) => {
+  const handleRequestCallback = (pkg: Package) => {
     setSelectedPackage(pkg);
     setCallbackForm({
       name: user?.profile?.name || '',
@@ -258,7 +258,7 @@ export default function PackagesScreen() {
               icon="phone"
               onPress={(e) => {
                 e.stopPropagation();
-                handleExpressInterest(item);
+                handleRequestCallback(item);
               }}
               style={styles.interestButton}
               labelStyle={styles.interestButtonLabel}

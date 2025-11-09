@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import WebHeader from '../../components/WebHeader';
 import WebFooter from '../../components/WebFooter';
 import { Ionicons } from '@expo/vector-icons';
+import { Event } from '../../src/types';
 
 // Declare window for web platform
 declare const window: any;
@@ -21,15 +22,6 @@ interface CallbackRequest {
   message?: string;
   isContacted: boolean;
   createdAt: string;
-}
-
-interface Event {
-  id: string;
-  title: string;
-  startDate: string;
-  endDate: string;
-  venue?: string;
-  eventType: string;
 }
 
 export default function EventCallbackRequestsScreen() {

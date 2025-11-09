@@ -29,6 +29,7 @@ export default function AdminLayout() {
       <Stack.Screen name="create-event" />
       <Stack.Screen name="edit-event" />
       <Stack.Screen name="manage-event-types" />
+      <Stack.Screen name="packages" />
       <Stack.Screen name="approvals" />
     </Stack>
   );

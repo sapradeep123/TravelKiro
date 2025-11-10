@@ -19,6 +19,20 @@ export class PackageController {
         });
       }
 
+      // Validate location - either locationId or custom location must be provided
+      if (!locationId && (!customCountry || !customState || !customArea)) {
+        return res.status(400).json({
+          error: 'Location is required - provide either locationId or custom location (country, state, area)',
+        });
+      }
+
+      // Validate itinerary has at least one day
+      if (!Array.isArray(itinerary) || itinerary.length === 0) {
+        return res.status(400).json({
+          error: 'Itinerary must have at least one day with activities',
+        });
+      }
+
       const pkg = await packageService.createPackage({
         title,
         description,
@@ -102,6 +116,27 @@ export class PackageController {
     }
   }
 
+  async archivePackage(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+      const { id } = req.params;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const result = await packageService.archivePackage(id, user.userId, user.role);
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
   async deletePackage(req: Request, res: Response) {
     try {
       const user = (req as AuthRequest).user;
@@ -159,12 +194,18 @@ export class PackageController {
     try {
       const user = (req as AuthRequest).user;
       const { id } = req.params;
+      const { status } = req.query;
 
       if (!user) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const requests = await packageService.getPackageCallbackRequests(id, user.userId, user.role);
+      const requests = await packageService.getPackageCallbackRequests(
+        id,
+        user.userId,
+        user.role,
+        status as string | undefined
+      );
 
       res.status(200).json({ data: requests });
     } catch (error) {
@@ -187,6 +228,39 @@ export class PackageController {
       const requests = await packageService.getAllCallbackRequests(user.userId, user.role);
 
       res.status(200).json({ data: requests });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
+  async updateCallbackStatus(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+      const { requestId } = req.params;
+      const { status, notes, rescheduleDate } = req.body;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      if (!status) {
+        return res.status(400).json({ error: 'Status is required' });
+      }
+
+      const request = await packageService.updateCallbackStatus(requestId, user.userId, user.role, {
+        status,
+        notes,
+        rescheduleDate: rescheduleDate ? new Date(rescheduleDate) : undefined,
+      });
+
+      res.status(200).json({
+        message: 'Callback status updated successfully',
+        data: request,
+      });
     } catch (error) {
       if (error instanceof Error) {
         res.status(403).json({ error: error.message });
@@ -219,6 +293,71 @@ export class PackageController {
       }
     }
   }
+  async updatePackage(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+      const { id } = req.params;
+      const { title, description, duration, locationId, customCountry, customState, customArea, price, images, itinerary } = req.body;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const pkg = await packageService.updatePackage(id, user.userId, user.role, {
+        title,
+        description,
+        duration,
+        locationId,
+        customCountry,
+        customState,
+        customArea,
+        price,
+        images,
+        itinerary,
+      });
+
+      res.status(200).json({
+        message: 'Package updated successfully',
+        data: pkg,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
+  async togglePackageActiveStatus(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+      const { id } = req.params;
+      const { isActive } = req.body;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ error: 'isActive must be a boolean value' });
+      }
+
+      const pkg = await packageService.togglePackageActiveStatus(id, isActive, user.userId, user.role);
+
+      res.status(200).json({
+        message: `Package ${isActive ? 'activated' : 'deactivated'} successfully`,
+        data: pkg,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
   async updatePackageStatus(req: Request, res: Response) {
     try {
       const user = (req as AuthRequest).user;

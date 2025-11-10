@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import api from '../../src/services/api';
 import WebHeader from '../../components/WebHeader';
 import WebFooter from '../../components/WebFooter';
+import PackageDetailModal from '../../components/PackageDetailModal';
+import CallbackManagementModal from '../../components/CallbackManagementModal';
 
 declare const window: any;
 
@@ -17,6 +19,7 @@ interface Package {
   images: string[];
   hostRole: string;
   approvalStatus: string;
+  isActive?: boolean;
   createdAt: string;
   host?: {
     profile: {
@@ -27,6 +30,11 @@ interface Package {
     day: number;
     title: string;
   }>;
+  _count?: {
+    callbackRequests?: number;
+    pendingCallbacks?: number;
+    urgentCallbacks?: number;
+  };
 }
 
 type TabType = 'all' | 'active' | 'inactive';
@@ -39,6 +47,10 @@ export default function ManagePackages() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [selectedPackageTitle, setSelectedPackageTitle] = useState<string>('');
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [callbackModalVisible, setCallbackModalVisible] = useState(false);
   const isWeb = Platform.OS === 'web';
   const itemsPerPage = 10;
 
@@ -96,26 +108,55 @@ export default function ManagePackages() {
     // TODO: router.push(`/(admin)/edit-package?id=${packageId}` as any);
   };
 
-  const handleDelete = (packageId: string, packageTitle: string) => {
+  const handleArchive = (packageId: string, packageTitle: string) => {
     Alert.alert(
-      'Delete Package',
-      `Are you sure you want to delete "${packageTitle}"? This action cannot be undone.`,
+      'Archive Package',
+      `Are you sure you want to archive "${packageTitle}"? The package will be hidden from the list but can be restored later.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => performDelete(packageId) }
+        { text: 'Archive', style: 'destructive', onPress: () => performArchive(packageId) }
       ]
     );
   };
 
-  const performDelete = async (packageId: string) => {
+  const performArchive = async (packageId: string) => {
     try {
-      await api.delete(`/packages/${packageId}`);
+      await api.patch(`/packages/${packageId}/archive`);
       setPackages(packages.filter(pkg => pkg.id !== packageId));
-      Alert.alert('Success', 'Package deleted successfully');
+      Alert.alert('Success', 'Package archived successfully');
     } catch (error) {
-      console.error('Error deleting package:', error);
-      Alert.alert('Error', 'Failed to delete package');
+      console.error('Error archiving package:', error);
+      Alert.alert('Error', 'Failed to archive package');
     }
+  };
+
+  const handleToggleActiveStatus = async (packageId: string, currentIsActive: boolean, packageTitle: string) => {
+    const newStatus = !currentIsActive;
+    const action = newStatus ? 'activate' : 'deactivate';
+    
+    Alert.alert(
+      `${action === 'activate' ? 'Activate' : 'Deactivate'} Package`,
+      `Are you sure you want to ${action} "${packageTitle}"? ${newStatus ? 'It will be visible on the frontend.' : 'It will be hidden from the frontend.'}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: action === 'activate' ? 'Activate' : 'Deactivate',
+          style: action === 'activate' ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              await api.patch(`/packages/${packageId}/active-status`, { isActive: newStatus });
+              setPackages(packages.map(pkg => 
+                pkg.id === packageId ? { ...pkg, isActive: newStatus } : pkg
+              ));
+              Alert.alert('Success', `Package ${action}d successfully`);
+            } catch (error) {
+              console.error(`Error ${action}ing package:`, error);
+              Alert.alert('Error', `Failed to ${action} package`);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleToggleStatus = async (packageId: string, currentStatus: string) => {
@@ -327,11 +368,8 @@ export default function ManagePackages() {
                           <TouchableOpacity
                             style={styles.iconButton}
                             onPress={() => {
-                              Alert.alert(
-                                pkg.title,
-                                `${pkg.description}\n\n💰 Price: ₹${pkg.price.toLocaleString()}\n📅 Duration: ${pkg.duration} Days\n✅ Status: ${pkg.approvalStatus}`,
-                                [{ text: 'Close' }]
-                              );
+                              setSelectedPackageId(pkg.id);
+                              setDetailModalVisible(true);
                             }}
                           >
                             <Ionicons name="eye" size={18} color="#3b82f6" />
@@ -339,12 +377,22 @@ export default function ManagePackages() {
                           <TouchableOpacity
                             style={[styles.iconButton, styles.callbackButton]}
                             onPress={() => {
-                              if (Platform.OS === 'web') {
-                                router.push(`/(admin)/package-callback-requests?packageId=${pkg.id}` as any);
-                              }
+                              setSelectedPackageId(pkg.id);
+                              setSelectedPackageTitle(pkg.title);
+                              setCallbackModalVisible(true);
                             }}
                           >
                             <Ionicons name="call" size={18} color="#10b981" />
+                            {pkg._count && (pkg._count.pendingCallbacks || 0) > 0 && (
+                              <View style={[
+                                styles.badge,
+                                pkg._count.urgentCallbacks && pkg._count.urgentCallbacks > 0 ? styles.badgeUrgent : null
+                              ]}>
+                                <Text style={styles.badgeText}>
+                                  {pkg._count.pendingCallbacks}
+                                </Text>
+                              </View>
+                            )}
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.iconButton}
@@ -354,19 +402,19 @@ export default function ManagePackages() {
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.iconButton}
-                            onPress={() => handleToggleStatus(pkg.id, pkg.approvalStatus)}
+                            onPress={() => handleToggleActiveStatus(pkg.id, pkg.isActive !== false, pkg.title)}
                           >
                             <Ionicons 
-                              name={pkg.approvalStatus === 'APPROVED' ? 'checkmark-circle' : 'close-circle'} 
+                              name={pkg.isActive !== false ? 'checkmark-circle' : 'pause-circle'} 
                               size={18} 
-                              color={pkg.approvalStatus === 'APPROVED' ? '#10b981' : '#f59e0b'} 
+                              color={pkg.isActive !== false ? '#10b981' : '#f59e0b'} 
                             />
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.iconButton}
-                            onPress={() => handleDelete(pkg.id, pkg.title)}
+                            onPress={() => handleArchive(pkg.id, pkg.title)}
                           >
-                            <Ionicons name="trash" size={18} color="#ef4444" />
+                            <Ionicons name="archive" size={18} color="#ef4444" />
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -413,6 +461,32 @@ export default function ManagePackages() {
         </View>
         {isWeb && <WebFooter />}
       </ScrollView>
+
+      {/* Package Detail Modal */}
+      {selectedPackageId && (
+        <PackageDetailModal
+          packageId={selectedPackageId}
+          visible={detailModalVisible}
+          onClose={() => {
+            setDetailModalVisible(false);
+            setSelectedPackageId(null);
+          }}
+        />
+      )}
+
+      {/* Callback Management Modal */}
+      {selectedPackageId && (
+        <CallbackManagementModal
+          packageId={selectedPackageId}
+          packageTitle={selectedPackageTitle}
+          visible={callbackModalVisible}
+          onClose={() => {
+            setCallbackModalVisible(false);
+            setSelectedPackageId(null);
+            setSelectedPackageTitle('');
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -631,6 +705,27 @@ const styles = StyleSheet.create({
   },
   callbackButton: {
     backgroundColor: '#d1fae5',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#f59e0b',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeUrgent: {
+    backgroundColor: '#ef4444',
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   pagination: {
     flexDirection: 'row',

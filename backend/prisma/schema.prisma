@@ -86,11 +86,12 @@ model User {
   messages             ChatMessage[]
   chatRequestsSent     ChatRequest[]         @relation("ChatRequestSender")
   chatRequestsReceived ChatRequest[]         @relation("ChatRequestReceiver")
-  notifications        Notification[]
-  comments             Comment[]
-  postLikes            PostLike[]
-  groupTravelInterests GroupTravelInterest[]
-  approvedContent      ApprovalQueue[]
+  notifications          Notification[]
+  comments               Comment[]
+  postLikes              PostLike[]
+  groupTravelInterests   GroupTravelInterest[]
+  approvedContent        ApprovalQueue[]
+  callbackStatusChanges  CallbackStatusHistory[]
 
   @@map("users")
 }
@@ -210,8 +211,9 @@ model EventInterest {
 enum CallbackStatus {
   PENDING
   CONTACTED
+  RESCHEDULED
   NOT_INTERESTED
-  FOLLOW_UP_REQUIRED
+  BOOKING_COMPLETED
 }
 
 model EventCallbackRequest {
@@ -248,6 +250,10 @@ model Package {
   hostId         String
   hostRole       UserRole
   approvalStatus ApprovalStatus @default(PENDING)
+  isActive       Boolean        @default(true)
+  isArchived     Boolean        @default(false)
+  archivedAt     DateTime?
+  archivedBy     String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -288,20 +294,39 @@ model PackageInterest {
 }
 
 model PackageCallbackRequest {
-  id          String   @id @default(uuid())
-  packageId   String
-  name        String
-  phone       String
-  email       String?
-  message     String?
-  userId      String?  // Optional - if user is logged in
-  isContacted Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String         @id @default(uuid())
+  packageId       String
+  name            String
+  phone           String
+  email           String?
+  message         String?
+  userId          String?        // Optional - if user is logged in
+  status          CallbackStatus @default(PENDING)
+  notes           String?
+  rescheduleDate  DateTime?
+  contactedAt     DateTime?
+  contactedBy     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  package       Package                   @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  statusHistory CallbackStatusHistory[]
 
   @@map("package_callback_requests")
+}
+
+model CallbackStatusHistory {
+  id                String         @id @default(uuid())
+  callbackRequestId String
+  status            CallbackStatus
+  notes             String?
+  changedBy         String
+  createdAt         DateTime       @default(now())
+
+  callbackRequest PackageCallbackRequest @relation(fields: [callbackRequestId], references: [id], onDelete: Cascade)
+  user            User                   @relation(fields: [changedBy], references: [id])
+
+  @@map("callback_status_history")
 }
 
 model Accommodation {

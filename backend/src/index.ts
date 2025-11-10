@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import adminRoutes from './routes/admin';
@@ -28,6 +29,19 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from uploads directory with caching
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+  maxAge: '7d', // Cache for 7 days
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filepath) => {
+    // Set cache control headers
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    // Set CORS headers for images
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+}));
 
 // Health check
 app.get('/health', (req, res) => {

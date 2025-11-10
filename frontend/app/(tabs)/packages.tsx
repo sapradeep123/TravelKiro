@@ -140,37 +140,18 @@ export default function PackagesScreen() {
     });
   };
 
-  const handleExpressInterest = async (packageId: string, packageTitle: string) => {
-    try {
-      await packageService.expressInterest(packageId);
-      Alert.alert('Success', `You expressed interest in "${packageTitle}". The host will contact you soon!`);
-    } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.error || 'Could not express interest');
-    }
-  };
+
 
   const showPackageDetails = (item: Package) => {
-    console.log('Package clicked:', item.title);
-    const itineraryText = item.itinerary && item.itinerary.length > 0 
-      ? '\n\nItinerary:\n' + item.itinerary.map(day => `Day ${day.day}: ${day.title}`).join('\n')
-      : '';
-    
-    const buttons: any[] = [
-      { text: 'Close', style: 'cancel' }
-    ];
-    
-    if (item.approvalStatus === 'APPROVED') {
-      buttons.push({
-        text: 'Express Interest',
-        onPress: () => handleExpressInterest(item.id, item.title)
-      });
+    // Navigate to package detail page
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.location) {
+        window.location.href = `/package-detail?id=${item.id}`;
+      }
+    } else {
+      // For mobile, you would use router.push
+      console.log('Navigate to package detail:', item.id);
     }
-    
-    Alert.alert(
-      item.title,
-      `${item.description}\n\n💰 Price: ₹${item.price.toLocaleString()}\n📅 Duration: ${item.duration} Days${itineraryText}\n\n✅ Status: ${item.approvalStatus}`,
-      buttons
-    );
   };
 
   const renderPackage = ({ item }: { item: Package }) => (

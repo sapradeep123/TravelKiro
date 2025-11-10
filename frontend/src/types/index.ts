@@ -68,6 +68,11 @@ export interface Package {
   images: string[];
   itinerary: ItineraryDay[];
   approvalStatus: string;
+  locationId?: string;
+  location?: Location;
+  customCountry?: string;
+  customState?: string;
+  customArea?: string;
 }
 
 export interface ItineraryDay {

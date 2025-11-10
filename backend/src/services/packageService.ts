@@ -68,8 +68,12 @@ export class PackageService {
   async getAllPackages(filters?: {
     locationId?: string;
     approvalStatus?: ApprovalStatus;
+    includeArchived?: boolean;
   }) {
-    const where: any = {};
+    const where: any = {
+      // Exclude archived packages by default
+      isArchived: filters?.includeArchived ? undefined : false,
+    };
 
     if (filters?.locationId) {
       where.locationId = filters.locationId;
@@ -103,13 +107,55 @@ export class PackageService {
             },
           },
         },
+        _count: {
+          select: {
+            callbackRequests: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
 
-    return packages;
+    // Add additional callback counts (pending and urgent)
+    const packagesWithCounts = await Promise.all(
+      packages.map(async (pkg) => {
+        const pendingCallbacks = await prisma.packageCallbackRequest.count({
+          where: {
+            packageId: pkg.id,
+            status: 'PENDING',
+          },
+        });
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const urgentCallbacks = await prisma.packageCallbackRequest.count({
+          where: {
+            packageId: pkg.id,
+            status: 'RESCHEDULED',
+            rescheduleDate: {
+              gte: today,
+              lt: tomorrow,
+            },
+          },
+        });
+
+        return {
+          ...pkg,
+          _count: {
+            ...pkg._count,
+            pendingCallbacks,
+            urgentCallbacks,
+          },
+        };
+      })
+    );
+
+    return packagesWithCounts;
   }
 
   async getPackageById(id: string) {
@@ -198,6 +244,31 @@ export class PackageService {
     return interest;
   }
 
+  async archivePackage(id: string, userId: string, userRole: UserRole) {
+    const pkg = await prisma.package.findUnique({
+      where: { id },
+    });
+
+    if (!pkg) {
+      throw new Error('Package not found');
+    }
+
+    if (pkg.hostId !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('Unauthorized to archive this package');
+    }
+
+    const archivedPackage = await prisma.package.update({
+      where: { id },
+      data: {
+        isArchived: true,
+        archivedAt: new Date(),
+        archivedBy: userId,
+      },
+    });
+
+    return { message: 'Package archived successfully', data: archivedPackage };
+  }
+
   async deletePackage(id: string, userId: string, userRole: UserRole) {
     const pkg = await prisma.package.findUnique({
       where: { id },
@@ -261,7 +332,12 @@ export class PackageService {
     return callbackRequest;
   }
 
-  async getPackageCallbackRequests(packageId: string, userId: string, userRole: UserRole) {
+  async getPackageCallbackRequests(
+    packageId: string,
+    userId: string,
+    userRole: UserRole,
+    statusFilter?: string
+  ) {
     const pkg = await prisma.package.findUnique({
       where: { id: packageId },
     });
@@ -275,8 +351,28 @@ export class PackageService {
       throw new Error('Unauthorized to view callback requests');
     }
 
+    const where: any = { packageId };
+    
+    if (statusFilter) {
+      where.status = statusFilter;
+    }
+
     const requests = await prisma.packageCallbackRequest.findMany({
-      where: { packageId },
+      where,
+      include: {
+        statusHistory: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -320,6 +416,72 @@ export class PackageService {
     }
   }
 
+  async updateCallbackStatus(
+    requestId: string,
+    userId: string,
+    userRole: UserRole,
+    data: {
+      status: string;
+      notes?: string;
+      rescheduleDate?: Date;
+    }
+  ) {
+    const request = await prisma.packageCallbackRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        package: true,
+      },
+    });
+
+    if (!request) {
+      throw new Error('Callback request not found');
+    }
+
+    // Only package host or admin can update callback status
+    if (request.package.hostId !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('Unauthorized to update this callback request');
+    }
+
+    // Validate status
+    const validStatuses = ['PENDING', 'CONTACTED', 'RESCHEDULED', 'NOT_INTERESTED', 'BOOKING_COMPLETED'];
+    if (!validStatuses.includes(data.status)) {
+      throw new Error('Invalid callback status');
+    }
+
+    // Prepare update data
+    const updateData: any = {
+      status: data.status,
+      notes: data.notes,
+    };
+
+    if (data.status === 'CONTACTED') {
+      updateData.contactedAt = new Date();
+      updateData.contactedBy = userId;
+    }
+
+    if (data.status === 'RESCHEDULED' && data.rescheduleDate) {
+      updateData.rescheduleDate = data.rescheduleDate;
+    }
+
+    // Update callback request
+    const updated = await prisma.packageCallbackRequest.update({
+      where: { id: requestId },
+      data: updateData,
+    });
+
+    // Create status history record
+    await prisma.callbackStatusHistory.create({
+      data: {
+        callbackRequestId: requestId,
+        status: data.status as any,
+        notes: data.notes,
+        changedBy: userId,
+      },
+    });
+
+    return updated;
+  }
+
   async markAsContacted(requestId: string, userId: string, userRole: UserRole) {
     const request = await prisma.packageCallbackRequest.findUnique({
       where: { id: requestId },
@@ -339,11 +501,123 @@ export class PackageService {
 
     const updated = await prisma.packageCallbackRequest.update({
       where: { id: requestId },
-      data: { isContacted: true },
+      data: { 
+        status: 'CONTACTED',
+        contactedAt: new Date(),
+        contactedBy: userId,
+      },
     });
 
     return updated;
   }
+  async updatePackage(
+    id: string,
+    userId: string,
+    userRole: UserRole,
+    data: {
+      title?: string;
+      description?: string;
+      duration?: number;
+      locationId?: string;
+      customCountry?: string;
+      customState?: string;
+      customArea?: string;
+      price?: number;
+      images?: string[];
+      itinerary?: Array<{
+        day: number;
+        title: string;
+        description: string;
+        activities: string[];
+      }>;
+    }
+  ) {
+    const pkg = await prisma.package.findUnique({
+      where: { id },
+    });
+
+    if (!pkg) {
+      throw new Error('Package not found');
+    }
+
+    // Only package host or admin can update
+    if (pkg.hostId !== userId && userRole !== 'SITE_ADMIN') {
+      throw new Error('Unauthorized to update this package');
+    }
+
+    // If itinerary is being updated, delete old itinerary and create new one
+    if (data.itinerary) {
+      await prisma.itineraryDay.deleteMany({
+        where: { packageId: id },
+      });
+    }
+
+    const updatedPackage = await prisma.package.update({
+      where: { id },
+      data: {
+        ...(data.title && { title: data.title }),
+        ...(data.description && { description: data.description }),
+        ...(data.duration && { duration: data.duration }),
+        ...(data.locationId !== undefined && { locationId: data.locationId }),
+        ...(data.customCountry !== undefined && { customCountry: data.customCountry }),
+        ...(data.customState !== undefined && { customState: data.customState }),
+        ...(data.customArea !== undefined && { customArea: data.customArea }),
+        ...(data.price && { price: data.price }),
+        ...(data.images && { images: data.images }),
+        ...(data.itinerary && {
+          itinerary: {
+            create: data.itinerary,
+          },
+        }),
+      },
+      include: {
+        host: {
+          include: {
+            profile: true,
+          },
+        },
+        location: true,
+        itinerary: {
+          orderBy: {
+            day: 'asc',
+          },
+        },
+      },
+    });
+
+    return updatedPackage;
+  }
+
+  async togglePackageActiveStatus(id: string, isActive: boolean, userId: string, userRole: UserRole) {
+    if (userRole !== 'SITE_ADMIN') {
+      throw new Error('Only administrators can toggle package active status');
+    }
+
+    const pkg = await prisma.package.findUnique({
+      where: { id },
+    });
+
+    if (!pkg) {
+      throw new Error('Package not found');
+    }
+
+    const updatedPackage = await prisma.package.update({
+      where: { id },
+      data: { isActive },
+      include: {
+        host: {
+          include: {
+            profile: true,
+          },
+        },
+        location: true,
+        itinerary: true,
+      },
+    });
+
+    return updatedPackage;
+  }
+
   async updatePackageStatus(id: string, approvalStatus: ApprovalStatus, userId: string, userRole: UserRole) {
     if (userRole !== 'SITE_ADMIN' && userRole !== 'GOVT_DEPARTMENT') {
       throw new Error('Unauthorized to update package status');

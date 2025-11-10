@@ -368,8 +368,8 @@ export default function EditLocation() {
             </View>
           </View>
         </View>
+        {isWeb && <WebFooter />}
       </ScrollView>
-      {isWeb && <WebFooter />}
     </View>
   );
 }

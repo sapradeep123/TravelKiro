@@ -425,8 +425,8 @@ export default function EditEvent() {
             </View>
           </View>
         </View>
+        {isWeb && <WebFooter />}
       </ScrollView>
-      {isWeb && <WebFooter />}
     </View>
   );
 }

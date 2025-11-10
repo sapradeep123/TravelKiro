@@ -104,8 +104,7 @@ export default function ManagePackages() {
   };
 
   const handleEdit = (packageId: string) => {
-    Alert.alert('Edit Package', 'Package editing feature coming soon!');
-    // TODO: router.push(`/(admin)/edit-package?id=${packageId}` as any);
+    router.push(`/(admin)/edit-package?id=${packageId}` as any);
   };
 
   const handleArchive = (packageId: string, packageTitle: string) => {

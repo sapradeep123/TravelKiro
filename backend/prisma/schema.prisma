@@ -31,8 +31,82 @@ enum ContentType {
 
 enum AccommodationType {
   HOTEL
-  RESTAURANT
   RESORT
+  RESTAURANT
+  HOME_STAY
+  SHARED_FLAT
+}
+
+enum PriceCategory {
+  BUDGET
+  MID_RANGE
+  LUXURY
+  PREMIUM
+}
+
+enum DietType {
+  VEGETARIAN
+  VEGAN
+  NON_VEGETARIAN
+  JAIN
+  HALAL
+  KOSHER
+  GLUTEN_FREE
+  ORGANIC
+}
+
+enum HomeStaySubtype {
+  ENTIRE_HOME
+  PRIVATE_ROOM
+  SHARED_ROOM
+  FARM_STAY
+  HERITAGE_HOME
+  ECO_STAY
+  BEACH_HOUSE
+  MOUNTAIN_COTTAGE
+}
+
+enum GenderPreference {
+  MALE_ONLY
+  FEMALE_ONLY
+  MIXED
+  NO_PREFERENCE
+}
+
+enum CallRequestStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  FOLLOW_UP
+  SCHEDULED
+  CONVERTED
+  LOST
+  INVALID
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CallOutcome {
+  CONNECTED
+  NO_ANSWER
+  BUSY
+  WRONG_NUMBER
+  VOICEMAIL
+  CALLBACK_REQUESTED
+}
+
+enum InteractionType {
+  CALL
+  EMAIL
+  SMS
+  WHATSAPP
+  NOTE
+  STATUS_CHANGE
 }
 
 enum BookingCategory {
@@ -69,29 +143,33 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profile              UserProfile?
-  locations            Location[]
-  events               Event[]
-  packages             Package[]
-  accommodations       Accommodation[]
-  communityPosts       CommunityPost[]
-  eventInterests       EventInterest[]
-  packageInterests     PackageInterest[]
-  groupTravels         GroupTravel[]
-  travelBids           TravelBid[]
-  followers            Follow[]              @relation("UserFollowers")
-  following            Follow[]              @relation("UserFollowing")
-  conversationsUser1   ChatConversation[]    @relation("User1Conversations")
-  conversationsUser2   ChatConversation[]    @relation("User2Conversations")
-  messages             ChatMessage[]
-  chatRequestsSent     ChatRequest[]         @relation("ChatRequestSender")
-  chatRequestsReceived ChatRequest[]         @relation("ChatRequestReceiver")
-  notifications          Notification[]
-  comments               Comment[]
-  postLikes              PostLike[]
-  groupTravelInterests   GroupTravelInterest[]
-  approvedContent        ApprovalQueue[]
-  callbackStatusChanges  CallbackStatusHistory[]
+  profile                     UserProfile?
+  locations                   Location[]
+  events                      Event[]
+  packages                    Package[]
+  accommodations              Accommodation[]             @relation("AccommodationCreator")
+  communityPosts              CommunityPost[]
+  eventInterests              EventInterest[]
+  packageInterests            PackageInterest[]
+  groupTravels                GroupTravel[]
+  travelBids                  TravelBid[]
+  followers                   Follow[]                    @relation("UserFollowers")
+  following                   Follow[]                    @relation("UserFollowing")
+  conversationsUser1          ChatConversation[]          @relation("User1Conversations")
+  conversationsUser2          ChatConversation[]          @relation("User2Conversations")
+  messages                    ChatMessage[]
+  chatRequestsSent            ChatRequest[]               @relation("ChatRequestSender")
+  chatRequestsReceived        ChatRequest[]               @relation("ChatRequestReceiver")
+  notifications               Notification[]
+  comments                    Comment[]
+  postLikes                   PostLike[]
+  groupTravelInterests        GroupTravelInterest[]
+  approvedContent             ApprovalQueue[]
+  callbackStatusChanges       CallbackStatusHistory[]
+  assignedCallRequests        AccommodationCallRequest[]  @relation("AssignedCallRequests")
+  callInteractions            CallInteraction[]           @relation("CallInteractions")
+  callStatusHistory           CallStatusHistory[]         @relation("CallStatusHistory")
+  accommodationReviews        AccommodationReview[]       @relation("AccommodationReviews")
 
   @@map("users")
 }
@@ -143,7 +221,6 @@ model Location {
   creator        User            @relation(fields: [createdBy], references: [id])
   events         Event[]
   packages       Package[]
-  accommodations Accommodation[]
   communityPosts CommunityPost[]
 
   @@map("locations")
@@ -330,27 +407,207 @@ model CallbackStatusHistory {
 }
 
 model Accommodation {
-  id              String            @id @default(uuid())
-  name            String
-  type            AccommodationType
-  locationId      String
-  description     String
-  contactPhone    String
-  contactEmail    String?
-  contactWebsite  String?
-  contactAddress  String
-  images          String[]
-  isGovtApproved  Boolean           @default(false)
-  uploadedBy      String
-  uploadedByRole  UserRole
-  approvalStatus  ApprovalStatus    @default(PENDING)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  uploader User     @relation(fields: [uploadedBy], references: [id])
-  location Location @relation(fields: [locationId], references: [id])
-
+  id                String              @id @default(uuid())
+  type              AccommodationType
+  name              String
+  slug              String              @unique
+  description       String
+  
+  // Location (REQUIRED)
+  country           String
+  state             String
+  area              String
+  address           String?
+  latitude          Float
+  longitude         Float
+  mapUrl            String?
+  
+  // Contact
+  phone             String[]
+  email             String?
+  website           String?
+  
+  // Media
+  images            String[]
+  videos            String[]
+  virtualTourUrl    String?
+  
+  // Pricing
+  priceMin          Float?
+  priceMax          Float?
+  currency          String              @default("INR")
+  priceCategory     PriceCategory?
+  
+  // Ratings
+  starRating        Int?
+  userRating        Float?
+  reviewCount       Int                 @default(0)
+  
+  // Amenities
+  amenities         String[]
+  
+  // Restaurant specific
+  dietTypes         DietType[]
+  cuisineTypes      String[]
+  seatingCapacity   Int?
+  
+  // Home Stay specific
+  homeStaySubtype   HomeStaySubtype?
+  totalRooms        Int?
+  sharedFacilities  String[]
+  privateFacilities String[]
+  houseRules        String?
+  genderPreference  GenderPreference?
+  
+  // SEO
+  metaTitle         String?
+  metaDescription   String?
+  keywords          String[]
+  
+  // Status
+  isActive          Boolean             @default(true)
+  isFeatured        Boolean             @default(false)
+  approvalStatus    ApprovalStatus      @default(PENDING)
+  
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  // Relations
+  creator           User                @relation("AccommodationCreator", fields: [createdBy], references: [id])
+  callRequests      AccommodationCallRequest[]
+  reviews           AccommodationReview[]
+  
+  @@index([type])
+  @@index([country, state, area])
+  @@index([latitude, longitude])
+  @@index([slug])
+  @@index([isActive, approvalStatus])
   @@map("accommodations")
+}
+
+model AccommodationCallRequest {
+  id                String              @id @default(uuid())
+  
+  // Lead Information
+  name              String
+  phone             String
+  email             String?
+  preferredCallTime DateTime?
+  message           String?
+  
+  // Source Tracking
+  accommodationId   String
+  sourceUrl         String?
+  ipAddress         String?
+  userAgent         String?
+  
+  // Assignment
+  assignedTo        String?
+  assignedAt        DateTime?
+  
+  // Status
+  status            CallRequestStatus   @default(NEW)
+  priority          Priority            @default(MEDIUM)
+  
+  // Scheduling
+  scheduledCallDate DateTime?
+  reminderSent      Boolean             @default(false)
+  
+  // Outcome
+  outcome           CallOutcome?
+  conversionValue   Float?
+  
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  lastContactedAt   DateTime?
+  convertedAt       DateTime?
+  
+  // Relations
+  accommodation     Accommodation       @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  assignedAdmin     User?               @relation("AssignedCallRequests", fields: [assignedTo], references: [id])
+  interactions      CallInteraction[]
+  statusHistory     CallStatusHistory[]
+  
+  @@index([status])
+  @@index([assignedTo])
+  @@index([scheduledCallDate])
+  @@index([accommodationId])
+  @@map("accommodation_call_requests")
+}
+
+model CallInteraction {
+  id              String              @id @default(uuid())
+  callRequestId   String
+  
+  // Interaction Details
+  type            InteractionType
+  outcome         CallOutcome?
+  duration        Int?
+  notes           String
+  nextAction      String?
+  
+  // Scheduling
+  followUpDate    DateTime?
+  
+  // Metadata
+  createdAt       DateTime            @default(now())
+  createdBy       String
+  
+  // Relations
+  callRequest     AccommodationCallRequest @relation(fields: [callRequestId], references: [id], onDelete: Cascade)
+  admin           User                @relation("CallInteractions", fields: [createdBy], references: [id])
+  
+  @@index([callRequestId])
+  @@map("call_interactions")
+}
+
+model CallStatusHistory {
+  id              String              @id @default(uuid())
+  callRequestId   String
+  
+  fromStatus      CallRequestStatus?
+  toStatus        CallRequestStatus
+  reason          String?
+  notes           String?
+  
+  createdAt       DateTime            @default(now())
+  createdBy       String
+  
+  callRequest     AccommodationCallRequest @relation(fields: [callRequestId], references: [id], onDelete: Cascade)
+  admin           User                @relation("CallStatusHistory", fields: [createdBy], references: [id])
+  
+  @@index([callRequestId])
+  @@map("call_status_history")
+}
+
+model AccommodationReview {
+  id                String            @id @default(uuid())
+  accommodationId   String
+  userId            String
+  
+  rating            Int
+  title             String?
+  review            String
+  
+  // Moderation
+  isApproved        Boolean           @default(false)
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  accommodation     Accommodation     @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  user              User              @relation("AccommodationReviews", fields: [userId], references: [id])
+  
+  @@index([accommodationId])
+  @@index([isApproved])
+  @@map("accommodation_reviews")
 }
 
 model CommunityPost {

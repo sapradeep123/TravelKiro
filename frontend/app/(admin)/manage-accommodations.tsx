@@ -144,9 +144,17 @@ export default function ManageAccommodations() {
     <View style={styles.container}>
       {/* Modern Header with gradient */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Accommodations</Text>
-          <Text style={styles.subtitle}>Manage your properties and listings</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            onPress={() => router.push('/(admin)/dashboard')} 
+            style={styles.backButton}
+          >
+            <Text style={styles.backButtonText}>← Dashboard</Text>
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.title}>Accommodations</Text>
+            <Text style={styles.subtitle}>Manage your properties and listings</Text>
+          </View>
         </View>
         <TouchableOpacity 
           style={styles.createButton}
@@ -243,6 +251,17 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 16,
     backgroundColor: '#fff',
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  backButton: {
+    marginBottom: 8,
+  },
+  backButtonText: {
+    fontSize: 14,
+    color: '#3b82f6',
+    fontWeight: '500',
   },
   title: {
     fontSize: 28,

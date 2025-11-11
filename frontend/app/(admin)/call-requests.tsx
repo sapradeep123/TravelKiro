@@ -89,7 +89,7 @@ export default function CallRequests() {
     <TouchableOpacity
       key={request.id}
       style={styles.card}
-      onPress={() => router.push(`/admin/call-request-detail?id=${request.id}`)}
+      onPress={() => router.push(`/(admin)/call-request-detail?id=${request.id}`)}
     >
       <View style={styles.cardHeader}>
         <Text style={styles.cardName}>{request.name}</Text>
@@ -153,13 +153,19 @@ export default function CallRequests() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => router.push('/(admin)/manage-accommodations')} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Accommodations</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.refreshButton}
+            onPress={loadCallRequests}
+          >
+            <Text style={styles.refreshButtonText}>↻ Refresh</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.title}>Call Requests CRM</Text>
-        <TouchableOpacity 
-          style={styles.refreshButton}
-          onPress={loadCallRequests}
-        >
-          <Text style={styles.refreshButtonText}>↻ Refresh</Text>
-        </TouchableOpacity>
+        <Text style={styles.subtitle}>Manage leads and track conversions</Text>
       </View>
 
       {/* Stats Overview */}
@@ -233,24 +239,48 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
+    padding: 20,
+    paddingBottom: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    marginBottom: 12,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#3b82f6',
+    fontWeight: '500',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 2,
   },
   refreshButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 15,
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   refreshButtonText: {
     color: '#fff',
@@ -311,14 +341,17 @@ const styles = StyleSheet.create({
   },
   kanbanContainer: {
     flex: 1,
-    padding: 15,
+    padding: 16,
+    minHeight: 600,
   },
   column: {
-    width: 280,
-    marginRight: 15,
+    width: 300,
+    marginRight: 16,
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   columnHeader: {
     flexDirection: 'row',

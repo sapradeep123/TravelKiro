@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { accommodationService } from '../../src/services/accommodationService';
@@ -12,6 +12,7 @@ const CALL_OUTCOMES: CallOutcome[] = ['CONNECTED', 'NO_ANSWER', 'BUSY', 'WRONG_N
 export default function CallRequestDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [loading, setLoading] = useState(true);
   const [callRequest, setCallRequest] = useState<AccommodationCallRequest | null>(null);
   const [showAddInteraction, setShowAddInteraction] = useState(false);
@@ -154,105 +155,126 @@ export default function CallRequestDetail() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView ref={scrollViewRef} style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
+        <TouchableOpacity onPress={() => router.push('/(admin)/call-requests')} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back to CRM</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Call Request Details</Text>
+        <Text style={styles.title}>{callRequest.name}</Text>
+        <View style={styles.headerBadges}>
+          <View style={[styles.badge, styles.statusBadge]}>
+            <Text style={styles.badgeText}>{callRequest.status}</Text>
+          </View>
+          <View style={[styles.badge, styles.priorityBadge]}>
+            <Text style={styles.badgeText}>{callRequest.priority}</Text>
+          </View>
+        </View>
       </View>
 
-      {/* Lead Information */}
+      {/* All-in-One Info Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Lead Information</Text>
-        
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Name:</Text>
-          <Text style={styles.value}>{callRequest.name}</Text>
+        <View style={styles.compactRow}>
+          <Text style={styles.compactLabel}>📞</Text>
+          <Text style={styles.compactValue}>{callRequest.phone}</Text>
         </View>
-        
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Phone:</Text>
-          <Text style={[styles.value, styles.phoneValue]}>{callRequest.phone}</Text>
-        </View>
-        
         {callRequest.email && (
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Email:</Text>
-            <Text style={styles.value}>{callRequest.email}</Text>
+          <View style={styles.compactRow}>
+            <Text style={styles.compactLabel}>✉️</Text>
+            <Text style={styles.compactValue}>{callRequest.email}</Text>
           </View>
         )}
-        
         {callRequest.message && (
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Message:</Text>
-            <Text style={styles.value}>{callRequest.message}</Text>
+          <View style={styles.compactRow}>
+            <Text style={styles.compactLabel}>💬</Text>
+            <Text style={styles.compactValue}>{callRequest.message}</Text>
           </View>
         )}
-        
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Created:</Text>
-          <Text style={styles.value}>
-            {new Date(callRequest.createdAt).toLocaleString()}
+        {callRequest.accommodation && (
+          <View style={styles.compactRow}>
+            <Text style={styles.compactLabel}>🏨</Text>
+            <Text style={styles.compactValue}>
+              {callRequest.accommodation.name} • {callRequest.accommodation.area}
+            </Text>
+          </View>
+        )}
+        <View style={styles.compactRow}>
+          <Text style={styles.compactLabel}>📅</Text>
+          <Text style={styles.compactValue}>
+            {new Date(callRequest.createdAt).toLocaleDateString()}
+            {callRequest.scheduledCallDate && ` • Callback: ${new Date(callRequest.scheduledCallDate).toLocaleDateString()}`}
           </Text>
         </View>
       </View>
 
-      {/* Accommodation Details */}
-      {callRequest.accommodation && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Accommodation</Text>
+      {/* Quick Actions & Status Update Combined */}
+      <View style={styles.section}>
+        <View style={styles.actionRow}>
           <TouchableOpacity
-            onPress={() => router.push(`/admin/edit-accommodation?id=${callRequest.accommodation?.id}`)}
+            style={[styles.actionBtn, showAddInteraction && styles.actionBtnActive]}
+            onPress={() => {
+              const newValue = !showAddInteraction;
+              setShowAddInteraction(newValue);
+              setShowScheduleCallback(false);
+              if (newValue) {
+                setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+              }
+            }}
           >
-            <Text style={styles.accommodationName}>{callRequest.accommodation.name}</Text>
-            <Text style={styles.accommodationType}>{callRequest.accommodation.type}</Text>
-            <Text style={styles.accommodationLocation}>
-              {callRequest.accommodation.area}, {callRequest.accommodation.state}
-            </Text>
+            <Text style={styles.actionBtnText}>+ Interaction</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.actionBtn, showScheduleCallback && styles.actionBtnActive]}
+            onPress={() => {
+              const newValue = !showScheduleCallback;
+              setShowScheduleCallback(newValue);
+              setShowAddInteraction(false);
+              if (newValue) {
+                setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+              }
+            }}
+          >
+            <Text style={styles.actionBtnText}>📅 Callback</Text>
           </TouchableOpacity>
         </View>
-      )}
-
-      {/* Status & Priority */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Status & Priority</Text>
         
-        <Text style={styles.label}>Status:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusButtons}>
+        <View style={styles.divider} />
+        
+        <Text style={styles.miniLabel}>Status:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.buttonScroll}>
           {STATUS_OPTIONS.map(status => (
             <TouchableOpacity
               key={status}
               style={[
-                styles.statusButton,
-                callRequest.status === status && styles.statusButtonActive
+                styles.miniButton,
+                callRequest.status === status && styles.miniButtonActive
               ]}
               onPress={() => handleStatusChange(status)}
             >
               <Text style={[
-                styles.statusButtonText,
-                callRequest.status === status && styles.statusButtonTextActive
+                styles.miniButtonText,
+                callRequest.status === status && styles.miniButtonTextActive
               ]}>
-                {status}
+                {status.replace('_', ' ')}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
         
-        <Text style={[styles.label, { marginTop: 15 }]}>Priority:</Text>
-        <View style={styles.priorityButtons}>
+        <Text style={styles.miniLabel}>Priority:</Text>
+        <View style={styles.buttonRow}>
           {PRIORITY_OPTIONS.map(priority => (
             <TouchableOpacity
               key={priority}
               style={[
-                styles.priorityButton,
-                callRequest.priority === priority && styles.priorityButtonActive
+                styles.miniButton,
+                callRequest.priority === priority && styles.miniButtonActive
               ]}
               onPress={() => handlePriorityChange(priority)}
             >
               <Text style={[
-                styles.priorityButtonText,
-                callRequest.priority === priority && styles.priorityButtonTextActive
+                styles.miniButtonText,
+                callRequest.priority === priority && styles.miniButtonTextActive
               ]}>
                 {priority}
               </Text>
@@ -261,30 +283,10 @@ export default function CallRequestDetail() {
         </View>
       </View>
 
-      {/* Scheduled Callback */}
-      {callRequest.scheduledCallDate && (
+      {/* Add Interaction Form */}
+      {showAddInteraction && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Scheduled Callback</Text>
-          <Text style={styles.scheduledDate}>
-            {new Date(callRequest.scheduledCallDate).toLocaleString()}
-          </Text>
-        </View>
-      )}
-
-      {/* Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Actions</Text>
-        
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => setShowAddInteraction(!showAddInteraction)}
-        >
-          <Text style={styles.actionButtonText}>
-            {showAddInteraction ? '− Cancel' : '+ Add Interaction'}
-          </Text>
-        </TouchableOpacity>
-        
-        {showAddInteraction && (
+          <Text style={styles.sectionTitle}>Add Interaction</Text>
           <View style={styles.form}>
             <Text style={styles.formLabel}>Type:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -366,18 +368,13 @@ export default function CallRequestDetail() {
               <Text style={styles.submitButtonText}>Add Interaction</Text>
             </TouchableOpacity>
           </View>
-        )}
-        
-        <TouchableOpacity
-          style={[styles.actionButton, { marginTop: 10 }]}
-          onPress={() => setShowScheduleCallback(!showScheduleCallback)}
-        >
-          <Text style={styles.actionButtonText}>
-            {showScheduleCallback ? '− Cancel' : '📅 Schedule Callback'}
-          </Text>
-        </TouchableOpacity>
-        
-        {showScheduleCallback && (
+        </View>
+      )}
+      
+      {/* Schedule Callback Form */}
+      {showScheduleCallback && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Schedule Callback</Text>
           <View style={styles.form}>
             <Text style={styles.formLabel}>Scheduled Date: *</Text>
             <TextInput
@@ -404,8 +401,8 @@ export default function CallRequestDetail() {
               <Text style={styles.submitButtonText}>Schedule Callback</Text>
             </TouchableOpacity>
           </View>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Interaction Timeline */}
       {callRequest.interactions && callRequest.interactions.length > 0 && (
@@ -487,262 +484,273 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   header: {
-    padding: 20,
+    padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e5e7eb',
   },
   backButton: {
-    marginBottom: 10,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
+    color: '#3b82f6',
+    fontSize: 14,
+    fontWeight: '500',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  headerBadges: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadge: {
+    backgroundColor: '#3b82f6',
+  },
+  priorityBadge: {
+    backgroundColor: '#FF9800',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   section: {
     backgroundColor: '#fff',
-    padding: 20,
-    marginTop: 10,
+    padding: 12,
+    marginTop: 8,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#333',
-    marginBottom: 15,
-  },
-  infoRow: {
     marginBottom: 12,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 4,
-  },
-  value: {
-    fontSize: 16,
-    color: '#333',
-  },
-  phoneValue: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  accommodationName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginBottom: 4,
-  },
-  accommodationType: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  accommodationLocation: {
-    fontSize: 14,
-    color: '#666',
-  },
-  statusButtons: {
-    marginTop: 10,
-  },
-  statusButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    marginRight: 10,
-    backgroundColor: '#fff',
-  },
-  statusButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  statusButtonText: {
-    color: '#007AFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statusButtonTextActive: {
-    color: '#fff',
-  },
-  priorityButtons: {
+  compactRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 10,
+    alignItems: 'flex-start',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
   },
-  priorityButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#FF9800',
-    marginRight: 10,
-    marginBottom: 10,
-    backgroundColor: '#fff',
-  },
-  priorityButtonActive: {
-    backgroundColor: '#FF9800',
-  },
-  priorityButtonText: {
-    color: '#FF9800',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  priorityButtonTextActive: {
-    color: '#fff',
-  },
-  scheduledDate: {
+  compactLabel: {
     fontSize: 16,
-    color: '#FF9800',
-    fontWeight: '600',
+    width: 30,
   },
-  actionButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    borderRadius: 8,
+  compactValue: {
+    flex: 1,
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  actionBtn: {
+    flex: 1,
+    backgroundColor: '#3b82f6',
+    paddingVertical: 10,
+    borderRadius: 6,
     alignItems: 'center',
   },
-  actionButtonText: {
+  actionBtnActive: {
+    backgroundColor: '#1e40af',
+  },
+  actionBtnText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600',
   },
+  divider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 12,
+  },
+  miniLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6b7280',
+    marginBottom: 6,
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  buttonScroll: {
+    marginBottom: 8,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  miniButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    marginRight: 6,
+    marginBottom: 6,
+    backgroundColor: '#fff',
+  },
+  miniButtonActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  miniButtonText: {
+    color: '#6b7280',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  miniButtonTextActive: {
+    color: '#fff',
+  },
+
   form: {
-    marginTop: 15,
-    padding: 15,
-    backgroundColor: '#f9f9f9',
+    marginTop: 10,
+    padding: 12,
+    backgroundColor: '#f9fafb',
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   formLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-    marginTop: 12,
+    color: '#374151',
+    marginBottom: 6,
+    marginTop: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
+    borderColor: '#d1d5db',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
     backgroundColor: '#fff',
   },
   textArea: {
-    minHeight: 80,
+    minHeight: 60,
     textAlignVertical: 'top',
   },
   typeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#007AFF',
-    marginRight: 8,
-    marginBottom: 8,
+    borderColor: '#3b82f6',
+    marginRight: 6,
+    marginBottom: 6,
     backgroundColor: '#fff',
   },
   typeButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#3b82f6',
   },
   typeButtonText: {
-    color: '#007AFF',
-    fontSize: 12,
+    color: '#3b82f6',
+    fontSize: 11,
     fontWeight: '600',
   },
   typeButtonTextActive: {
     color: '#fff',
   },
   submitButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#10b981',
+    paddingVertical: 10,
+    borderRadius: 6,
     alignItems: 'center',
-    marginTop: 15,
+    marginTop: 10,
   },
   submitButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   timelineItem: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
   timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#007AFF',
-    marginTop: 5,
-    marginRight: 15,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#3b82f6',
+    marginTop: 4,
+    marginRight: 10,
   },
   timelineContent: {
     flex: 1,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   timelineHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   timelineType: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#007AFF',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3b82f6',
   },
   timelineOutcome: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
+    fontSize: 11,
+    color: '#6b7280',
   },
   timelineNotes: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 13,
+    color: '#374151',
+    marginBottom: 4,
   },
   timelineNextAction: {
-    fontSize: 13,
-    color: '#FF9800',
+    fontSize: 12,
+    color: '#f59e0b',
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   timelineDuration: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: 11,
+    color: '#6b7280',
+    marginBottom: 2,
   },
   timelineDate: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 11,
+    color: '#9ca3af',
   },
   historyItem: {
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    marginBottom: 10,
+    padding: 10,
+    backgroundColor: '#f9fafb',
+    borderRadius: 6,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3b82f6',
   },
   historyStatus: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
   },
   historyNotes: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 2,
   },
   historyDate: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 11,
+    color: '#9ca3af',
   },
 });

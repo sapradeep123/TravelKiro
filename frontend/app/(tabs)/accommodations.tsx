@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, Image, RefreshControl, TouchableOpacity, Platform, useWindowDimensions, TextInput } from 'react-native';
-import { Card, Text, Chip, ActivityIndicator, Menu, Button, Searchbar } from 'react-native-paper';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, FlatList, StyleSheet, Image, RefreshControl, TouchableOpacity, Platform, useWindowDimensions, ScrollView } from 'react-native';
+import { Card, Text, Chip, ActivityIndicator, Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { accommodationService } from '../../src/services/accommodationService';
 import { Accommodation, AccommodationType, PriceCategory } from '../../src/types';
@@ -25,10 +25,6 @@ export default function AccommodationsScreen() {
   const [selectedState, setSelectedState] = useState<string>('');
   const [selectedArea, setSelectedArea] = useState<string>('');
   
-  // Menu states
-  const [typeMenuVisible, setTypeMenuVisible] = useState(false);
-  const [priceCategoryMenuVisible, setPriceCategoryMenuVisible] = useState(false);
-  const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [selectedSort, setSelectedSort] = useState<string>('recent');
   
   const { width } = useWindowDimensions();
@@ -37,18 +33,14 @@ export default function AccommodationsScreen() {
   const showWebLayout = isWeb && isLargeScreen;
   
   const getNumColumns = () => {
-    if (width >= 1400) return 4;
+    if (width >= 1400) return 3;
     if (width >= 1024) return 3;
     if (width >= 768) return 2;
     return 1;
   };
   const numColumns = getNumColumns();
 
-  useEffect(() => {
-    loadAccommodations();
-  }, [page, selectedType, selectedPriceCategory, selectedSort]);
-
-  const loadAccommodations = async () => {
+  const loadAccommodations = useCallback(async () => {
     try {
       setLoading(true);
       const filters: any = { page, limit: 20, sort: selectedSort };
@@ -60,38 +52,34 @@ export default function AccommodationsScreen() {
       if (selectedState) filters.state = selectedState;
       if (selectedArea) filters.area = selectedArea;
       
-      console.log('Loading accommodations with filters:', filters);
       const result = await accommodationService.getAllAccommodations(filters);
-      console.log('Received accommodations:', result);
       
       if (result && result.data) {
         setAccommodations(result.data);
         setTotalPages(result.pagination?.totalPages || 1);
-        console.log(`Loaded ${result.data.length} accommodations`);
       } else {
-        console.warn('No data in response:', result);
         setAccommodations([]);
       }
     } catch (error) {
       console.error('Error loading accommodations:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
       setAccommodations([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, selectedType, selectedPriceCategory, selectedSort, minPrice, maxPrice, selectedState, selectedArea]);
 
-  const handleRefresh = async () => {
+  useEffect(() => {
+    loadAccommodations();
+  }, [loadAccommodations]);
+
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     setPage(1);
     await loadAccommodations();
     setRefreshing(false);
-  };
+  }, [loadAccommodations]);
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     if (searchQuery.trim()) {
       try {
         setLoading(true);
@@ -105,9 +93,9 @@ export default function AccommodationsScreen() {
     } else {
       loadAccommodations();
     }
-  };
+  }, [searchQuery, loadAccommodations]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSelectedType(undefined);
     setSelectedPriceCategory(undefined);
     setMinPrice('');
@@ -116,7 +104,7 @@ export default function AccommodationsScreen() {
     setSelectedArea('');
     setSearchQuery('');
     setPage(1);
-  };
+  }, []);
 
   const getTypeIcon = (type: AccommodationType) => {
     switch (type) {
@@ -142,7 +130,7 @@ export default function AccommodationsScreen() {
     return 'Price on request';
   };
 
-  const renderAccommodation = ({ item }: { item: Accommodation }) => (
+  const renderAccommodation = useCallback(({ item }: { item: Accommodation }) => (
     <TouchableOpacity 
       activeOpacity={0.9}
       onPress={() => router.push(`/(tabs)/accommodation-detail?id=${item.id}`)}
@@ -237,7 +225,7 @@ export default function AccommodationsScreen() {
         </Card.Content>
       </Card>
     </TouchableOpacity>
-  );
+  ), [router]);
 
   if (loading && accommodations.length === 0) {
     return (
@@ -294,59 +282,120 @@ export default function AccommodationsScreen() {
                 iconColor="#667eea"
               />
               
-              <View style={styles.filterButtons}>
-                <Menu
-                  visible={typeMenuVisible}
-                  onDismiss={() => setTypeMenuVisible(false)}
-                  anchor={
-                    <Button
-                      mode="outlined"
-                      icon="home"
-                      onPress={() => setTypeMenuVisible(true)}
-                      style={styles.filterButton}
-                    >
-                      {selectedType ? getTypeLabel(selectedType) : 'Type'}
-                    </Button>
-                  }
-                >
-                  <Menu.Item onPress={() => { setSelectedType(undefined); setTypeMenuVisible(false); }} title="All Types" />
-                  <Menu.Item onPress={() => { setSelectedType('HOTEL'); setTypeMenuVisible(false); }} title="🏨 Hotels" />
-                  <Menu.Item onPress={() => { setSelectedType('RESORT'); setTypeMenuVisible(false); }} title="🏖️ Resorts" />
-                  <Menu.Item onPress={() => { setSelectedType('RESTAURANT'); setTypeMenuVisible(false); }} title="🍽️ Restaurants" />
-                  <Menu.Item onPress={() => { setSelectedType('HOME_STAY'); setTypeMenuVisible(false); }} title="🏡 Home Stays" />
-                  <Menu.Item onPress={() => { setSelectedType('SHARED_FLAT'); setTypeMenuVisible(false); }} title="🏢 Shared Flats" />
-                </Menu>
-                
-                <Menu
-                  visible={priceCategoryMenuVisible}
-                  onDismiss={() => setPriceCategoryMenuVisible(false)}
-                  anchor={
-                    <Button
-                      mode="outlined"
-                      icon="currency-usd"
-                      onPress={() => setPriceCategoryMenuVisible(true)}
-                      style={styles.filterButton}
-                    >
-                      {selectedPriceCategory || 'Price'}
-                    </Button>
-                  }
-                >
-                  <Menu.Item onPress={() => { setSelectedPriceCategory(undefined); setPriceCategoryMenuVisible(false); }} title="All Prices" />
-                  <Menu.Item onPress={() => { setSelectedPriceCategory('BUDGET'); setPriceCategoryMenuVisible(false); }} title="Budget" />
-                  <Menu.Item onPress={() => { setSelectedPriceCategory('MID_RANGE'); setPriceCategoryMenuVisible(false); }} title="Mid Range" />
-                  <Menu.Item onPress={() => { setSelectedPriceCategory('LUXURY'); setPriceCategoryMenuVisible(false); }} title="Luxury" />
-                  <Menu.Item onPress={() => { setSelectedPriceCategory('PREMIUM'); setPriceCategoryMenuVisible(false); }} title="Premium" />
-                </Menu>
-                
-                <Button
-                  mode="text"
-                  icon="filter-remove"
-                  onPress={clearFilters}
-                  style={styles.clearButton}
-                >
-                  Clear
-                </Button>
-              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                <View style={styles.filterButtons}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, !selectedType && styles.filterChipActive]}
+                    onPress={() => setSelectedType(undefined)}
+                  >
+                    <Text style={[styles.filterChipText, !selectedType && styles.filterChipTextActive]}>
+                      All Types
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.filterChip, selectedType === 'HOTEL' && styles.filterChipActive]}
+                    onPress={() => setSelectedType('HOTEL')}
+                  >
+                    <Text style={[styles.filterChipText, selectedType === 'HOTEL' && styles.filterChipTextActive]}>
+                      🏨 Hotels
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.filterChip, selectedType === 'RESORT' && styles.filterChipActive]}
+                    onPress={() => setSelectedType('RESORT')}
+                  >
+                    <Text style={[styles.filterChipText, selectedType === 'RESORT' && styles.filterChipTextActive]}>
+                      🏖️ Resorts
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.filterChip, selectedType === 'RESTAURANT' && styles.filterChipActive]}
+                    onPress={() => setSelectedType('RESTAURANT')}
+                  >
+                    <Text style={[styles.filterChipText, selectedType === 'RESTAURANT' && styles.filterChipTextActive]}>
+                      🍽️ Restaurants
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.filterChip, selectedType === 'HOME_STAY' && styles.filterChipActive]}
+                    onPress={() => setSelectedType('HOME_STAY')}
+                  >
+                    <Text style={[styles.filterChipText, selectedType === 'HOME_STAY' && styles.filterChipTextActive]}>
+                      🏡 Home Stays
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.filterChip, selectedType === 'SHARED_FLAT' && styles.filterChipActive]}
+                    onPress={() => setSelectedType('SHARED_FLAT')}
+                  >
+                    <Text style={[styles.filterChipText, selectedType === 'SHARED_FLAT' && styles.filterChipTextActive]}>
+                      🏢 Shared Flats
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+              
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                <View style={styles.filterButtons}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, !selectedPriceCategory && styles.filterChipActive]}
+                    onPress={() => setSelectedPriceCategory(undefined)}
+                  >
+                    <Text style={[styles.filterChipText, !selectedPriceCategory && styles.filterChipTextActive]}>
+                      All Prices
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.filterChip, selectedPriceCategory === 'BUDGET' && styles.filterChipActive]}
+                    onPress={() => setSelectedPriceCategory('BUDGET')}
+                  >
+                    <Text style={[styles.filterChipText, selectedPriceCategory === 'BUDGET' && styles.filterChipTextActive]}>
+                      💰 Budget
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.filterChip, selectedPriceCategory === 'MID_RANGE' && styles.filterChipActive]}
+                    onPress={() => setSelectedPriceCategory('MID_RANGE')}
+                  >
+                    <Text style={[styles.filterChipText, selectedPriceCategory === 'MID_RANGE' && styles.filterChipTextActive]}>
+                      💵 Mid Range
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.filterChip, selectedPriceCategory === 'LUXURY' && styles.filterChipActive]}
+                    onPress={() => setSelectedPriceCategory('LUXURY')}
+                  >
+                    <Text style={[styles.filterChipText, selectedPriceCategory === 'LUXURY' && styles.filterChipTextActive]}>
+                      💎 Luxury
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.filterChip, selectedPriceCategory === 'PREMIUM' && styles.filterChipActive]}
+                    onPress={() => setSelectedPriceCategory('PREMIUM')}
+                  >
+                    <Text style={[styles.filterChipText, selectedPriceCategory === 'PREMIUM' && styles.filterChipTextActive]}>
+                      ⭐ Premium
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.clearFilterButton}
+                    onPress={clearFilters}
+                  >
+                    <Ionicons name="close-circle" size={16} color="#dc3545" />
+                    <Text style={styles.clearFilterText}>Clear</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
           </View>
         }
@@ -384,7 +433,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   listContent: {
-    padding: 12,
+    padding: 16,
   },
   webListContent: {
     maxWidth: 1400,
@@ -422,22 +471,54 @@ const styles = StyleSheet.create({
     borderColor: '#e9ecef',
     marginBottom: 12,
   },
+  filterScroll: {
+    marginBottom: 8,
+  },
   filterButtons: {
     flexDirection: 'row',
     gap: 8,
-    flexWrap: 'wrap',
+    paddingRight: 12,
   },
-  filterButton: {
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  filterChipActive: {
+    backgroundColor: '#667eea',
     borderColor: '#667eea',
   },
-  clearButton: {
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#495057',
+  },
+  filterChipTextActive: {
+    color: '#ffffff',
+  },
+  clearFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#fff5f5',
+    borderWidth: 1,
     borderColor: '#dc3545',
+  },
+  clearFilterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#dc3545',
   },
   cardWrapper: {
     flex: 1,
-    marginBottom: 16,
-    marginHorizontal: 8,
-    maxWidth: 400,
+    margin: 8,
+    maxWidth: 450,
   },
   card: {
     borderRadius: 16,
@@ -446,7 +527,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-    height: 220,
+    height: 240,
   },
   image: {
     width: '100%',

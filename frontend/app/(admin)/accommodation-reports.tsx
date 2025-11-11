@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
 import { accommodationService } from '../../src/services/accommodationService';
 
 interface LeadMetrics {
@@ -40,6 +41,7 @@ interface PropertyPerformance {
 }
 
 export default function AccommodationReports() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   
@@ -128,13 +130,19 @@ export default function AccommodationReports() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Accommodation Reports</Text>
-        <TouchableOpacity 
-          style={styles.refreshButton}
-          onPress={loadReports}
-        >
-          <Text style={styles.refreshButtonText}>↻ Refresh</Text>
-        </TouchableOpacity>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.refreshButton}
+            onPress={loadReports}
+          >
+            <Text style={styles.refreshButtonText}>↻ Refresh</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.title}>Analytics & Reports</Text>
+        <Text style={styles.subtitle}>Track performance and conversions</Text>
       </View>
 
       {/* Date Range Filter */}
@@ -332,24 +340,48 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   header: {
+    padding: 20,
+    paddingBottom: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    marginBottom: 12,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#3b82f6',
+    fontWeight: '500',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 2,
   },
   refreshButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 15,
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   refreshButtonText: {
     color: '#fff',

@@ -82,18 +82,7 @@ export interface ItineraryDay {
   activities: string[];
 }
 
-export interface Accommodation {
-  id: string;
-  name: string;
-  type: 'HOTEL' | 'RESTAURANT' | 'RESORT';
-  description: string;
-  contactPhone: string;
-  contactEmail?: string;
-  contactWebsite?: string;
-  contactAddress: string;
-  images: string[];
-  isGovtApproved: boolean;
-}
+
 
 export interface CommunityPost {
   id: string;
@@ -305,6 +294,7 @@ export interface AccommodationFilters {
   country?: string;
   state?: string;
   area?: string;
+  search?: string;
   dietTypes?: DietType[];
   homeStaySubtype?: HomeStaySubtype;
   amenities?: string[];
@@ -315,6 +305,7 @@ export interface AccommodationFilters {
   lat?: number;
   lng?: number;
   radius?: number;
+  isActive?: boolean;
   page?: number;
   limit?: number;
   sort?: string;

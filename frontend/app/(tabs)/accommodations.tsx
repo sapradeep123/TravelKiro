@@ -60,11 +60,25 @@ export default function AccommodationsScreen() {
       if (selectedState) filters.state = selectedState;
       if (selectedArea) filters.area = selectedArea;
       
+      console.log('Loading accommodations with filters:', filters);
       const result = await accommodationService.getAllAccommodations(filters);
-      setAccommodations(result.data);
-      setTotalPages(result.pagination.totalPages);
+      console.log('Received accommodations:', result);
+      
+      if (result && result.data) {
+        setAccommodations(result.data);
+        setTotalPages(result.pagination?.totalPages || 1);
+        console.log(`Loaded ${result.data.length} accommodations`);
+      } else {
+        console.warn('No data in response:', result);
+        setAccommodations([]);
+      }
     } catch (error) {
       console.error('Error loading accommodations:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      setAccommodations([]);
     } finally {
       setLoading(false);
     }

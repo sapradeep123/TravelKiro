@@ -22,6 +22,26 @@ Butterfliy is a full-stack travel encyclopedia application that enables:
 - PostgreSQL + Prisma ORM
 - JWT Authentication
 
+## Features
+
+### Core Modules
+- ✅ **Locations** - Tourist destinations with rich media
+- ✅ **Events** - Festivals, concerts, cultural events
+- ✅ **Packages** - Curated travel packages
+- ✅ **Accommodations** - Hotels, resorts, restaurants with CRM
+- ✅ **Community** - Social features and user interactions
+- ✅ **Group Travel** - Collaborative trip planning
+
+### Accommodations Module (Latest)
+Complete property management system with integrated CRM:
+- 5 accommodation types (Hotels, Resorts, Restaurants, Home Stays, Shared Flats)
+- 8-stage lead workflow (NEW → CONVERTED)
+- Analytics and reporting dashboard
+- Geographic search with coordinates
+- Review and rating system
+
+📖 **[View Complete Guide](docs/ACCOMMODATIONS_GUIDE.md)**
+
 ## Quick Start
 
 ```bash

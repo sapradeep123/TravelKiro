@@ -80,8 +80,26 @@ export default function AdminDashboard() {
       description: 'View and manage hotels, restaurants, resorts',
       icon: 'bed',
       color: '#06b6d4',
-      route: '/(admin)/accommodations',
+      route: '/(admin)/manage-accommodations',
       roles: ['SITE_ADMIN', 'GOVT_DEPARTMENT']
+    },
+    {
+      id: 'call-requests',
+      title: 'CRM Dashboard',
+      description: 'Manage accommodation call requests and leads',
+      icon: 'call',
+      color: '#f97316',
+      route: '/(admin)/call-requests',
+      roles: ['SITE_ADMIN', 'GOVT_DEPARTMENT']
+    },
+    {
+      id: 'accommodation-reports',
+      title: 'Accommodation Reports',
+      description: 'View analytics and performance metrics',
+      icon: 'stats-chart',
+      color: '#84cc16',
+      route: '/(admin)/accommodation-reports',
+      roles: ['SITE_ADMIN']
     }
   ];
 

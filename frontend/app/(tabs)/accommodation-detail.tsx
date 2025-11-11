@@ -4,8 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { accommodationService } from '../../src/services/accommodationService';
 import { Accommodation } from '../../src/types';
-import WebHeader from '../../components/WebHeader';
-import WebFooter from '../../components/WebFooter';
 import { Button, Chip, Portal, Dialog, TextInput } from 'react-native-paper';
 
 export default function AccommodationDetail() {
@@ -90,7 +88,6 @@ export default function AccommodationDetail() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        {isWeb && <WebHeader />}
         <ActivityIndicator size="large" color="#667eea" />
       </View>
     );
@@ -102,12 +99,12 @@ export default function AccommodationDetail() {
 
   return (
     <View style={styles.container}>
-      {isWeb && <WebHeader />}
       <ScrollView style={styles.scrollContainer}>
         <View style={[styles.content, isWeb && styles.webContent]}>
           {/* Back Button */}
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.push('/accommodations')} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#111827" />
+            <Text style={styles.backButtonText}>Back to Accommodations</Text>
           </TouchableOpacity>
 
           {/* Image Gallery */}
@@ -254,7 +251,6 @@ export default function AccommodationDetail() {
             )}
           </View>
         </View>
-        {isWeb && <WebFooter />}
       </ScrollView>
 
       {/* Request Call Modal */}
@@ -333,13 +329,21 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   backButton: {
-    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
     borderRadius: 8,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e5e7eb',
     alignSelf: 'flex-start',
     marginBottom: 16,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '500',
   },
   imageGallery: {
     marginBottom: 24,

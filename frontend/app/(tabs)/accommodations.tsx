@@ -1,19 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Linking, TouchableOpacity, useWindowDimensions, Platform, Image } from 'react-native';
-import { Card, Text, Chip, ActivityIndicator, Button, IconButton, SegmentedButtons, Searchbar } from 'react-native-paper';
+import { View, FlatList, StyleSheet, Image, RefreshControl, TouchableOpacity, Platform, useWindowDimensions, TextInput } from 'react-native';
+import { Card, Text, Chip, ActivityIndicator, Menu, Button, Searchbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { accommodationService } from '../../src/services/accommodationService';
-import { Accommodation } from '../../src/types';
+import { Accommodation, AccommodationType, PriceCategory } from '../../src/types';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import WebFooter from '../../components/WebFooter';
 
 export default function AccommodationsScreen() {
+  const router = useRouter();
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
-  const [filteredAccommodations, setFilteredAccommodations] = useState<Accommodation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedType, setSelectedType] = useState<'ALL' | 'HOTEL' | 'RESTAURANT' | 'RESORT'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  
+  // Filters
+  const [selectedType, setSelectedType] = useState<AccommodationType | undefined>();
+  const [selectedPriceCategory, setSelectedPriceCategory] = useState<PriceCategory | undefined>();
+  const [minPrice, setMinPrice] = useState<string>('');
+  const [maxPrice, setMaxPrice] = useState<string>('');
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedArea, setSelectedArea] = useState<string>('');
+  
+  // Menu states
+  const [typeMenuVisible, setTypeMenuVisible] = useState(false);
+  const [priceCategoryMenuVisible, setPriceCategoryMenuVisible] = useState(false);
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [selectedSort, setSelectedSort] = useState<string>('recent');
+  
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width >= 768;
@@ -29,18 +46,23 @@ export default function AccommodationsScreen() {
 
   useEffect(() => {
     loadAccommodations();
-  }, [selectedType]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [accommodations, searchQuery]);
+  }, [page, selectedType, selectedPriceCategory, selectedSort]);
 
   const loadAccommodations = async () => {
     try {
       setLoading(true);
-      const filters = selectedType !== 'ALL' ? { type: selectedType } : undefined;
-      const data = await accommodationService.getAllAccommodations(filters);
-      setAccommodations(data);
+      const filters: any = { page, limit: 20, sort: selectedSort };
+      
+      if (selectedType) filters.type = selectedType;
+      if (selectedPriceCategory) filters.priceCategory = selectedPriceCategory;
+      if (minPrice) filters.priceMin = parseFloat(minPrice);
+      if (maxPrice) filters.priceMax = parseFloat(maxPrice);
+      if (selectedState) filters.state = selectedState;
+      if (selectedArea) filters.area = selectedArea;
+      
+      const result = await accommodationService.getAllAccommodations(filters);
+      setAccommodations(result.data);
+      setTotalPages(result.pagination.totalPages);
     } catch (error) {
       console.error('Error loading accommodations:', error);
     } finally {
@@ -48,62 +70,69 @@ export default function AccommodationsScreen() {
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...accommodations];
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(acc =>
-        acc.name.toLowerCase().includes(query) ||
-        acc.description.toLowerCase().includes(query) ||
-        acc.address.toLowerCase().includes(query)
-      );
-    }
-
-    setFilteredAccommodations(filtered);
-  };
-
   const handleRefresh = async () => {
     setRefreshing(true);
+    setPage(1);
     await loadAccommodations();
     setRefreshing(false);
   };
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-
-  const getCardWidth = () => {
-    const padding = 24;
-    const gap = 16;
-    const availableWidth = width - padding;
-    
-    if (numColumns === 1) return availableWidth;
-    return (availableWidth - (gap * (numColumns - 1))) / numColumns;
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'HOTEL': return 'office-building';
-      case 'RESTAURANT': return 'silverware-fork-knife';
-      case 'RESORT': return 'palm-tree';
-      default: return 'home';
+  const handleSearch = async () => {
+    if (searchQuery.trim()) {
+      try {
+        setLoading(true);
+        const results = await accommodationService.searchAccommodations(searchQuery);
+        setAccommodations(results);
+      } catch (error) {
+        console.error('Error searching:', error);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      loadAccommodations();
     }
   };
 
-  const getTypeColor = (type: string) => {
+  const clearFilters = () => {
+    setSelectedType(undefined);
+    setSelectedPriceCategory(undefined);
+    setMinPrice('');
+    setMaxPrice('');
+    setSelectedState('');
+    setSelectedArea('');
+    setSearchQuery('');
+    setPage(1);
+  };
+
+  const getTypeIcon = (type: AccommodationType) => {
     switch (type) {
-      case 'HOTEL': return '#2196F3';
-      case 'RESTAURANT': return '#FF9800';
-      case 'RESORT': return '#4CAF50';
-      default: return '#9E9E9E';
+      case 'HOTEL': return '🏨';
+      case 'RESORT': return '🏖️';
+      case 'RESTAURANT': return '🍽️';
+      case 'HOME_STAY': return '🏡';
+      case 'SHARED_FLAT': return '🏢';
+      default: return '📍';
     }
+  };
+
+  const getTypeLabel = (type: AccommodationType) => {
+    return type.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const formatPrice = (min?: number, max?: number, currency: string = 'INR') => {
+    if (!min && !max) return 'Price on request';
+    const symbol = currency === 'INR' ? '₹' : '$';
+    if (min && max) return `${symbol}${min} - ${symbol}${max}`;
+    if (min) return `From ${symbol}${min}`;
+    if (max) return `Up to ${symbol}${max}`;
+    return 'Price on request';
   };
 
   const renderAccommodation = ({ item }: { item: Accommodation }) => (
     <TouchableOpacity 
       activeOpacity={0.9}
-      style={[styles.cardWrapper, { width: numColumns > 1 ? getCardWidth() : undefined }]}
+      onPress={() => router.push(`/(tabs)/accommodation-detail?id=${item.id}`)}
+      style={styles.cardWrapper}
     >
       <Card style={styles.card} elevation={4}>
         <View style={styles.imageContainer}>
@@ -114,35 +143,35 @@ export default function AccommodationsScreen() {
                 style={styles.image}
                 resizeMode="cover"
               />
+              <View style={styles.typeBadge}>
+                <Text style={styles.typeBadgeText}>
+                  {getTypeIcon(item.type)} {getTypeLabel(item.type)}
+                </Text>
+              </View>
+              {item.isFeatured && (
+                <View style={styles.featuredBadge}>
+                  <Ionicons name="star" size={16} color="#fff" />
+                  <Text style={styles.featuredText}>Featured</Text>
+                </View>
+              )}
               <LinearGradient
                 colors={['transparent', 'rgba(0,0,0,0.8)']}
                 style={styles.imageGradient}
               >
-                <View style={styles.typeChip}>
-                  <MaterialCommunityIcons 
-                    name={getTypeIcon(item.type) as any} 
-                    size={16} 
-                    color="#fff" 
-                  />
-                  <Text style={styles.typeText}>{item.type}</Text>
-                </View>
                 <Text variant="headlineSmall" style={styles.imageTitle}>
                   {item.name}
                 </Text>
-                <View style={styles.imageLocationContainer}>
+                <View style={styles.imageLocation}>
+                  <Ionicons name="location" size={14} color="#fff" />
                   <Text style={styles.imageLocationText}>
-                    📍 {item.address}
+                    {item.area}, {item.state}
                   </Text>
                 </View>
               </LinearGradient>
             </>
           ) : (
             <View style={styles.placeholderImage}>
-              <MaterialCommunityIcons 
-                name={getTypeIcon(item.type) as any} 
-                size={48} 
-                color={getTypeColor(item.type)} 
-              />
+              <Text style={styles.placeholderText}>{getTypeIcon(item.type)}</Text>
               <Text style={styles.placeholderTitle}>{item.name}</Text>
             </View>
           )}
@@ -152,109 +181,71 @@ export default function AccommodationsScreen() {
             {item.description}
           </Text>
           
-          <View style={styles.contactSection}>
-            {item.phone && (
-              <TouchableOpacity 
-                style={styles.contactButton}
-                onPress={() => Linking.openURL(`tel:${item.phone}`)}
-              >
-                <MaterialCommunityIcons name="phone" size={18} color="#667eea" />
-                <Text style={styles.contactText}>Call</Text>
-              </TouchableOpacity>
-            )}
-            {item.email && (
-              <TouchableOpacity 
-                style={styles.contactButton}
-                onPress={() => Linking.openURL(`mailto:${item.email}`)}
-              >
-                <MaterialCommunityIcons name="email" size={18} color="#667eea" />
-                <Text style={styles.contactText}>Email</Text>
-              </TouchableOpacity>
-            )}
-            {item.website && (
-              <TouchableOpacity 
-                style={styles.contactButton}
-                onPress={() => Linking.openURL(item.website!)}
-              >
-                <MaterialCommunityIcons name="web" size={18} color="#667eea" />
-                <Text style={styles.contactText}>Website</Text>
-              </TouchableOpacity>
+          {item.starRating && (
+            <View style={styles.ratingContainer}>
+              {[...Array(5)].map((_, i) => (
+                <Ionicons 
+                  key={i} 
+                  name={i < item.starRating! ? "star" : "star-outline"} 
+                  size={16} 
+                  color="#FFD700" 
+                />
+              ))}
+              {item.reviewCount > 0 && (
+                <Text style={styles.reviewCount}>({item.reviewCount})</Text>
+              )}
+            </View>
+          )}
+          
+          <View style={styles.priceContainer}>
+            <Text style={styles.priceText}>
+              {formatPrice(item.priceMin, item.priceMax, item.currency)}
+            </Text>
+            {item.priceCategory && (
+              <Chip style={styles.priceCategoryChip} textStyle={styles.priceCategoryText} compact>
+                {item.priceCategory.replace('_', ' ')}
+              </Chip>
             )}
           </View>
-
-          <View style={styles.statusBadge}>
-            <Chip 
-              icon={item.approvalStatus === 'APPROVED' ? 'check-circle' : 'clock'} 
-              style={[
-                styles.statusChip,
-                item.approvalStatus === 'APPROVED' ? styles.approvedChip : styles.pendingChip
-              ]}
-              textStyle={styles.statusChipText}
-              compact
-            >
-              {item.approvalStatus}
-            </Chip>
-          </View>
+          
+          {item.amenities && item.amenities.length > 0 && (
+            <View style={styles.amenitiesContainer}>
+              {item.amenities.slice(0, 3).map((amenity, index) => (
+                <Chip key={index} style={styles.amenityChip} textStyle={styles.amenityText} compact>
+                  {amenity}
+                </Chip>
+              ))}
+              {item.amenities.length > 3 && (
+                <Text style={styles.moreAmenities}>+{item.amenities.length - 3} more</Text>
+              )}
+            </View>
+          )}
         </Card.Content>
       </Card>
     </TouchableOpacity>
   );
 
-  if (loading) {
+  if (loading && accommodations.length === 0) {
     return (
       <LinearGradient
         colors={['#667eea', '#764ba2']}
         style={styles.centerContainer}
       >
         <ActivityIndicator size="large" color="#ffffff" />
-        <Text style={styles.loadingText}>Discovering places to stay & dine...</Text>
+        <Text style={styles.loadingText}>Finding amazing places...</Text>
       </LinearGradient>
     );
   }
 
   return (
     <View style={styles.container}>
-      {!showWebLayout && (
-        <View style={styles.mobileHeader}>
-          <Text variant="headlineMedium" style={styles.mobileHeaderTitle}>
-            Stay & Dine
-          </Text>
-          <Text style={styles.mobileHeaderSubtitle}>
-            Discover {filteredAccommodations.length} of {accommodations.length} places
-          </Text>
-          <Searchbar
-            placeholder="Search hotels, restaurants..."
-            onChangeText={handleSearch}
-            value={searchQuery}
-            style={styles.searchBar}
-            iconColor="#667eea"
-            placeholderTextColor="#999"
-          />
-        </View>
-      )}
-      
-      <View style={styles.typeFilterContainer}>
-        <SegmentedButtons
-          value={selectedType}
-          onValueChange={(value) => setSelectedType(value as any)}
-          buttons={[
-            { value: 'ALL', label: 'All', icon: 'view-grid' },
-            { value: 'HOTEL', label: 'Hotels', icon: 'office-building' },
-            { value: 'RESTAURANT', label: 'Restaurants', icon: 'silverware-fork-knife' },
-            { value: 'RESORT', label: 'Resorts', icon: 'palm-tree' },
-          ]}
-          style={styles.segmentedButtons}
-        />
-      </View>
-
       <FlatList
-        data={filteredAccommodations}
+        data={accommodations}
         renderItem={renderAccommodation}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.listContent,
           showWebLayout && styles.webListContent,
-          !showWebLayout && styles.mobileListContent
         ]}
         numColumns={numColumns}
         key={`columns-${numColumns}`}
@@ -266,28 +257,85 @@ export default function AccommodationsScreen() {
             tintColor="#667eea"
           />
         }
-        ListHeaderComponent={showWebLayout ? (
-          <View style={styles.webHeader}>
-            <View style={styles.webHeaderTop}>
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
               <View>
-                <Text variant="headlineLarge" style={styles.webHeaderTitle}>
-                  Stay & Dine
+                <Text variant="headlineLarge" style={styles.headerTitle}>
+                  Accommodations
                 </Text>
-                <Text style={styles.webHeaderSubtitle}>
-                  Discover {filteredAccommodations.length} of {accommodations.length} amazing places
+                <Text style={styles.headerSubtitle}>
+                  Discover {accommodations.length} amazing places to stay & dine
                 </Text>
               </View>
             </View>
-            <Searchbar
-              placeholder="Search hotels, restaurants, resorts..."
-              onChangeText={handleSearch}
-              value={searchQuery}
-              style={styles.webSearchBar}
-              iconColor="#667eea"
-              placeholderTextColor="#999"
-            />
+            
+            <View style={styles.filterRow}>
+              <Searchbar
+                placeholder="Search accommodations..."
+                onChangeText={setSearchQuery}
+                value={searchQuery}
+                onSubmitEditing={handleSearch}
+                style={styles.searchBar}
+                iconColor="#667eea"
+              />
+              
+              <View style={styles.filterButtons}>
+                <Menu
+                  visible={typeMenuVisible}
+                  onDismiss={() => setTypeMenuVisible(false)}
+                  anchor={
+                    <Button
+                      mode="outlined"
+                      icon="home"
+                      onPress={() => setTypeMenuVisible(true)}
+                      style={styles.filterButton}
+                    >
+                      {selectedType ? getTypeLabel(selectedType) : 'Type'}
+                    </Button>
+                  }
+                >
+                  <Menu.Item onPress={() => { setSelectedType(undefined); setTypeMenuVisible(false); }} title="All Types" />
+                  <Menu.Item onPress={() => { setSelectedType('HOTEL'); setTypeMenuVisible(false); }} title="🏨 Hotels" />
+                  <Menu.Item onPress={() => { setSelectedType('RESORT'); setTypeMenuVisible(false); }} title="🏖️ Resorts" />
+                  <Menu.Item onPress={() => { setSelectedType('RESTAURANT'); setTypeMenuVisible(false); }} title="🍽️ Restaurants" />
+                  <Menu.Item onPress={() => { setSelectedType('HOME_STAY'); setTypeMenuVisible(false); }} title="🏡 Home Stays" />
+                  <Menu.Item onPress={() => { setSelectedType('SHARED_FLAT'); setTypeMenuVisible(false); }} title="🏢 Shared Flats" />
+                </Menu>
+                
+                <Menu
+                  visible={priceCategoryMenuVisible}
+                  onDismiss={() => setPriceCategoryMenuVisible(false)}
+                  anchor={
+                    <Button
+                      mode="outlined"
+                      icon="currency-usd"
+                      onPress={() => setPriceCategoryMenuVisible(true)}
+                      style={styles.filterButton}
+                    >
+                      {selectedPriceCategory || 'Price'}
+                    </Button>
+                  }
+                >
+                  <Menu.Item onPress={() => { setSelectedPriceCategory(undefined); setPriceCategoryMenuVisible(false); }} title="All Prices" />
+                  <Menu.Item onPress={() => { setSelectedPriceCategory('BUDGET'); setPriceCategoryMenuVisible(false); }} title="Budget" />
+                  <Menu.Item onPress={() => { setSelectedPriceCategory('MID_RANGE'); setPriceCategoryMenuVisible(false); }} title="Mid Range" />
+                  <Menu.Item onPress={() => { setSelectedPriceCategory('LUXURY'); setPriceCategoryMenuVisible(false); }} title="Luxury" />
+                  <Menu.Item onPress={() => { setSelectedPriceCategory('PREMIUM'); setPriceCategoryMenuVisible(false); }} title="Premium" />
+                </Menu>
+                
+                <Button
+                  mode="text"
+                  icon="filter-remove"
+                  onPress={clearFilters}
+                  style={styles.clearButton}
+                >
+                  Clear
+                </Button>
+              </View>
+            </View>
           </View>
-        ) : null}
+        }
         ListFooterComponent={showWebLayout ? <WebFooter /> : null}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -296,7 +344,7 @@ export default function AccommodationsScreen() {
               No accommodations found
             </Text>
             <Text variant="bodyMedium" style={styles.emptySubtext}>
-              Try adjusting your filters or pull to refresh
+              Try adjusting your filters or search query
             </Text>
           </View>
         }
@@ -321,86 +369,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  mobileHeader: {
-    paddingTop: 16,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  mobileHeaderTitle: {
-    color: '#333',
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  mobileHeaderSubtitle: {
-    color: '#666',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  searchBar: {
-    backgroundColor: '#f8f9fa',
-    elevation: 0,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  typeFilterContainer: {
-    padding: 16,
-    backgroundColor: '#fff',
-  },
-  segmentedButtons: {
-    backgroundColor: '#fff',
-  },
   listContent: {
     padding: 12,
-  },
-  mobileListContent: {
-    paddingBottom: 160,
   },
   webListContent: {
     maxWidth: 1400,
     marginHorizontal: 'auto',
     width: '100%',
   },
-  webHeader: {
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 24,
+  header: {
+    paddingHorizontal: 12,
+    paddingTop: 20,
+    paddingBottom: 16,
     backgroundColor: '#ffffff',
+    marginBottom: 16,
+    borderRadius: 12,
   },
-  webHeaderTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
+  headerTop: {
+    marginBottom: 16,
   },
-  webHeaderTitle: {
+  headerTitle: {
     color: '#333',
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  webHeaderSubtitle: {
+  headerSubtitle: {
     color: '#666',
-    fontSize: 16,
+    fontSize: 14,
   },
-  webSearchBar: {
+  filterRow: {
+    gap: 12,
+  },
+  searchBar: {
     backgroundColor: '#f8f9fa',
     elevation: 0,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e9ecef',
+    marginBottom: 12,
+  },
+  filterButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  filterButton: {
+    borderColor: '#667eea',
+  },
+  clearButton: {
+    borderColor: '#dc3545',
   },
   cardWrapper: {
+    flex: 1,
     marginBottom: 16,
     marginHorizontal: 8,
+    maxWidth: 400,
   },
   card: {
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#ffffff',
-    width: '100%',
   },
   imageContainer: {
     position: 'relative',
@@ -410,6 +438,39 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  typeBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#333',
+  },
+  featuredBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    zIndex: 10,
+  },
+  featuredText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
   imageGradient: {
     position: 'absolute',
     bottom: 0,
@@ -418,34 +479,19 @@ const styles = StyleSheet.create({
     padding: 16,
     justifyContent: 'flex-end',
   },
-  typeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(102, 126, 234, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-    gap: 6,
-  },
-  typeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
   imageTitle: {
     color: '#ffffff',
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  imageLocationContainer: {
+  imageLocation: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   imageLocationText: {
     color: 'rgba(255,255,255,0.95)',
-    fontSize: 13,
+    fontSize: 14,
   },
   placeholderImage: {
     width: '100%',
@@ -454,11 +500,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  placeholderText: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
   placeholderTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#495057',
-    marginTop: 8,
   },
   cardContent: {
     padding: 16,
@@ -466,44 +515,56 @@ const styles = StyleSheet.create({
   description: {
     color: '#6c757d',
     lineHeight: 22,
-    marginBottom: 16,
-  },
-  contactSection: {
-    flexDirection: 'row',
-    gap: 12,
     marginBottom: 12,
-    flexWrap: 'wrap',
   },
-  contactButton: {
+  ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#f0f4ff',
-    borderRadius: 8,
+    marginBottom: 8,
+    gap: 2,
   },
-  contactText: {
-    color: '#667eea',
-    fontSize: 13,
-    fontWeight: '600',
+  reviewCount: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: '#6c757d',
   },
-  statusBadge: {
+  priceContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  statusChip: {
-    height: 28,
+  priceText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#667eea',
   },
-  statusChipText: {
+  priceCategoryChip: {
+    height: 24,
+    backgroundColor: '#e7f3ff',
+  },
+  priceCategoryText: {
     fontSize: 11,
-    fontWeight: '600',
+    color: '#0066cc',
   },
-  approvedChip: {
-    backgroundColor: '#d4edda',
+  amenitiesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    alignItems: 'center',
   },
-  pendingChip: {
-    backgroundColor: '#fff3cd',
+  amenityChip: {
+    height: 24,
+    backgroundColor: '#f8f9fa',
+  },
+  amenityText: {
+    fontSize: 10,
+    color: '#495057',
+  },
+  moreAmenities: {
+    fontSize: 11,
+    color: '#6c757d',
+    fontStyle: 'italic',
   },
   emptyContainer: {
     alignItems: 'center',

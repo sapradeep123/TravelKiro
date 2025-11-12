@@ -8,6 +8,7 @@ import { communityService } from '../../src/services/communityService';
 import { groupTravelService } from '../../src/services/groupTravelService';
 import { CommunityPost, GroupTravel } from '../../src/types';
 import { useAuth } from '../../src/contexts/AuthContext';
+import CreatePhotoPostModal from '../../components/community/CreatePhotoPostModal';
 
 type TabType = 'posts' | 'groups';
 
@@ -76,6 +77,12 @@ export default function CommunityScreen() {
   const [showReactions, setShowReactions] = useState<string | null>(null);
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [commentReactions, setCommentReactions] = useState<{[key: string]: string}>({});
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportingPostId, setReportingPostId] = useState<string | null>(null);
+  const [reportCategory, setReportCategory] = useState<string>('');
+  const [reportReason, setReportReason] = useState('');
+  const [createPostModalVisible, setCreatePostModalVisible] = useState(false);
+  const [imageIndices, setImageIndices] = useState<{[key: string]: number}>({});
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
@@ -96,7 +103,7 @@ export default function CommunityScreen() {
       setLoading(true);
       if (activeTab === 'posts') {
         const response = await communityService.getFeed();
-        // Map Post type to CommunityPost type
+        // communityService.getFeed returns { data: Post[], pagination: {...} }
         const mappedPosts = response.data.map((post: any) => ({
           ...post,
           likes: [], // Will be populated from likeCount
@@ -257,15 +264,61 @@ export default function CommunityScreen() {
     setComments([]);
   };
 
+  const handleReportPost = (postId: string) => {
+    setReportingPostId(postId);
+    setReportModalVisible(true);
+  };
+
+  const submitReport = async () => {
+    if (!reportCategory || !reportingPostId) {
+      showMessage('Please select a reason');
+      return;
+    }
+
+    try {
+      await communityService.reportPost(reportingPostId, {
+        category: reportCategory as any,
+        reason: reportReason
+      });
+      
+      setReportModalVisible(false);
+      setReportingPostId(null);
+      setReportCategory('');
+      setReportReason('');
+      showMessage('Report submitted. Thank you for helping keep our community safe.');
+    } catch (error: any) {
+      console.error('Error reporting post:', error);
+      showMessage('Failed to submit report');
+    }
+  };
+
+  const closeReportModal = () => {
+    setReportModalVisible(false);
+    setReportingPostId(null);
+    setReportCategory('');
+    setReportReason('');
+  };
+
   const handleShare = (postId: string, caption: string) => {
     console.log('Share button clicked for post:', postId);
     if (Platform.OS === 'web') {
       // For web, copy to clipboard
-      if (navigator.clipboard) {
-        const shareUrl = `${window.location.origin}/community/post/${postId}`;
-        navigator.clipboard.writeText(shareUrl);
-        showMessage('Link copied to clipboard!');
-      } else {
+      try {
+        const nav = navigator as any;
+        const win = (global as any).window || (globalThis as any).window;
+        if (nav?.clipboard) {
+          const shareUrl = win?.location?.origin 
+            ? `${win.location.origin}/community/post/${postId}`
+            : `https://butterfliy.com/community/post/${postId}`;
+          nav.clipboard.writeText(shareUrl).then(() => {
+            showMessage('Link copied to clipboard!');
+          }).catch(() => {
+            showMessage('Failed to copy link');
+          });
+        } else {
+          showMessage('Share feature coming soon!');
+        }
+      } catch (error) {
         showMessage('Share feature coming soon!');
       }
     } else {
@@ -463,6 +516,14 @@ export default function CommunityScreen() {
     const isLiked = (item as any).isLiked || false;
     const likeCount = (item as any).likeCount || 0;
     const commentCount = (item as any).commentCount || 0;
+    const currentImageIndex = imageIndices[item.id] || 0;
+    
+    const handleImageScroll = (event: any) => {
+      const contentOffsetX = event.nativeEvent.contentOffset.x;
+      const imageWidth = event.nativeEvent.layoutMeasurement.width;
+      const index = Math.round(contentOffsetX / imageWidth);
+      setImageIndices(prev => ({ ...prev, [item.id]: index }));
+    };
     
     return (
       <Card style={styles.postCard}>
@@ -471,19 +532,23 @@ export default function CommunityScreen() {
           <View style={styles.postUserInfo}>
             <Avatar.Text
               size={48}
-              label={(item.user as any).name?.substring(0, 2).toUpperCase() || 'U'}
+              label={(item.user as any)?.profile?.name?.substring(0, 2).toUpperCase() || 'U'}
               style={styles.postAvatar}
             />
             <View style={styles.postUserDetails}>
               <Text variant="titleMedium" style={styles.postUserName}>
-                {(item.user as any).name || 'User'}
+                {(item.user as any)?.profile?.name || 'User'}
               </Text>
               <Text variant="bodySmall" style={styles.postTimestamp}>
                 {formatPostDate(item.createdAt)}
               </Text>
             </View>
           </View>
-          <IconButton icon="dots-horizontal" size={20} onPress={() => {}} />
+          <IconButton 
+            icon="dots-horizontal" 
+            size={20} 
+            onPress={() => handleReportPost(item.id)} 
+          />
         </View>
 
         {/* Post Caption */}
@@ -491,13 +556,59 @@ export default function CommunityScreen() {
           {item.caption}
         </Text>
 
-        {/* Post Image */}
+        {/* Post Images - Carousel for multiple images */}
         {item.mediaUrls && item.mediaUrls.length > 0 && (
-          <Image 
-            source={{ uri: item.mediaUrls[0] }} 
-            style={styles.postImage}
-            resizeMode="cover"
-          />
+          <View style={styles.imageCarouselContainer}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={handleImageScroll}
+              scrollEventThrottle={16}
+              style={styles.imageCarousel}
+            >
+              {item.mediaUrls.map((url, index) => (
+                <TouchableOpacity
+                  key={`${item.id}-image-${index}`}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    // TODO: Open full-screen image gallery
+                    console.log('Image tapped:', url);
+                  }}
+                >
+                  <Image 
+                    source={{ uri: url }} 
+                    style={styles.postImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            {/* Image Counter for multiple images */}
+            {item.mediaUrls.length > 1 && (
+              <View style={styles.imageCounterBadge}>
+                <Text style={styles.imageCounterText}>
+                  {currentImageIndex + 1}/{item.mediaUrls.length}
+                </Text>
+              </View>
+            )}
+            
+            {/* Pagination Dots for multiple images */}
+            {item.mediaUrls.length > 1 && (
+              <View style={styles.paginationDots}>
+                {item.mediaUrls.map((_, index) => (
+                  <View
+                    key={`dot-${index}`}
+                    style={[
+                      styles.paginationDot,
+                      index === currentImageIndex && styles.paginationDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
         )}
 
         {/* Reactions */}
@@ -691,6 +802,18 @@ export default function CommunityScreen() {
             </ScrollView>
           </View>
         </View>
+
+        {/* Floating Action Button */}
+        {activeTab === 'posts' && user && (
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={() => setCreatePostModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="plus" size={28} color="#fff" />
+          </TouchableOpacity>
+        )}
+
         <Snackbar
           visible={snackbarVisible}
           onDismiss={() => setSnackbarVisible(false)}
@@ -699,6 +822,91 @@ export default function CommunityScreen() {
         >
           {snackbarMessage}
         </Snackbar>
+
+        {/* Report Modal - Web */}
+        <Modal
+          visible={reportModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeReportModal}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContainer, styles.webModalContainer, { maxHeight: '70%' }]}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Report Post</Text>
+                  <IconButton icon="close" size={24} onPress={closeReportModal} />
+                </View>
+
+                <ScrollView style={styles.reportContainer}>
+                  <Text style={styles.reportDescription}>
+                    Help us understand what's wrong with this post
+                  </Text>
+
+                  <View style={styles.reportCategories}>
+                    {[
+                      { value: 'spam', label: 'Spam', icon: 'alert-circle' },
+                      { value: 'harassment', label: 'Harassment or Bullying', icon: 'account-alert' },
+                      { value: 'inappropriate', label: 'Inappropriate Content', icon: 'eye-off' },
+                      { value: 'violence', label: 'Violence or Dangerous', icon: 'alert-octagon' },
+                      { value: 'hate_speech', label: 'Hate Speech', icon: 'message-alert' },
+                      { value: 'false_info', label: 'False Information', icon: 'information' },
+                      { value: 'other', label: 'Other', icon: 'dots-horizontal' },
+                    ].map((category) => (
+                      <TouchableOpacity
+                        key={category.value}
+                        style={[
+                          styles.reportCategoryBtn,
+                          reportCategory === category.value && styles.reportCategoryBtnActive
+                        ]}
+                        onPress={() => setReportCategory(category.value)}
+                      >
+                        <MaterialCommunityIcons 
+                          name={category.icon as any} 
+                          size={24} 
+                          color={reportCategory === category.value ? '#667eea' : '#6b7280'} 
+                        />
+                        <Text style={[
+                          styles.reportCategoryText,
+                          reportCategory === category.value && styles.reportCategoryTextActive
+                        ]}>
+                          {category.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.reportLabel}>Additional Details (Optional)</Text>
+                  <TextInput
+                    style={styles.reportTextInput}
+                    placeholder="Provide more context..."
+                    value={reportReason}
+                    onChangeText={setReportReason}
+                    multiline
+                    numberOfLines={4}
+                    maxLength={500}
+                  />
+                </ScrollView>
+
+                <View style={styles.reportActions}>
+                  <TouchableOpacity 
+                    style={styles.reportCancelBtn}
+                    onPress={closeReportModal}
+                  >
+                    <Text style={styles.reportCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.reportSubmitBtn, !reportCategory && styles.reportSubmitBtnDisabled]}
+                    onPress={submitReport}
+                    disabled={!reportCategory}
+                  >
+                    <Text style={styles.reportSubmitText}>Submit Report</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Comment Modal */}
         <Modal
@@ -839,6 +1047,16 @@ export default function CommunityScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Create Photo Post Modal */}
+        <CreatePhotoPostModal
+          visible={createPostModalVisible}
+          onClose={() => setCreatePostModalVisible(false)}
+          onPostCreated={() => {
+            showMessage('Post created successfully!');
+            handleRefresh();
+          }}
+        />
       </View>
     );
   }
@@ -873,10 +1091,11 @@ export default function CommunityScreen() {
       />
 
       {/* Floating Action Button for Create Post */}
-      {activeTab === 'posts' && (
+      {activeTab === 'posts' && user && (
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => router.push('/post-composer' as any)}
+          onPress={() => setCreatePostModalVisible(true)}
+          activeOpacity={0.8}
         >
           <MaterialCommunityIcons name="plus" size={28} color="#fff" />
         </TouchableOpacity>
@@ -890,6 +1109,91 @@ export default function CommunityScreen() {
       >
         {snackbarMessage}
       </Snackbar>
+
+      {/* Report Modal */}
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeReportModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { maxHeight: '70%' }]}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Report Post</Text>
+                <IconButton icon="close" size={24} onPress={closeReportModal} />
+              </View>
+
+              <ScrollView style={styles.reportContainer}>
+                <Text style={styles.reportDescription}>
+                  Help us understand what's wrong with this post
+                </Text>
+
+                <View style={styles.reportCategories}>
+                  {[
+                    { value: 'spam', label: 'Spam', icon: 'alert-circle' },
+                    { value: 'harassment', label: 'Harassment or Bullying', icon: 'account-alert' },
+                    { value: 'inappropriate', label: 'Inappropriate Content', icon: 'eye-off' },
+                    { value: 'violence', label: 'Violence or Dangerous', icon: 'alert-octagon' },
+                    { value: 'hate_speech', label: 'Hate Speech', icon: 'message-alert' },
+                    { value: 'false_info', label: 'False Information', icon: 'information' },
+                    { value: 'other', label: 'Other', icon: 'dots-horizontal' },
+                  ].map((category) => (
+                    <TouchableOpacity
+                      key={category.value}
+                      style={[
+                        styles.reportCategoryBtn,
+                        reportCategory === category.value && styles.reportCategoryBtnActive
+                      ]}
+                      onPress={() => setReportCategory(category.value)}
+                    >
+                      <MaterialCommunityIcons 
+                        name={category.icon as any} 
+                        size={24} 
+                        color={reportCategory === category.value ? '#667eea' : '#6b7280'} 
+                      />
+                      <Text style={[
+                        styles.reportCategoryText,
+                        reportCategory === category.value && styles.reportCategoryTextActive
+                      ]}>
+                        {category.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.reportLabel}>Additional Details (Optional)</Text>
+                <TextInput
+                  style={styles.reportTextInput}
+                  placeholder="Provide more context..."
+                  value={reportReason}
+                  onChangeText={setReportReason}
+                  multiline
+                  numberOfLines={4}
+                  maxLength={500}
+                />
+              </ScrollView>
+
+              <View style={styles.reportActions}>
+                <TouchableOpacity 
+                  style={styles.reportCancelBtn}
+                  onPress={closeReportModal}
+                >
+                  <Text style={styles.reportCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.reportSubmitBtn, !reportCategory && styles.reportSubmitBtnDisabled]}
+                  onPress={submitReport}
+                  disabled={!reportCategory}
+                >
+                  <Text style={styles.reportSubmitText}>Submit Report</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Comment Modal */}
       <Modal
@@ -1004,6 +1308,27 @@ export default function CommunityScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      {/* Create Photo Post Modal */}
+      <CreatePhotoPostModal
+        visible={createPostModalVisible}
+        onClose={() => setCreatePostModalVisible(false)}
+        onPostCreated={() => {
+          showMessage('Post created successfully!');
+          handleRefresh();
+        }}
+      />
+
+      {/* Floating Action Button */}
+      {activeTab === 'posts' && user && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setCreatePostModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="plus" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -1048,6 +1373,7 @@ const styles = StyleSheet.create({
   sidebarCard: {
     borderRadius: 12,
     elevation: 1,
+    backgroundColor: '#fff',
   },
   sidebarHeader: {
     flexDirection: 'row',
@@ -1304,11 +1630,50 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 16,
   },
+  imageCarouselContainer: {
+    position: 'relative',
+  },
+  imageCarousel: {
+    width: '100%',
+  },
   postImage: {
     width: '100%',
     height: 400,
     backgroundColor: '#f0f0f0',
   } as any,
+  imageCounterBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  imageCounterText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  paginationDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 6,
+  },
+  paginationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ddd',
+  },
+  paginationDotActive: {
+    backgroundColor: '#667eea',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   postReactions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1623,5 +1988,91 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     opacity: 0.5,
   },
+  reportContainer: {
+    padding: 16,
+  },
+  reportDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  reportCategories: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  reportCategoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    gap: 12,
+  },
+  reportCategoryBtnActive: {
+    backgroundColor: '#eef2ff',
+    borderColor: '#667eea',
+  },
+  reportCategoryText: {
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  reportCategoryTextActive: {
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  reportLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  reportTextInput: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#111827',
+    textAlignVertical: 'top',
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  reportActions: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  reportCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+  reportCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  reportSubmitBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#dc2626',
+    alignItems: 'center',
+  },
+  reportSubmitBtnDisabled: {
+    opacity: 0.5,
+  },
+  reportSubmitText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
 });
-

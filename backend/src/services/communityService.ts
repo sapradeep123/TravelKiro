@@ -44,10 +44,7 @@ export class CommunityService {
     mediaUrls: string[];
     mediaTypes: MediaType[];
   }) {
-    // Validate that location data is provided
-    if (!data.locationId && !data.customCountry) {
-      throw new Error('Location data is required. Provide either locationId or custom location.');
-    }
+    // Location data is optional - posts can be created without location
 
     const post = await prisma.communityPost.create({
       data: {

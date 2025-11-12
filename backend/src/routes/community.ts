@@ -1,8 +1,53 @@
 import { Router } from 'express';
+import multer from 'multer';
 import communityController from '../controllers/communityController';
+import uploadController from '../controllers/uploadController';
 import { authenticate, requireAdmin } from '../middleware/auth';
+import { communityImageUpload } from '../middleware/upload';
+import { Request, Response, NextFunction } from 'express';
 
 const router = Router();
+
+// Multer error handler for community uploads
+const handleMulterError = (err: any, req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        error: 'File too large',
+        message: 'One or more files exceed the 10MB size limit',
+        details: 'Please select smaller images'
+      });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        error: 'Too many files',
+        message: 'Maximum 10 images allowed per upload',
+        details: 'Please select fewer images'
+      });
+    }
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({
+        error: 'Unexpected field',
+        message: 'Invalid form field name',
+        details: 'Images must be uploaded with field name "images"'
+      });
+    }
+  }
+  
+  if (err) {
+    return res.status(500).json({
+      error: 'Upload error',
+      message: err.message || 'An error occurred during file upload',
+      details: 'Please try again or contact support if the problem persists'
+    });
+  }
+  
+  next();
+};
+
+// Image Upload Route (must come before other routes)
+// POST /api/community/upload-images - Upload images for community posts (auth required)
+router.post('/upload-images', authenticate, communityImageUpload.array('images', 10), handleMulterError, uploadController.uploadCommunityImages);
 
 // Post Management Routes
 // POST /api/community/posts - Create new post (auth required)

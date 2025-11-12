@@ -65,6 +65,83 @@ export class UploadController {
       }
     }
   }
+
+  async uploadCommunityImages(req: Request, res: Response) {
+    try {
+      console.log('uploadCommunityImages called');
+      console.log('Files received:', req.files);
+      console.log('Body:', req.body);
+      
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        console.error('No files in request');
+        return res.status(400).json({ 
+          error: 'No files uploaded',
+          message: 'Please select at least one image to upload'
+        });
+      }
+
+      const uploadDir = path.join(__dirname, '../../uploads/community');
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const urls: string[] = [];
+
+      console.log('Upload directory:', uploadDir);
+      console.log('Base URL:', baseUrl);
+
+      // Process each image with sharp - optimized for mobile viewing
+      for (const file of files) {
+        console.log(`Processing file: ${file.originalname}`);
+        
+        // Generate unique filename
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        const nameWithoutExt = path.basename(file.originalname, ext);
+        const filename = `${uniqueSuffix}-${nameWithoutExt}.jpg`;
+        const filepath = path.join(uploadDir, filename);
+
+        console.log('Saving to:', filepath);
+
+        // Compress and optimize image for mobile viewing
+        await sharp(file.buffer)
+          .resize(1200, 1200, { 
+            fit: 'inside', 
+            withoutEnlargement: true 
+          })
+          .jpeg({ 
+            quality: 85, 
+            progressive: true 
+          })
+          .toFile(filepath);
+
+        console.log('File saved successfully');
+        urls.push(`${baseUrl}/uploads/community/${filename}`);
+      }
+
+      console.log('All files processed. URLs:', urls);
+
+      res.status(200).json({ 
+        success: true, 
+        urls,
+        count: urls.length,
+        message: `Successfully uploaded and optimized ${urls.length} image(s)`
+      });
+    } catch (error) {
+      console.error('Community upload error:', error);
+      
+      if (error instanceof Error) {
+        res.status(500).json({ 
+          error: 'Upload failed',
+          message: error.message
+        });
+      } else {
+        res.status(500).json({ 
+          error: 'Upload failed',
+          message: 'An unexpected error occurred during upload'
+        });
+      }
+    }
+  }
 }
 
 export default new UploadController();

@@ -14,12 +14,7 @@ export class CommunityController {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      // Validate required fields
-      if (!caption) {
-        return res.status(400).json({
-          error: 'Caption is required',
-        });
-      }
+      // Caption is optional - posts can be created with just images
 
       if (!mediaUrls || !Array.isArray(mediaUrls) || mediaUrls.length === 0) {
         return res.status(400).json({
@@ -40,11 +35,7 @@ export class CommunityController {
       }
 
       // Validate location data
-      if (!locationId && !customCountry) {
-        return res.status(400).json({
-          error: 'Location data is required. Provide either locationId or custom location.',
-        });
-      }
+      // Location data is optional - posts can be created without location
 
       const post = await communityService.createPost({
         userId: user.userId,

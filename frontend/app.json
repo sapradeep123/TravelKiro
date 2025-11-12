@@ -35,7 +35,14 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Butterfliy to access your photos to share travel memories",
+          "cameraPermission": "Allow Butterfliy to access your camera to capture travel moments"
+        }
+      ]
     ],
     "scheme": "travel-encyclopedia",
     "experiments": {

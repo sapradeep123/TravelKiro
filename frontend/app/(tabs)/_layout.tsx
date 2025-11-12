@@ -20,6 +20,7 @@ function FloatingActionButton() {
   };
 
   const menuItems = [
+    { icon: 'airplane', label: 'Travel', route: '/travel' },
     { icon: 'package-variant', label: 'Packages', route: '/packages' },
     { icon: 'silverware-fork-knife', label: 'Stay', route: '/accommodations' },
     { icon: 'calendar-star', label: 'Events', route: '/events' },
@@ -165,19 +166,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="travel"
-        options={{
-          title: 'Travel',
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons 
-              name={focused ? "airplane" : "airplane"} 
-              size={28} 
-              color={color} 
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -188,6 +176,14 @@ export default function TabLayout() {
               color={color} 
             />
           ),
+        }}
+      />
+      
+      {/* Hidden from tab bar - accessible via FAB */}
+      <Tabs.Screen
+        name="travel"
+        options={{
+          href: null,
         }}
       />
       
@@ -218,6 +214,54 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="location-detail"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="event-detail"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="package-detail"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="accommodation-detail"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="events-new"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="post-composer"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="user-profile"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="profile-edit"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="location-feed"
         options={{
           href: null,
         }}

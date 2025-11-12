@@ -37,6 +37,9 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "travel-encyclopedia"
+    "scheme": "travel-encyclopedia",
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

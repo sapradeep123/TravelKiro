@@ -245,8 +245,8 @@ export default function LocationsScreen() {
           showWebLayout && styles.webListContent,
           !showWebLayout && styles.mobileListContent
         ]}
-        numColumns={numColumns}
-        key={`columns-${numColumns}`}
+        numColumns={showWebLayout ? numColumns : 1}
+        key={`columns-${showWebLayout ? numColumns : 1}`}
         refreshControl={
           <RefreshControl 
             refreshing={refreshing} 
@@ -398,12 +398,15 @@ const styles = StyleSheet.create({
   },
   mobileListContent: {
     paddingBottom: 160, // Extra padding to avoid FAB overlap
+    width: '100%',
+    maxWidth: '100%',
   },
   cardWrapper: {
     flex: 1,
     marginBottom: 16,
     marginHorizontal: 8,
     maxWidth: 400,
+    width: '100%',
   },
   card: {
     borderRadius: 16,

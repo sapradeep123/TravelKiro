@@ -33,6 +33,7 @@ export default function AccommodationsScreen() {
   const showWebLayout = isWeb && isLargeScreen;
   
   const getNumColumns = () => {
+    if (!showWebLayout) return 1; // Always 1 column on mobile
     if (width >= 1400) return 3;
     if (width >= 1024) return 3;
     if (width >= 768) return 2;
@@ -434,6 +435,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    width: '100%',
   },
   webListContent: {
     maxWidth: 1400,
@@ -519,6 +521,7 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: 8,
     maxWidth: 450,
+    width: '100%',
   },
   card: {
     borderRadius: 16,

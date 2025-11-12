@@ -125,11 +125,7 @@ export class LocationService {
             approvalStatus: 'APPROVED',
           },
         },
-        accommodations: {
-          where: {
-            approvalStatus: 'APPROVED',
-          },
-        },
+        communityPosts: true,
       },
     });
 

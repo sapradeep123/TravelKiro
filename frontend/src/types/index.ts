@@ -51,12 +51,18 @@ export interface Event {
   id: string;
   title: string;
   description: string;
+  eventType: string;
   locationId?: string;
+  customCountry?: string;
+  customState?: string;
+  customArea?: string;
+  venue?: string;
   startDate: string;
   endDate: string;
   images: string[];
   hostRole: UserRole;
   approvalStatus: string;
+  isActive?: boolean;
 }
 
 export interface Package {

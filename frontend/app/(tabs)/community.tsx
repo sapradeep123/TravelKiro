@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, Image, RefreshControl, TouchableOpacity, useWindowDimensions, Platform, Alert, ScrollView } from 'react-native';
-import { Card, Text, ActivityIndicator, IconButton, Avatar, SegmentedButtons, Button, Chip, Divider } from 'react-native-paper';
+import { View, FlatList, StyleSheet, Image, RefreshControl, TouchableOpacity, useWindowDimensions, Platform, Alert, ScrollView, Modal, TextInput, KeyboardAvoidingView } from 'react-native';
+import { Card, Text, ActivityIndicator, IconButton, Avatar, SegmentedButtons, Button, Chip, Divider, Snackbar, Portal } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { communityService } from '../../src/services/communityService';
 import { groupTravelService } from '../../src/services/groupTravelService';
 import { CommunityPost, GroupTravel } from '../../src/types';
@@ -58,16 +59,33 @@ const SAMPLE_STREAM = {
 };
 
 export default function CommunityScreen() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('posts');
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [groupTravels, setGroupTravels] = useState<GroupTravel[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState<any[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<any>(null);
+  const [showReactions, setShowReactions] = useState<string | null>(null);
+  const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
+  const [commentReactions, setCommentReactions] = useState<{[key: string]: string}>({});
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width >= 1024;
   const showWebLayout = isWeb && isLargeScreen;
+
+  const showMessage = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
 
   useEffect(() => {
     loadData();
@@ -77,8 +95,14 @@ export default function CommunityScreen() {
     try {
       setLoading(true);
       if (activeTab === 'posts') {
-        const data = await communityService.getFeed();
-        setPosts(data);
+        const response = await communityService.getFeed();
+        // Map Post type to CommunityPost type
+        const mappedPosts = response.data.map((post: any) => ({
+          ...post,
+          likes: [], // Will be populated from likeCount
+          comments: [], // Will be populated from commentCount
+        }));
+        setPosts(mappedPosts);
       } else {
         const data = await groupTravelService.getAllGroupTravels();
         setGroupTravels(data);
@@ -97,11 +121,155 @@ export default function CommunityScreen() {
   };
 
   const handleLike = async (postId: string) => {
+    console.log('Like button clicked for post:', postId);
+    if (!user) {
+      showMessage('Please login to like posts');
+      return;
+    }
     try {
-      await communityService.likePost(postId);
-      await loadData();
-    } catch (error) {
+      // Optimistically update the UI
+      setPosts(prevPosts => prevPosts.map(post => {
+        if (post.id === postId) {
+          const isCurrentlyLiked = (post as any).isLiked || false;
+          return {
+            ...post,
+            isLiked: !isCurrentlyLiked,
+            likeCount: isCurrentlyLiked ? (post as any).likeCount - 1 : (post as any).likeCount + 1
+          } as any;
+        }
+        return post;
+      }));
+      
+      await communityService.toggleLike(postId);
+      // No message needed - visual feedback is enough
+    } catch (error: any) {
       console.error('Error liking post:', error);
+      showMessage('Failed to like post');
+      // Revert the optimistic update
+      await loadData();
+    }
+  };
+
+  const handleComment = async (postId: string) => {
+    console.log('Comment button clicked for post:', postId);
+    if (!user) {
+      showMessage('Please login to comment on posts');
+      return;
+    }
+    setSelectedPostId(postId);
+    setCommentModalVisible(true);
+    await loadComments(postId);
+  };
+
+  const loadComments = async (postId: string) => {
+    try {
+      setLoadingComments(true);
+      const post = await communityService.getPost(postId);
+      const allComments = (post as any).comments || [];
+      
+      // Organize comments into threads (parent comments with their replies)
+      const commentThreads = allComments.map((comment: any) => {
+        // Check if this comment is a reply (starts with @username)
+        const isReply = comment.text.startsWith('@');
+        return {
+          ...comment,
+          isReply,
+          replies: [] // We'll populate this if needed
+        };
+      });
+      
+      setComments(commentThreads);
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      setComments([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !selectedPostId) return;
+    
+    try {
+      const finalText = replyingTo 
+        ? `@${replyingTo.user.profile.name} ${commentText}`
+        : commentText;
+      
+      await communityService.addComment(selectedPostId, finalText);
+      
+      // Update the comment count optimistically
+      setPosts(prevPosts => prevPosts.map(post => {
+        if (post.id === selectedPostId) {
+          return {
+            ...post,
+            commentCount: ((post as any).commentCount || 0) + 1
+          } as any;
+        }
+        return post;
+      }));
+      
+      setCommentText('');
+      setReplyingTo(null);
+      await loadComments(selectedPostId);
+      showMessage('Comment added');
+    } catch (error: any) {
+      console.error('Error adding comment:', error);
+      showMessage('Failed to add comment');
+    }
+  };
+
+  const handleReply = (comment: any) => {
+    setReplyingTo(comment);
+    setCommentText('');
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  const handleLikeComment = async (commentId: string) => {
+    // Toggle like optimistically
+    setLikedComments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(commentId)) {
+        newSet.delete(commentId);
+      } else {
+        newSet.add(commentId);
+      }
+      return newSet;
+    });
+    // Backend integration would go here
+  };
+
+  const handleReaction = async (commentId: string, reaction: string) => {
+    setCommentReactions(prev => ({
+      ...prev,
+      [commentId]: reaction
+    }));
+    setShowReactions(null);
+    showMessage(`Reacted with ${reaction}`);
+  };
+
+  const closeCommentModal = () => {
+    setCommentModalVisible(false);
+    setSelectedPostId(null);
+    setCommentText('');
+    setComments([]);
+  };
+
+  const handleShare = (postId: string, caption: string) => {
+    console.log('Share button clicked for post:', postId);
+    if (Platform.OS === 'web') {
+      // For web, copy to clipboard
+      if (navigator.clipboard) {
+        const shareUrl = `${window.location.origin}/community/post/${postId}`;
+        navigator.clipboard.writeText(shareUrl);
+        showMessage('Link copied to clipboard!');
+      } else {
+        showMessage('Share feature coming soon!');
+      }
+    } else {
+      showMessage('Share feature coming soon!');
     }
   };
 
@@ -292,7 +460,9 @@ export default function CommunityScreen() {
   );
 
   const renderPost = ({ item }: { item: CommunityPost }) => {
-    const isLiked = item.likes.some((like: any) => like.userId === user?.id);
+    const isLiked = (item as any).isLiked || false;
+    const likeCount = (item as any).likeCount || 0;
+    const commentCount = (item as any).commentCount || 0;
     
     return (
       <Card style={styles.postCard}>
@@ -301,12 +471,12 @@ export default function CommunityScreen() {
           <View style={styles.postUserInfo}>
             <Avatar.Text
               size={48}
-              label={item.user.profile.name.substring(0, 2).toUpperCase()}
+              label={(item.user as any).name?.substring(0, 2).toUpperCase() || 'U'}
               style={styles.postAvatar}
             />
             <View style={styles.postUserDetails}>
               <Text variant="titleMedium" style={styles.postUserName}>
-                {item.user.profile.name}
+                {(item.user as any).name || 'User'}
               </Text>
               <Text variant="bodySmall" style={styles.postTimestamp}>
                 {formatPostDate(item.createdAt)}
@@ -336,10 +506,10 @@ export default function CommunityScreen() {
             <MaterialCommunityIcons name="heart" size={16} color="#F44336" />
             <MaterialCommunityIcons name="thumb-up" size={16} color="#2196F3" />
             <MaterialCommunityIcons name="emoticon-happy" size={16} color="#FFC107" />
-            <Text style={styles.reactionCount}>{item.likes.length}</Text>
+            <Text style={styles.reactionCount}>{likeCount}</Text>
           </View>
           <View style={styles.postStats}>
-            <Text style={styles.statText}>{item.comments.length} Comments</Text>
+            <Text style={styles.statText}>{commentCount} Comments</Text>
             <Text style={styles.statText}>5 Shares</Text>
           </View>
         </View>
@@ -350,7 +520,11 @@ export default function CommunityScreen() {
         <View style={styles.postActions}>
           <TouchableOpacity 
             style={styles.postAction}
-            onPress={() => handleLike(item.id)}
+            onPress={() => {
+              console.log('React button pressed!');
+              handleLike(item.id);
+            }}
+            activeOpacity={0.7}
           >
             <MaterialCommunityIcons 
               name={isLiked ? 'heart' : 'heart-outline'} 
@@ -359,11 +533,25 @@ export default function CommunityScreen() {
             />
             <Text style={[styles.actionText, isLiked && styles.actionTextActive]}>React</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.postAction}>
+          <TouchableOpacity 
+            style={styles.postAction}
+            onPress={() => {
+              console.log('Comment button pressed!');
+              handleComment(item.id);
+            }}
+            activeOpacity={0.7}
+          >
             <MaterialCommunityIcons name="comment-outline" size={20} color="#666" />
             <Text style={styles.actionText}>Comment</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.postAction}>
+          <TouchableOpacity 
+            style={styles.postAction}
+            onPress={() => {
+              console.log('Share button pressed!');
+              handleShare(item.id, item.caption);
+            }}
+            activeOpacity={0.7}
+          >
             <MaterialCommunityIcons name="share-outline" size={20} color="#666" />
             <Text style={styles.actionText}>Share</Text>
           </TouchableOpacity>
@@ -503,6 +691,154 @@ export default function CommunityScreen() {
             </ScrollView>
           </View>
         </View>
+        <Snackbar
+          visible={snackbarVisible}
+          onDismiss={() => setSnackbarVisible(false)}
+          duration={3000}
+          style={styles.snackbar}
+        >
+          {snackbarMessage}
+        </Snackbar>
+
+        {/* Comment Modal */}
+        <Modal
+          visible={commentModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeCommentModal}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContainer, styles.webModalContainer]}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Comments</Text>
+                  <IconButton icon="close" size={24} onPress={closeCommentModal} />
+                </View>
+
+                <ScrollView style={styles.commentsContainer}>
+                  {loadingComments ? (
+                    <ActivityIndicator size="small" color="#667eea" style={{ marginTop: 20 }} />
+                  ) : comments.length === 0 ? (
+                    <View style={styles.noComments}>
+                      <Text style={styles.noCommentsText}>No comments yet. Be the first to comment!</Text>
+                    </View>
+                  ) : (
+                    comments.map((comment, index) => {
+                      const isLiked = likedComments.has(comment.id);
+                      const reaction = commentReactions[comment.id];
+                      const isReply = comment.text.startsWith('@');
+                      
+                      return (
+                        <View key={comment.id || index} style={[styles.commentItem, isReply && styles.commentReply]}>
+                          <Avatar.Text 
+                            size={isReply ? 28 : 32} 
+                            label={comment.user?.profile?.name?.substring(0, 2).toUpperCase() || 'U'} 
+                            style={styles.commentAvatar}
+                          />
+                          <View style={styles.commentContentWrapper}>
+                            <View style={styles.commentContent}>
+                              <Text style={styles.commentUser}>{comment.user?.profile?.name || 'User'}</Text>
+                              <Text style={styles.commentText}>{comment.text}</Text>
+                              {reaction && (
+                                <View style={styles.commentReactionBadge}>
+                                  <Text style={styles.commentReactionEmoji}>{reaction}</Text>
+                                </View>
+                              )}
+                              <Text style={styles.commentTime}>
+                                {new Date(comment.createdAt).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </Text>
+                            </View>
+                            <View style={styles.commentActions}>
+                              <TouchableOpacity 
+                                style={styles.commentActionBtn}
+                                onPress={() => handleLikeComment(comment.id)}
+                              >
+                                <MaterialCommunityIcons 
+                                  name={isLiked ? "heart" : "heart-outline"} 
+                                  size={16} 
+                                  color={isLiked ? "#F44336" : "#6b7280"} 
+                                />
+                                <Text style={[styles.commentActionText, isLiked && styles.commentActionTextActive]}>
+                                  {isLiked ? 'Liked' : 'Like'}
+                                </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity 
+                                style={styles.commentActionBtn}
+                                onPress={() => handleReply(comment)}
+                              >
+                                <MaterialCommunityIcons name="reply" size={16} color="#6b7280" />
+                                <Text style={styles.commentActionText}>Reply</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity 
+                                style={styles.commentActionBtn}
+                                onPress={() => setShowReactions(showReactions === comment.id ? null : comment.id)}
+                              >
+                                <MaterialCommunityIcons name="emoticon-happy-outline" size={16} color="#6b7280" />
+                                <Text style={styles.commentActionText}>React</Text>
+                              </TouchableOpacity>
+                            </View>
+                            {showReactions === comment.id && (
+                              <View style={styles.reactionsPanel}>
+                                {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => (
+                                  <TouchableOpacity
+                                    key={emoji}
+                                    style={styles.reactionBtn}
+                                    onPress={() => handleReaction(comment.id, emoji)}
+                                  >
+                                    <Text style={styles.reactionEmoji}>{emoji}</Text>
+                                  </TouchableOpacity>
+                                ))}
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    })
+                  )}
+                </ScrollView>
+
+                <View style={styles.commentInputSection}>
+                  {replyingTo && (
+                    <View style={styles.replyingToBar}>
+                      <Text style={styles.replyingToText}>
+                        Replying to <Text style={styles.replyingToUser}>@{replyingTo.user?.profile?.name}</Text>
+                      </Text>
+                      <TouchableOpacity onPress={cancelReply}>
+                        <MaterialCommunityIcons name="close" size={20} color="#6b7280" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  <View style={styles.commentInputContainer}>
+                    <TextInput
+                      style={styles.commentInput}
+                      placeholder={replyingTo ? "Write a reply..." : "Write a comment..."}
+                      value={commentText}
+                      onChangeText={setCommentText}
+                      multiline
+                      maxLength={500}
+                    />
+                    <TouchableOpacity 
+                      style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
+                      onPress={handleAddComment}
+                      disabled={!commentText.trim()}
+                    >
+                      <MaterialCommunityIcons 
+                        name="send" 
+                        size={24} 
+                        color={commentText.trim() ? '#667eea' : '#ccc'} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -535,6 +871,139 @@ export default function CommunityScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       />
+
+      {/* Floating Action Button for Create Post */}
+      {activeTab === 'posts' && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push('/post-composer' as any)}
+        >
+          <MaterialCommunityIcons name="plus" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
+      
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={styles.snackbar}
+      >
+        {snackbarMessage}
+      </Snackbar>
+
+      {/* Comment Modal */}
+      <Modal
+        visible={commentModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeCommentModal}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Comments</Text>
+                <IconButton icon="close" size={24} onPress={closeCommentModal} />
+              </View>
+
+              <ScrollView style={styles.commentsContainer}>
+                {loadingComments ? (
+                  <ActivityIndicator size="small" color="#667eea" style={{ marginTop: 20 }} />
+                ) : comments.length === 0 ? (
+                  <View style={styles.noComments}>
+                    <Text style={styles.noCommentsText}>No comments yet. Be the first to comment!</Text>
+                  </View>
+                ) : (
+                  comments.map((comment, index) => (
+                    <View key={comment.id || index} style={styles.commentItem}>
+                      <Avatar.Text 
+                        size={32} 
+                        label={comment.user?.profile?.name?.substring(0, 2).toUpperCase() || 'U'} 
+                        style={styles.commentAvatar}
+                      />
+                      <View style={styles.commentContentWrapper}>
+                        <View style={styles.commentContent}>
+                          <Text style={styles.commentUser}>{comment.user?.profile?.name || 'User'}</Text>
+                          <Text style={styles.commentText}>{comment.text}</Text>
+                          <Text style={styles.commentTime}>
+                            {new Date(comment.createdAt).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Text>
+                        </View>
+                        <View style={styles.commentActions}>
+                          <TouchableOpacity 
+                            style={styles.commentActionBtn}
+                            onPress={() => handleLikeComment(comment.id)}
+                          >
+                            <MaterialCommunityIcons name="heart-outline" size={16} color="#6b7280" />
+                            <Text style={styles.commentActionText}>Like</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.commentActionBtn}
+                            onPress={() => handleReply(comment)}
+                          >
+                            <MaterialCommunityIcons name="reply" size={16} color="#6b7280" />
+                            <Text style={styles.commentActionText}>Reply</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.commentActionBtn}
+                            onPress={() => setShowReactions(showReactions === comment.id ? null : comment.id)}
+                          >
+                            <MaterialCommunityIcons name="emoticon-happy-outline" size={16} color="#6b7280" />
+                            <Text style={styles.commentActionText}>React</Text>
+                          </TouchableOpacity>
+                        </View>
+                        {showReactions === comment.id && (
+                          <View style={styles.reactionsPanel}>
+                            {['❤️', '👍', '😂', '😮', '😢', '🔥'].map((emoji) => (
+                              <TouchableOpacity
+                                key={emoji}
+                                style={styles.reactionBtn}
+                                onPress={() => handleReaction(comment.id, emoji)}
+                              >
+                                <Text style={styles.reactionEmoji}>{emoji}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+
+              <View style={styles.commentInputContainer}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Write a comment..."
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  multiline
+                  maxLength={500}
+                />
+                <TouchableOpacity 
+                  style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
+                  onPress={handleAddComment}
+                  disabled={!commentText.trim()}
+                >
+                  <MaterialCommunityIcons 
+                    name="send" 
+                    size={24} 
+                    color={commentText.trim() ? '#667eea' : '#ccc'} 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -881,6 +1350,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
     paddingHorizontal: 16,
+    cursor: 'pointer' as any,
   },
   actionText: {
     color: '#65676b',
@@ -942,4 +1412,216 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
   },
+  fab: {
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#667eea',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  snackbar: {
+    backgroundColor: '#323232',
+    bottom: 20,
+    maxWidth: 300,
+    alignSelf: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  webModalContainer: {
+    maxWidth: 600,
+    marginHorizontal: 'auto',
+    width: '100%',
+    borderRadius: 20,
+    marginBottom: 'auto',
+    marginTop: 'auto',
+  },
+  modalContent: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  commentsContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  noComments: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  noCommentsText: {
+    color: '#6b7280',
+    fontSize: 14,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 12,
+  },
+  commentReply: {
+    marginLeft: 44,
+    marginTop: -8,
+  },
+  commentContentWrapper: {
+    flex: 1,
+  },
+  commentContent: {
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 12,
+  },
+  commentAvatar: {
+    backgroundColor: '#667eea',
+  },
+  commentUser: {
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+    fontSize: 14,
+  },
+  commentText: {
+    color: '#374151',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  commentTime: {
+    color: '#9ca3af',
+    fontSize: 12,
+  },
+  commentActions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+    marginLeft: 12,
+  },
+  commentActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  commentActionText: {
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  commentActionTextActive: {
+    color: '#F44336',
+  },
+  commentReactionBadge: {
+    position: 'absolute',
+    bottom: -8,
+    right: 8,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  commentReactionEmoji: {
+    fontSize: 16,
+  },
+  reactionsPanel: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    marginLeft: 12,
+    padding: 8,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    alignSelf: 'flex-start',
+  },
+  reactionBtn: {
+    padding: 4,
+  },
+  reactionEmoji: {
+    fontSize: 20,
+  },
+  commentInputSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  replyingToBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f9fafb',
+  },
+  replyingToText: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  replyingToUser: {
+    fontWeight: '600',
+    color: '#667eea',
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    gap: 12,
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    maxHeight: 100,
+    fontSize: 14,
+    color: '#111827',
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
 });
+

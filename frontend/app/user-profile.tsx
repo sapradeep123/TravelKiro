@@ -7,78 +7,150 @@ import {
   Image,
   RefreshControl,
   useWindowDimensions,
-  Platform,
 } from 'react-native';
-import { Text, Avatar, Button, ActivityIndicator, Chip, Divider, Card } from 'react-native-paper';
+import { Text, Avatar, ActivityIndicator, Chip, Card } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { communityService } from '../src/services/communityService';
-import { albumService } from '../src/services/albumService';
-import { useAuth } from '../src/contexts/AuthContext';
 
-// Sample badges data
-const SAMPLE_BADGES = [
-  { icon: 'trophy', color: '#FFD700', name: 'Explorer' },
-  { icon: 'star', color: '#667eea', name: 'Star Traveler' },
-  { icon: 'medal', color: '#FF6B6B', name: 'Adventure Master' },
-  { icon: 'shield', color: '#4ECDC4', name: 'Safety First' },
+// Sample friends data
+const SAMPLE_FRIENDS = [
+  { id: '1', name: 'Brooklyn Simmons', avatar: 'BS' },
+  { id: '2', name: 'Alisa Flores', avatar: 'AF' },
+  { id: '3', name: 'Darrell Steward', avatar: 'DS' },
+  { id: '4', name: 'Christina Guzman', avatar: 'CG' },
+  { id: '5', name: 'Joann Holmes', avatar: 'JH' },
+  { id: '6', name: 'Francisco Perry', avatar: 'FP' },
 ];
 
 export default function UserProfileScreen() {
-  const { userId } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const userId = Array.isArray(params.userId) ? params.userId[0] : params.userId;
   const router = useRouter();
-  const { user: currentUser } = useAuth();
   const { width } = useWindowDimensions();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const isMobile = width < 768;
+  
+  // Initialize all state with proper default values
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userPosts, setUserPosts] = useState<any[]>([]);
-  const [userAlbums, setUserAlbums] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'newsfeed' | 'about' | 'photos' | 'albums'>('newsfeed');
-
-  const isOwnProfile = currentUser?.id === userId;
-  const isWeb = Platform.OS === 'web';
-  const isLargeScreen = width >= 1024;
+  const [activeTab, setActiveTab] = useState<'posts' | 'community'>('posts');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadUserData();
+    let isMounted = true;
+    let timeoutId: any;
+    
+    const fetchData = async () => {
+      if (!userId) {
+        if (isMounted) {
+          setLoading(false);
+          setError('No user ID provided');
+        }
+        return;
+      }
+
+      try {
+        if (!isMounted) return;
+        
+        setLoading(true);
+        setError(null);
+        
+        // Load user profile with stats
+        try {
+          const profileData = await communityService.getUserProfile(userId);
+          if (isMounted && profileData) {
+            setUserProfile(profileData);
+          }
+        } catch (profileError) {
+          console.error('Error loading profile:', profileError);
+          if (isMounted) {
+            setError('Failed to load profile');
+          }
+        }
+        
+        // Load user posts
+        try {
+          const postsResponse = await communityService.getUserPosts(userId, 1);
+          if (isMounted) {
+            const posts = postsResponse?.data;
+            if (Array.isArray(posts)) {
+              setUserPosts(posts);
+            } else {
+              setUserPosts([]);
+            }
+          }
+        } catch (postsError) {
+          console.error('Error loading posts:', postsError);
+          if (isMounted) {
+            setUserPosts([]);
+          }
+        }
+
+      } catch (error: any) {
+        console.error('Error loading user data:', error);
+        if (isMounted) {
+          setError(error?.message || 'Failed to load user data');
+          setUserProfile(null);
+          setUserPosts([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Small delay to ensure component is mounted
+    timeoutId = setTimeout(() => {
+      if (isMounted) {
+        fetchData();
+      }
+    }, 50);
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [userId]);
 
-  const loadUserData = async () => {
+  const handleRefresh = async () => {
+    if (!userId) return;
+    
+    setRefreshing(true);
     try {
-      setLoading(true);
+      // Load user profile with stats
+      const profileData = await communityService.getUserProfile(userId);
+      setUserProfile(profileData);
       
       // Load user posts
-      const postsResponse = await communityService.getUserPosts(userId as string, 1);
-      setUserPosts(Array.isArray(postsResponse.data) ? postsResponse.data : []);
-      
-      // Extract user profile from first post
-      if (postsResponse.data && postsResponse.data.length > 0) {
-        setUserProfile(postsResponse.data[0].user);
-      }
-      
-      // Load user albums
-      try {
-        const albums = await albumService.getAlbums(userId as string);
-        setUserAlbums(Array.isArray(albums) ? albums : []);
-      } catch (error) {
-        console.log('No albums found for user');
-        setUserAlbums([]);
-      }
+      const postsResponse = await communityService.getUserPosts(userId, 1);
+      const posts = postsResponse?.data || [];
+      setUserPosts(Array.isArray(posts) ? posts : []);
     } catch (error) {
-      console.error('Error loading user data:', error);
-      setUserPosts([]);
-      setUserAlbums([]);
+      console.error('Error refreshing user data:', error);
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadUserData();
-    setRefreshing(false);
-  };
+  if (!userId || error) {
+    return (
+      <View style={styles.loadingContainer}>
+        <MaterialCommunityIcons name="alert-circle" size={64} color="#FF6B6B" />
+        <Text style={styles.errorText}>{error || 'No user ID provided'}</Text>
+        <TouchableOpacity 
+          onPress={() => router.push('/(tabs)/community')} 
+          style={styles.backToHomeButton}
+        >
+          <Text style={styles.backToHomeText}>Go to Community</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -88,341 +160,366 @@ export default function UserProfileScreen() {
       </View>
     );
   }
+  
+  if (!userProfile) {
+    return (
+      <View style={styles.loadingContainer}>
+        <MaterialCommunityIcons name="account-off" size={64} color="#9ca3af" />
+        <Text style={styles.errorText}>Profile not found</Text>
+        <TouchableOpacity 
+          onPress={() => router.push('/(tabs)/community')} 
+          style={styles.backToHomeButton}
+        >
+          <Text style={styles.backToHomeText}>Go to Community</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-  const userName = userProfile?.profile?.name || 'User';
-  const userBio = userProfile?.profile?.bio || 'Travel enthusiast exploring the world';
+  const userName = userProfile?.name || 'User';
+  const userBio = userProfile?.bio || 'Travel enthusiast';
+  const userAvatar = userProfile?.avatar;
   const userInitials = userName.substring(0, 2).toUpperCase();
 
-  // Count photos from posts
-  const photoCount = Array.isArray(userPosts) 
-    ? userPosts.reduce((count, post) => count + (post.mediaUrls?.length || 0), 0)
+  // Get all stats from database
+  const followersCount = userProfile?.followerCount || 0;
+  const postsCount = userProfile?.postCount || 0;
+  const likesCount = Array.isArray(userPosts) 
+    ? userPosts.reduce((total, post) => {
+        const postLikes = Array.isArray(post?.likes) ? post.likes.length : 0;
+        return total + postLikes;
+      }, 0)
     : 0;
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'about':
-        return (
-          <View style={styles.aboutSection}>
-            <Card style={styles.infoCard}>
-              <Card.Content>
-                <Text style={styles.sectionTitle}>About Me</Text>
-                <Text style={styles.bioText}>{userBio}</Text>
-                <Divider style={styles.sectionDivider} />
-                
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="briefcase" size={20} color="#667eea" />
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Membership Level</Text>
-                    <Text style={styles.infoValue}>Full Member</Text>
-                  </View>
-                </View>
 
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="map-marker" size={20} color="#667eea" />
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Location</Text>
-                    <Text style={styles.infoValue}>Mumbai, India</Text>
-                  </View>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="calendar" size={20} color="#667eea" />
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Member Since</Text>
-                    <Text style={styles.infoValue}>March 2024</Text>
-                  </View>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="airplane" size={20} color="#667eea" />
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Trips Completed</Text>
-                    <Text style={styles.infoValue}>12 trips</Text>
-                  </View>
-                </View>
-              </Card.Content>
-            </Card>
-          </View>
-        );
-
-      case 'photos':
-        return (
-          <View style={styles.photosSection}>
-            {photoCount === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialCommunityIcons name="image-outline" size={64} color="#ccc" />
-                <Text style={styles.emptyText}>No photos yet</Text>
-              </View>
-            ) : (
-              <View style={styles.photosGrid}>
-                {userPosts.map((post) => {
-                  if (!post.mediaUrls || !Array.isArray(post.mediaUrls)) {
-                    return null;
-                  }
-                  return post.mediaUrls.map((url: string, index: number) => (
-                    <TouchableOpacity
-                      key={`${post.id}-${index}`}
-                      style={styles.photoGridItem}
-                      onPress={() => console.log('View photo', post.id)}
-                    >
-                      <Image source={{ uri: url }} style={styles.photoGridImage} />
-                    </TouchableOpacity>
-                  ));
-                })}
-              </View>
-            )}
-          </View>
-        );
-
-      case 'albums':
-        return (
-          <View style={styles.albumsSection}>
-            {userAlbums.length === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialCommunityIcons name="image-album" size={64} color="#ccc" />
-                <Text style={styles.emptyText}>No albums yet</Text>
-              </View>
-            ) : (
-              <View style={styles.albumsList}>
-                {userAlbums.map((album) => (
-                  <TouchableOpacity
-                    key={album.id}
-                    style={styles.albumCard}
-                    onPress={() => router.push(`/(tabs)/album-detail?id=${album.id}`)}
-                  >
-                    {album.coverPhotoUrl ? (
-                      <Image source={{ uri: album.coverPhotoUrl }} style={styles.albumCover} />
-                    ) : (
-                      <View style={styles.albumPlaceholder}>
-                        <MaterialCommunityIcons name="image-multiple" size={40} color="#999" />
-                      </View>
-                    )}
-                    <View style={styles.albumInfo}>
-                      <Text style={styles.albumName} numberOfLines={1}>
-                        {album.name}
-                      </Text>
-                      <Text style={styles.albumCount}>{album.photoCount} photos</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        );
-
-      case 'newsfeed':
-      default:
-        return (
-          <View style={styles.newsfeedSection}>
-            {userPosts.length === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialCommunityIcons name="post-outline" size={64} color="#ccc" />
-                <Text style={styles.emptyText}>No posts yet</Text>
-              </View>
-            ) : (
-              userPosts.map((post) => (
-                <Card key={post.id} style={styles.postCard}>
-                  <Card.Content>
-                    <View style={styles.postHeader}>
-                      <Avatar.Text size={40} label={userInitials} style={styles.postAvatar} />
-                      <View style={styles.postHeaderInfo}>
-                        <Text style={styles.postUserName}>{userName}</Text>
-                        <Text style={styles.postTime}>
-                          {new Date(post.createdAt).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.postCaption}>{post.caption}</Text>
-                    {post.mediaUrls && post.mediaUrls.length > 0 && (
-                      <Image 
-                        source={{ uri: post.mediaUrls[0] }} 
-                        style={styles.postImage}
-                        resizeMode="cover"
-                      />
-                    )}
-                    <View style={styles.postActions}>
-                      <TouchableOpacity style={styles.postActionBtn}>
-                        <MaterialCommunityIcons name="thumb-up-outline" size={20} color="#6b7280" />
-                        <Text style={styles.postActionText}>Like</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.postActionBtn}>
-                        <MaterialCommunityIcons name="comment-outline" size={20} color="#6b7280" />
-                        <Text style={styles.postActionText}>Comment</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </Card.Content>
-                </Card>
-              ))
-            )}
-          </View>
-        );
-    }
-  };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{userName}</Text>
-        <View style={styles.headerRight} />
-      </View>
+      {/* Butterfliy Header - Desktop/Tablet */}
+      {!isMobile && (
+        <View style={styles.appHeader}>
+          <View style={styles.headerLeft}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoEmoji}>🦋</Text>
+            </View>
+            <Text style={styles.appName}>Butterfliy</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/(tabs)/locations')}>
+              <MaterialCommunityIcons name="map-marker" size={20} color="#667eea" />
+              <Text style={styles.headerIconText}>Locations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/(tabs)/events')}>
+              <MaterialCommunityIcons name="calendar" size={20} color="#667eea" />
+              <Text style={styles.headerIconText}>Events</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/(tabs)/packages')}>
+              <MaterialCommunityIcons name="package-variant" size={20} color="#667eea" />
+              <Text style={styles.headerIconText}>Packages</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/(tabs)/accommodations')}>
+              <MaterialCommunityIcons name="bed" size={20} color="#667eea" />
+              <Text style={styles.headerIconText}>Accommodations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/(tabs)/community')}>
+              <MaterialCommunityIcons name="account-group" size={20} color="#667eea" />
+              <Text style={styles.headerIconText}>Community</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/(tabs)/travel')}>
+              <MaterialCommunityIcons name="airplane" size={20} color="#667eea" />
+              <Text style={styles.headerIconText}>Travel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.userButton}>
+              <Avatar.Text size={36} label={userInitials} style={styles.headerAvatar} />
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{userName}</Text>
+                <Text style={styles.userRole}>Administrator</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-down" size={20} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Mobile Header */}
+      {isMobile && (
+        <View style={styles.mobileHeader}>
+          <View style={styles.mobileHeaderContent}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoEmoji}>🦋</Text>
+            </View>
+            <Text style={styles.appName}>Butterfliy</Text>
+          </View>
+          <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/(tabs)/locations')}>
+            <MaterialCommunityIcons name="map-marker" size={20} color="#667eea" />
+            <Text style={styles.headerIconText}>Locations</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scrollView}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
-        {/* Cover Photo */}
-        <View style={styles.coverPhoto}>
+
+        {/* Cover Photo with Back Button and Profile Avatar */}
+        <View style={styles.coverSection}>
           <Image 
             source={{ uri: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200' }}
             style={styles.coverImage}
           />
+          {/* Back Button Overlay */}
+          <TouchableOpacity 
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.push('/(tabs)/community');
+              }
+            }} 
+            style={styles.backButtonOverlay}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+            <Text style={styles.backButtonText}>Back to</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.profileAvatarContainer}>
+            {userAvatar ? (
+              <Avatar.Image
+                size={100}
+                source={{ uri: userAvatar }}
+                style={styles.profileAvatar}
+              />
+            ) : (
+              <Avatar.Text
+                size={100}
+                label={userInitials}
+                style={styles.profileAvatar}
+              />
+            )}
+          </View>
         </View>
 
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
-          <View style={styles.profileTop}>
-            <Avatar.Text
-              size={120}
-              label={userInitials}
-              style={styles.profileAvatar}
-            />
-            <View style={styles.profileActions}>
-              <Chip icon="star" style={styles.personifyChip}>Personify</Chip>
-              {isOwnProfile ? (
-                <Button
-                  mode="outlined"
-                  onPress={() => router.back()}
-                  style={styles.actionButton}
-                  icon="pencil"
-                  compact
-                >
-                  Edit Profile
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    mode="contained"
-                    onPress={() => console.log('Add Friend')}
-                    style={styles.addFriendButton}
-                    icon="account-plus"
-                    compact
-                  >
-                    Add Friend
-                  </Button>
-                  <Button
-                    mode="outlined"
-                    onPress={() => console.log('Message')}
-                    style={styles.messageButton}
-                    icon="message"
-                    compact
-                  >
-                    Message
-                  </Button>
-                </>
-              )}
-            </View>
+        {/* Profile Info */}
+        <View style={styles.profileInfo}>
+          <View style={styles.profileNameRow}>
+            <MaterialCommunityIcons name="fire" size={20} color="#FF6B6B" />
+            <Text style={styles.profileName}>{userName}</Text>
           </View>
+          <Text style={styles.profileBio}>{userBio}</Text>
 
-          <Text style={styles.profileName}>{userName}</Text>
-          
-          {/* Badges */}
-          <View style={styles.badgesContainer}>
-            {SAMPLE_BADGES.map((badge, index) => (
-              <View key={index} style={[styles.badgeIcon, { backgroundColor: `${badge.color}20` }]}>
-                <MaterialCommunityIcons name={badge.icon as any} size={24} color={badge.color} />
-              </View>
-            ))}
+          {/* Stats - Horizontal Layout */}
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <MaterialCommunityIcons name="account-group" size={24} color="#9ca3af" />
+              <Text style={styles.statNumber}>{followersCount}</Text>
+              <Text style={styles.statLabel}>followers</Text>
+            </View>
+            <View style={styles.statItem}>
+              <MaterialCommunityIcons name="image-multiple" size={24} color="#9ca3af" />
+              <Text style={styles.statNumber}>{postsCount}</Text>
+              <Text style={styles.statLabel}>posts</Text>
+            </View>
+            <View style={styles.statItem}>
+              <MaterialCommunityIcons name="heart" size={24} color="#9ca3af" />
+              <Text style={styles.statNumber}>{likesCount}</Text>
+              <Text style={styles.statLabel}>likes</Text>
+            </View>
           </View>
         </View>
 
         {/* Navigation Tabs */}
         <View style={styles.navTabs}>
           <TouchableOpacity
-            style={[styles.navTab, activeTab === 'newsfeed' && styles.navTabActive]}
-            onPress={() => setActiveTab('newsfeed')}
+            style={[styles.navTab, activeTab === 'posts' && styles.navTabActive]}
+            onPress={() => setActiveTab('posts')}
           >
-            <Text style={[styles.navTabText, activeTab === 'newsfeed' && styles.navTabTextActive]}>
-              NEWSFEED
+            <Text style={[styles.navTabText, activeTab === 'posts' && styles.navTabTextActive]}>
+              Posts
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.navTab, activeTab === 'about' && styles.navTabActive]}
-            onPress={() => setActiveTab('about')}
+            style={[styles.navTab, activeTab === 'community' && styles.navTabActive]}
+            onPress={() => setActiveTab('community')}
           >
-            <Text style={[styles.navTabText, activeTab === 'about' && styles.navTabTextActive]}>
-              ABOUT ME
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.navTab, activeTab === 'photos' && styles.navTabActive]}
-            onPress={() => setActiveTab('photos')}
-          >
-            <Text style={[styles.navTabText, activeTab === 'photos' && styles.navTabTextActive]}>
-              PHOTOS
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.navTab, activeTab === 'albums' && styles.navTabActive]}
-            onPress={() => setActiveTab('albums')}
-          >
-            <Text style={[styles.navTabText, activeTab === 'albums' && styles.navTabTextActive]}>
-              ALBUMS
-            </Text>
+            <View style={styles.navTabWithBadge}>
+              <Text style={[styles.navTabText, activeTab === 'community' && styles.navTabTextActive]}>
+                Community
+              </Text>
+              {postsCount > 0 && (
+                <View style={styles.tabBadge}>
+                  <Text style={styles.tabBadgeText}>{postsCount}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
 
-        {/* Content Area */}
-        <View style={styles.contentArea}>
-          {isLargeScreen ? (
-            <View style={styles.desktopLayout}>
-              {/* Left Sidebar */}
-              <View style={styles.leftSidebar}>
-                <Card style={styles.sidebarCard}>
-                  <Card.Content>
-                    <Text style={styles.sidebarTitle}>My Friends</Text>
-                    <Text style={styles.friendCount}>8 Friends</Text>
-                  </Card.Content>
-                </Card>
-
-                <Card style={styles.sidebarCard}>
-                  <Card.Content>
-                    <Text style={styles.sidebarTitle}>My Badges</Text>
-                    <View style={styles.badgesGrid}>
-                      {SAMPLE_BADGES.map((badge, index) => (
-                        <View key={index} style={[styles.badgeItem, { backgroundColor: `${badge.color}15` }]}>
-                          <MaterialCommunityIcons name={badge.icon as any} size={32} color={badge.color} />
+        {/* Content Layout - Responsive */}
+        {isMobile ? (
+          /* Mobile Layout - Single Column */
+          <View style={styles.mobileContent}>
+            {/* Posts Content */}
+            <View style={styles.postsContent}>
+              {activeTab === 'community' ? (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons name="account-group" size={64} color="#ccc" />
+                  <Text style={styles.emptyText}>No community activity yet</Text>
+                </View>
+              ) : userPosts.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons name="post-outline" size={64} color="#ccc" />
+                  <Text style={styles.emptyText}>No posts yet</Text>
+                </View>
+              ) : (
+                <View style={styles.mobilePostsGrid}>
+                  {userPosts.map((post) => (
+                    <Card key={post.id} style={styles.mobilePostCard}>
+                      {post.mediaUrls && post.mediaUrls.length > 0 && (
+                        <Image 
+                          source={{ uri: post.mediaUrls[0] }} 
+                          style={styles.postCardImage}
+                          resizeMode="cover"
+                        />
+                      )}
+                      <Card.Content style={styles.postCardContent}>
+                        <Text style={styles.postCardTitle} numberOfLines={2}>
+                          {post.caption || 'My travel post'}
+                        </Text>
+                        <View style={styles.postCardFooter}>
+                          <View style={styles.postCardStat}>
+                            <MaterialCommunityIcons name="heart-outline" size={16} color="#9ca3af" />
+                            <Text style={styles.postCardStatText}>{post.likes?.length || 0}</Text>
+                          </View>
+                          <View style={styles.postCardStat}>
+                            <MaterialCommunityIcons name="bookmark-outline" size={16} color="#9ca3af" />
+                            <Text style={styles.postCardStatText}>{post.saves || 0}</Text>
+                          </View>
                         </View>
-                      ))}
-                    </View>
-                  </Card.Content>
-                </Card>
-              </View>
+                      </Card.Content>
+                    </Card>
+                  ))}
+                </View>
+              )}
+            </View>
 
-              {/* Main Content */}
-              <View style={styles.mainContent}>
-                {renderContent()}
+            {/* Friends Section - Mobile */}
+            <View style={styles.mobileFriendsSection}>
+              <View style={styles.friendsHeader}>
+                <Text style={styles.friendsTitle}>Friends</Text>
+                <TouchableOpacity>
+                  <Text style={styles.viewAllText}>View All</Text>
+                </TouchableOpacity>
               </View>
-
-              {/* Right Sidebar */}
-              <View style={styles.rightSidebar}>
-                <Card style={styles.sidebarCard}>
-                  <Card.Content>
-                    <Text style={styles.sidebarTitle}>My Groups</Text>
-                    <Text style={styles.groupCount}>3 Groups</Text>
-                  </Card.Content>
-                </Card>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {SAMPLE_FRIENDS.map((friend) => (
+                  <TouchableOpacity key={friend.id} style={styles.mobileFriendItem}>
+                    <Avatar.Text size={56} label={friend.avatar} style={styles.friendAvatar} />
+                    <Text style={styles.friendName} numberOfLines={1}>{friend.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        ) : (
+          /* Desktop/Tablet Layout - Two Columns */
+          <View style={styles.mainLayout}>
+            {/* Left Sidebar - Friends */}
+            <View style={styles.leftSidebar}>
+              <View style={styles.friendsSection}>
+                <View style={styles.friendsHeader}>
+                  <Text style={styles.friendsTitle}>Friends</Text>
+                  <TouchableOpacity>
+                    <Text style={styles.viewAllText}>View All</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.friendsGrid}>
+                  {SAMPLE_FRIENDS.map((friend) => (
+                    <TouchableOpacity key={friend.id} style={styles.friendGridItem}>
+                      <Avatar.Text size={56} label={friend.avatar} style={styles.friendAvatar} />
+                      <Text style={styles.friendName} numberOfLines={1}>{friend.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             </View>
-          ) : (
-            <View style={styles.mobileContent}>
-              {renderContent()}
+
+            {/* Right Content - Posts */}
+            <View style={styles.rightContent}>
+              {/* Sort Dropdown */}
+              <View style={styles.sortContainer}>
+                <Text style={styles.sortLabel}>Sort by:</Text>
+                <TouchableOpacity style={styles.sortButton}>
+                  <Text style={styles.sortText}>Most popular</Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color="#6b7280" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Posts Content */}
+              <View style={styles.postsContent}>
+                {activeTab === 'community' ? (
+                  <View style={styles.emptyState}>
+                    <MaterialCommunityIcons name="account-group" size={64} color="#ccc" />
+                    <Text style={styles.emptyText}>No community activity yet</Text>
+                  </View>
+                ) : userPosts.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <MaterialCommunityIcons name="post-outline" size={64} color="#ccc" />
+                    <Text style={styles.emptyText}>No posts yet</Text>
+                  </View>
+                ) : (
+                  <View style={styles.postsGrid}>
+                    {userPosts.map((post) => (
+                      <Card key={post.id} style={styles.postCard}>
+                        {post.mediaUrls && post.mediaUrls.length > 0 && (
+                          <Image 
+                            source={{ uri: post.mediaUrls[0] }} 
+                            style={styles.postCardImage}
+                            resizeMode="cover"
+                          />
+                        )}
+                        <Card.Content style={styles.postCardContent}>
+                          <View style={styles.postCardHeader}>
+                            <View style={styles.postCardTitleRow}>
+                              <Text style={styles.postCardTitle} numberOfLines={1}>
+                                {post.caption || 'My travel post'}
+                              </Text>
+                              {post.isPremium && (
+                                <Chip style={styles.premiumBadge} textStyle={styles.premiumText}>
+                                  Premium
+                                </Chip>
+                              )}
+                            </View>
+                            <Text style={styles.postCardTime}>
+                              {new Date(post.createdAt).toLocaleDateString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}
+                            </Text>
+                          </View>
+                          <Text style={styles.postCardDescription} numberOfLines={2}>
+                            {post.caption || 'Exploring beautiful destinations...'}
+                          </Text>
+                          <View style={styles.postCardFooter}>
+                            <View style={styles.postCardStat}>
+                              <MaterialCommunityIcons name="heart-outline" size={16} color="#9ca3af" />
+                              <Text style={styles.postCardStatText}>{post.likes?.length || 0} likes</Text>
+                            </View>
+                            <View style={styles.postCardStat}>
+                              <MaterialCommunityIcons name="bookmark-outline" size={16} color="#9ca3af" />
+                              <Text style={styles.postCardStatText}>{post.saves || 0} saved</Text>
+                            </View>
+                          </View>
+                        </Card.Content>
+                      </Card>
+                    ))}
+                  </View>
+                )}
+              </View>
             </View>
-          )}
-        </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -431,191 +528,409 @@ export default function UserProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#f5f5f5',
+  },
+  appHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  logoContainer: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#667eea',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  logoEmoji: {
+    fontSize: 20,
+  },
+  appName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#667eea',
+    letterSpacing: -0.5,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  headerIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  headerIconText: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  userButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingLeft: 16,
+    borderLeftWidth: 1,
+    borderLeftColor: '#e5e7eb',
+  },
+  headerAvatar: {
+    backgroundColor: '#667eea',
+  },
+  userInfo: {
+    alignItems: 'flex-start',
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  userRole: {
+    fontSize: 11,
+    color: '#9ca3af',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#f5f5f5',
   },
   loadingText: {
     marginTop: 12,
     color: '#6b7280',
     fontSize: 14,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+  errorText: {
+    marginTop: 12,
+    color: '#FF6B6B',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  backToHomeButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#667eea',
+    borderRadius: 8,
   },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
+  backToHomeText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
-  },
-  headerRight: {
-    width: 40,
   },
   scrollView: {
     flex: 1,
   },
-  profileHeader: {
-    backgroundColor: '#fff',
-    padding: 24,
+  coverSection: {
+    position: 'relative',
+    height: 200,
+    marginTop: 0,
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e5e7eb',
+  },
+  backButtonOverlay: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    gap: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  profileAvatarContainer: {
+    position: 'absolute',
+    bottom: -50,
+    left: 24,
+    borderWidth: 5,
+    borderColor: '#fff',
+    borderRadius: 55,
+    backgroundColor: '#fff',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    overflow: 'hidden',
   },
   profileAvatar: {
     backgroundColor: '#667eea',
-    marginBottom: 16,
+    borderRadius: 50,
   },
-  profileName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
+  profileInfo: {
+    backgroundColor: '#fff',
+    paddingTop: 64,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
   },
-  profileBio: {
-    fontSize: 15,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  statsContainer: {
+  profileNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    gap: 6,
+    marginBottom: 4,
+  },
+  profileName: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.5,
+  },
+  profileBio: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 32,
+    lineHeight: 20,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
   },
   statItem: {
     alignItems: 'center',
-    paddingHorizontal: 20,
+    gap: 4,
   },
   statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     color: '#111827',
   },
   statLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginTop: 4,
+    fontSize: 12,
+    color: '#9ca3af',
+    textTransform: 'lowercase',
   },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#e5e7eb',
-  },
-  actionButton: {
-    width: '100%',
-    borderColor: '#667eea',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  followButton: {
-    flex: 1,
-    backgroundColor: '#667eea',
-  },
-  messageButton: {
-    flex: 1,
-    borderColor: '#667eea',
-  },
-  tabsContainer: {
+  navTabs: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 24,
   },
-  tab: {
+  navTab: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 16,
-    gap: 8,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabActive: {
+  navTabActive: {
     borderBottomColor: '#667eea',
   },
-  tabText: {
-    fontSize: 15,
+  navTabText: {
+    fontSize: 14,
     fontWeight: '600',
+    color: '#9ca3af',
+  },
+  navTabTextActive: {
+    color: '#667eea',
+    fontWeight: '700',
+  },
+  navTabWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tabBadge: {
+    backgroundColor: '#FF6B6B',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  tabBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  mainLayout: {
+    flexDirection: 'row',
+    backgroundColor: '#fafafa',
+    padding: 16,
+    gap: 16,
+  },
+  leftSidebar: {
+    width: 280,
+  },
+  rightContent: {
+    flex: 1,
+  },
+  sortContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  sortLabel: {
+    fontSize: 13,
     color: '#6b7280',
   },
-  tabTextActive: {
-    color: '#667eea',
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  content: {
-    padding: 16,
+  sortText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  postsContent: {
+    flex: 1,
   },
   postsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: 16,
   },
-  photoItem: {
-    width: '32.5%',
-    aspectRatio: 1,
-    borderRadius: 4,
+  postCard: {
+    width: '48%',
+    marginBottom: 16,
+    borderRadius: 16,
     overflow: 'hidden',
-  },
-  photoImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#f0f2f5',
-  },
-  albumsGrid: {
-    gap: 12,
-  },
-  albumCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
-  albumCover: {
+  postCardImage: {
     width: '100%',
-    height: 200,
-    backgroundColor: '#f0f2f5',
+    height: 220,
+    backgroundColor: '#e5e7eb',
   },
-  albumPlaceholder: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#f0f2f5',
-    justifyContent: 'center',
+  postCardContent: {
+    padding: 14,
+  },
+  postCardHeader: {
+    marginBottom: 8,
+  },
+  postCardTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  albumInfo: {
-    padding: 16,
-  },
-  albumName: {
+  postCardTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 4,
+    flex: 1,
   },
-  albumCount: {
+  premiumBadge: {
+    backgroundColor: '#FF6B6B',
+    height: 24,
+  },
+  premiumText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  postCardTime: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  postCardDescription: {
     fontSize: 13,
     color: '#6b7280',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  postCardFooter: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  postCardStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  postCardStatText: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  friendsSection: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+  },
+  friendsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  friendsTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.5,
+  },
+  viewAllText: {
+    fontSize: 13,
+    color: '#667eea',
+    fontWeight: '700',
+  },
+  friendsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  friendGridItem: {
+    alignItems: 'center',
+    width: '45%',
+  },
+  friendAvatar: {
+    backgroundColor: '#667eea',
+    marginBottom: 8,
+  },
+  friendName: {
+    fontSize: 12,
+    color: '#111827',
+    textAlign: 'center',
+    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',
@@ -625,5 +940,53 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6b7280',
     marginTop: 12,
+  },
+  // Mobile Styles
+  mobileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  mobileHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mobileContent: {
+    flex: 1,
+  },
+  mobilePostsGrid: {
+    padding: 12,
+  },
+  mobilePostCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  mobileFriendsSection: {
+    backgroundColor: '#fff',
+    padding: 16,
+    marginTop: 8,
+  },
+  mobileFriendItem: {
+    alignItems: 'center',
+    marginRight: 16,
+    width: 70,
   },
 });

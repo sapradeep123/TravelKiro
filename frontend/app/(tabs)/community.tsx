@@ -13,7 +13,6 @@ import CreatePhotoPostModal from '../../components/community/CreatePhotoPostModa
 import CreateAlbumModal from '../../components/albums/CreateAlbumModal';
 import PhotoManagementModal from '../../components/community/PhotoManagementModal';
 import EditProfileModal from '../../components/community/EditProfileModal';
-import { TEST_PHOTOS, TEST_ALBUMS } from '../../src/utils/testPhotoData';
 
 type TabType = 'posts' | 'groups';
 
@@ -1303,8 +1302,8 @@ export default function CommunityScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#667eea', '#764ba2']} style={styles.mobileHeader}>
-        <Text variant="headlineMedium" style={styles.headerTitle}>Community</Text>
-        <Text style={styles.headerSubtitle}>Connect with fellow travelers</Text>
+        <Text variant="headlineMedium" style={styles.headerTitle} numberOfLines={1}>Community</Text>
+        <Text style={styles.headerSubtitle} numberOfLines={1}>Connect with fellow travelers</Text>
       </LinearGradient>
       
       <View style={styles.tabContainer}>
@@ -1611,19 +1610,7 @@ export default function CommunityScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Test Button - For Development */}
-      {__DEV__ && (
-        <TouchableOpacity
-          style={styles.testFab}
-          onPress={() => {
-            setSelectedPhoto({ url: TEST_PHOTOS[0].url, postId: TEST_PHOTOS[0].postId });
-            setPhotoManagementModalVisible(true);
-          }}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="test-tube" size={24} color="#fff" />
-        </TouchableOpacity>
-      )}
+
     </View>
   );
 }
@@ -1862,31 +1849,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   mobileHeader: {
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+    width: '100%',
   },
   headerTitle: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '800',
     marginBottom: 4,
+    fontSize: 28,
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 15,
+    fontWeight: '500',
   },
   tabContainer: {
-    paddingHorizontal: 0,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#fff',
-    marginBottom: 16,
-    borderRadius: 12,
+    marginBottom: 8,
   },
   segmentedButtons: {
     backgroundColor: '#fff',
-    marginHorizontal: 16,
   },
   feedContent: {
     paddingBottom: 20,
@@ -1897,9 +1886,15 @@ const styles = StyleSheet.create({
   },
   postCard: {
     marginBottom: 16,
+    marginHorizontal: 16,
     borderRadius: 12,
-    elevation: 1,
+    elevation: 2,
     backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    overflow: 'hidden',
   },
   postHeader: {
     flexDirection: 'row',
@@ -1913,26 +1908,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   postAvatar: {
     backgroundColor: '#667eea',
   },
   postUserDetails: {
     marginLeft: 12,
+    flex: 1,
+    minWidth: 0,
   },
   postUserName: {
     fontWeight: '700',
     color: '#1c1e21',
+    fontSize: 15,
   },
   postTimestamp: {
     color: '#65676b',
     fontSize: 12,
+    marginTop: 2,
   },
   postCaption: {
     color: '#1c1e21',
-    lineHeight: 20,
+    lineHeight: 22,
     marginBottom: 12,
     paddingHorizontal: 16,
+    fontSize: 15,
   },
   imageCarouselContainer: {
     position: 'relative',
@@ -2100,22 +2101,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
-  testFab: {
-    position: 'absolute',
-    bottom: 160,
-    right: 20,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FF6B6B',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
+
   snackbar: {
     backgroundColor: '#323232',
     bottom: 20,

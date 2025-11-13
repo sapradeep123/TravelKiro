@@ -480,7 +480,7 @@ export default function CommunityScreen() {
               <IconButton 
                 icon="message" 
                 size={20} 
-                onPress={() => Alert.alert('Message', `Chat with ${friend.name}`)} 
+                onPress={() => router.push(`/chat?userId=${friend.id}&name=${friend.name}`)} 
               />
             </TouchableOpacity>
           ))}

@@ -17,6 +17,7 @@ export default function WebHeader() {
     { name: 'Packages', path: '/(tabs)/packages', icon: 'package-variant' },
     { name: 'Accommodations', path: '/(tabs)/accommodations', icon: 'silverware-fork-knife' },
     { name: 'Community', path: '/(tabs)/community', icon: 'account-group' },
+    { name: 'Messages', path: '/(tabs)/messages', icon: 'message' },
     { name: 'Travel', path: '/(tabs)/travel', icon: 'airplane' },
   ];
 

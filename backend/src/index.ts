@@ -15,6 +15,7 @@ import approvalRoutes from './routes/approvals';
 import notificationRoutes from './routes/notifications';
 import seedRoutes from './routes/seed';
 import eventTypeRoutes from './routes/eventTypes';
+import albumRoutes, { photoRouter, commentRouter } from './routes/albums';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -62,6 +63,9 @@ app.use('/api/approvals', approvalRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/seed', seedRoutes);
 app.use('/api/event-types', eventTypeRoutes);
+app.use('/api/albums', albumRoutes);
+app.use('/api/album-photos', photoRouter);
+app.use('/api/photo-comments', commentRouter);
 
 // Error handling
 app.use(notFoundHandler);

@@ -179,6 +179,10 @@ model User {
   mutedBy                     MutedUser[]                 @relation("UserMuted")
   postReports                 PostReport[]                @relation("PostReporter")
   reviewedReports             PostReport[]                @relation("PostReviewer")
+  albums                      Album[]                     @relation("UserAlbums")
+  photoComments               PhotoComment[]              @relation("PhotoComments")
+  commentReports              CommentReport[]             @relation("CommentReporter")
+  reviewedCommentReports      CommentReport[]             @relation("CommentReviewer")
 
   @@map("users")
 }
@@ -642,12 +646,13 @@ model CommunityPost {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  location Location?    @relation(fields: [locationId], references: [id])
-  comments Comment[]
-  likes    PostLike[]
-  savedBy  SavedPost[]
-  reports  PostReport[]
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location    Location?     @relation(fields: [locationId], references: [id])
+  comments    Comment[]
+  likes       PostLike[]
+  savedBy     SavedPost[]
+  reports     PostReport[]
+  albumPhotos AlbumPhoto[]  @relation("AlbumPhotos")
 
   @@index([userId])
   @@index([locationId])
@@ -928,4 +933,113 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+// Photo Albums Feature
+enum AlbumPrivacy {
+  PUBLIC
+  FRIENDS_ONLY
+  PRIVATE
+}
+
+enum CommentStatus {
+  ENABLED
+  DISABLED
+  HIDDEN
+}
+
+model Album {
+  id                    String        @id @default(uuid())
+  userId                String
+  name                  String
+  description           String?
+  privacy               AlbumPrivacy  @default(PUBLIC)
+  defaultCommentStatus  CommentStatus @default(ENABLED)
+  coverPhotoUrl         String?
+  photoCount            Int           @default(0)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  
+  user                  User          @relation("UserAlbums", fields: [userId], references: [id], onDelete: Cascade)
+  photos                AlbumPhoto[]
+  
+  @@index([userId])
+  @@index([privacy])
+  @@index([createdAt])
+  @@map("albums")
+}
+
+model AlbumPhoto {
+  id                String        @id @default(uuid())
+  albumId           String
+  postId            String
+  photoUrl          String
+  commentStatus     CommentStatus @default(ENABLED)
+  order             Int           @default(0)
+  addedAt           DateTime      @default(now())
+  
+  album             Album         @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  post              CommunityPost @relation("AlbumPhotos", fields: [postId], references: [id], onDelete: Cascade)
+  comments          PhotoComment[]
+  
+  @@unique([albumId, postId])
+  @@index([albumId])
+  @@index([postId])
+  @@map("album_photos")
+}
+
+enum ReportCategory {
+  SPAM
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  HATE_SPEECH
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+  ACTION_TAKEN
+}
+
+model PhotoComment {
+  id              String         @id @default(uuid())
+  albumPhotoId    String
+  userId          String
+  text            String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  albumPhoto      AlbumPhoto     @relation(fields: [albumPhotoId], references: [id], onDelete: Cascade)
+  user            User           @relation("PhotoComments", fields: [userId], references: [id], onDelete: Cascade)
+  reports         CommentReport[]
+  
+  @@index([albumPhotoId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("photo_comments")
+}
+
+model CommentReport {
+  id              String         @id @default(uuid())
+  commentId       String
+  reporterId      String
+  category        ReportCategory
+  reason          String?
+  status          ReportStatus   @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  actionTaken     String?
+  createdAt       DateTime       @default(now())
+  
+  comment         PhotoComment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporter        User           @relation("CommentReporter", fields: [reporterId], references: [id])
+  reviewer        User?          @relation("CommentReviewer", fields: [reviewedBy], references: [id])
+  
+  @@unique([commentId, reporterId])
+  @@index([commentId])
+  @@index([reporterId])
+  @@index([status])
+  @@map("comment_reports")
 }

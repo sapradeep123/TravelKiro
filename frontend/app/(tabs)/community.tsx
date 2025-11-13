@@ -6,7 +6,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { communityService } from '../../src/services/communityService';
 import { groupTravelService } from '../../src/services/groupTravelService';
-import { CommunityPost, GroupTravel } from '../../src/types';
+import { albumService } from '../../src/services/albumService';
+import { CommunityPost, GroupTravel, Album } from '../../src/types';
 import { useAuth } from '../../src/contexts/AuthContext';
 import CreatePhotoPostModal from '../../components/community/CreatePhotoPostModal';
 
@@ -83,6 +84,8 @@ export default function CommunityScreen() {
   const [reportReason, setReportReason] = useState('');
   const [createPostModalVisible, setCreatePostModalVisible] = useState(false);
   const [imageIndices, setImageIndices] = useState<{[key: string]: number}>({});
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [loadingAlbums, setLoadingAlbums] = useState(false);
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
@@ -96,7 +99,10 @@ export default function CommunityScreen() {
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+    if (user) {
+      loadAlbums();
+    }
+  }, [activeTab, user]);
 
   const loadData = async () => {
     try {
@@ -118,6 +124,19 @@ export default function CommunityScreen() {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAlbums = async () => {
+    if (!user) return;
+    try {
+      setLoadingAlbums(true);
+      const userAlbums = await albumService.getAlbums(user.id);
+      setAlbums(userAlbums);
+    } catch (error) {
+      console.error('Error loading albums:', error);
+    } finally {
+      setLoadingAlbums(false);
     }
   };
 
@@ -460,6 +479,72 @@ export default function CommunityScreen() {
               </View>
             </View>
           </TouchableOpacity>
+        </Card.Content>
+      </Card>
+
+      {/* Albums */}
+      <Card style={styles.sidebarCard}>
+        <Card.Content>
+          <View style={styles.sidebarHeader}>
+            <Text variant="titleMedium" style={styles.sidebarTitle}>My Albums</Text>
+            <IconButton 
+              icon="plus" 
+              size={18} 
+              onPress={() => Alert.alert('Create Album', 'Album creation coming soon!')} 
+            />
+          </View>
+          {loadingAlbums ? (
+            <ActivityIndicator size="small" color="#667eea" style={{ marginVertical: 12 }} />
+          ) : albums.length === 0 ? (
+            <View style={styles.emptyAlbums}>
+              <MaterialCommunityIcons name="image-album" size={48} color="#ccc" />
+              <Text style={styles.emptyAlbumsText}>No albums yet</Text>
+              <Button 
+                mode="outlined" 
+                onPress={() => Alert.alert('Create Album', 'Album creation coming soon!')}
+                style={styles.createAlbumBtn}
+                compact
+              >
+                Create Album
+              </Button>
+            </View>
+          ) : (
+            <View style={styles.albumsGrid}>
+              {albums.slice(0, 6).map((album) => (
+                <TouchableOpacity 
+                  key={album.id}
+                  style={styles.albumItem}
+                  onPress={() => router.push(`/(tabs)/album-detail?id=${album.id}`)}
+                >
+                  <View style={styles.albumThumbnail}>
+                    {album.coverPhotoUrl ? (
+                      <Image 
+                        source={{ uri: album.coverPhotoUrl }} 
+                        style={styles.albumImage}
+                      />
+                    ) : (
+                      <View style={styles.albumPlaceholder}>
+                        <MaterialCommunityIcons name="image-multiple" size={32} color="#999" />
+                      </View>
+                    )}
+                    <View style={styles.albumPhotoCount}>
+                      <MaterialCommunityIcons name="image" size={12} color="#fff" />
+                      <Text style={styles.albumPhotoCountText}>{album.photoCount}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.albumName} numberOfLines={1}>{album.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          {albums.length > 6 && (
+            <TouchableOpacity 
+              style={styles.viewAllAlbums}
+              onPress={() => Alert.alert('Albums', 'View all albums')}
+            >
+              <Text style={styles.viewAllAlbumsText}>View all albums ({albums.length})</Text>
+            </TouchableOpacity>
+          )}
         </Card.Content>
       </Card>
 
@@ -2125,5 +2210,78 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  // Album styles
+  emptyAlbums: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 12,
+  },
+  emptyAlbumsText: {
+    color: '#65676b',
+    fontSize: 14,
+  },
+  createAlbumBtn: {
+    marginTop: 8,
+    borderColor: '#667eea',
+  },
+  albumsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  albumItem: {
+    width: '31%',
+  },
+  albumThumbnail: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  albumImage: {
+    width: '100%',
+    height: '100%',
+  } as any,
+  albumPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f0f2f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  albumPhotoCount: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 2,
+  },
+  albumPhotoCountText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  albumName: {
+    fontSize: 12,
+    color: '#1c1e21',
+    fontWeight: '600',
+  },
+  viewAllAlbums: {
+    marginTop: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  viewAllAlbumsText: {
+    color: '#667eea',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

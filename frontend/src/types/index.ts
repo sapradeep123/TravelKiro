@@ -326,3 +326,89 @@ export interface PaginatedResponse<T> {
     totalPages: number;
   };
 }
+
+// Album Types
+export type AlbumPrivacy = 'PUBLIC' | 'FRIENDS_ONLY' | 'PRIVATE';
+export type CommentStatus = 'ENABLED' | 'DISABLED' | 'HIDDEN';
+
+export interface Album {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  privacy: AlbumPrivacy;
+  defaultCommentStatus: CommentStatus;
+  coverPhotoUrl?: string;
+  photoCount: number;
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+  photos?: AlbumPhoto[];
+}
+
+export interface AlbumPhoto {
+  id: string;
+  albumId: string;
+  postId: string;
+  photoUrl: string;
+  commentStatus: CommentStatus;
+  order: number;
+  addedAt: string;
+  album?: Album;
+  post?: CommunityPost;
+}
+
+export interface CreateAlbumData {
+  name: string;
+  description?: string;
+  privacy?: AlbumPrivacy;
+  defaultCommentStatus?: CommentStatus;
+}
+
+export interface UpdateAlbumData {
+  name?: string;
+  description?: string;
+  privacy?: AlbumPrivacy;
+  defaultCommentStatus?: CommentStatus;
+}
+
+export interface AddPhotosData {
+  postIds: string[];
+}
+
+// Photo Comment Types
+export type ReportCategory = 'SPAM' | 'HARASSMENT' | 'INAPPROPRIATE_CONTENT' | 'HATE_SPEECH' | 'OTHER';
+export type ReportStatus = 'PENDING' | 'REVIEWED' | 'DISMISSED' | 'ACTION_TAKEN';
+
+export interface PhotoComment {
+  id: string;
+  albumPhotoId: string;
+  userId: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  user: User;
+  reports?: { id: string }[];
+}
+
+export interface CommentReport {
+  id: string;
+  commentId: string;
+  reporterId: string;
+  category: ReportCategory;
+  reason?: string;
+  status: ReportStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  actionTaken?: string;
+  createdAt: string;
+}
+
+export interface CreateCommentData {
+  text: string;
+}
+
+export interface ReportCommentData {
+  category: ReportCategory;
+  reason?: string;
+}

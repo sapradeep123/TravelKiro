@@ -39,81 +39,56 @@ export default function UserProfileScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    let timeoutId: any;
-    
-    const fetchData = async () => {
-      if (!userId) {
-        if (isMounted) {
-          setLoading(false);
-          setError('No user ID provided');
-        }
-        return;
-      }
+    if (!userId) {
+      setLoading(false);
+      setError('No user ID provided');
+      return;
+    }
 
+    let cancelled = false;
+    
+    const loadData = async () => {
       try {
-        if (!isMounted) return;
-        
         setLoading(true);
         setError(null);
         
-        // Load user profile with stats
-        try {
-          const profileData = await communityService.getUserProfile(userId);
-          if (isMounted && profileData) {
-            setUserProfile(profileData);
-          }
-        } catch (profileError) {
-          console.error('Error loading profile:', profileError);
-          if (isMounted) {
-            setError('Failed to load profile');
-          }
+        // Load user profile
+        const profile = await communityService.getUserProfile(userId);
+        if (cancelled) return;
+        
+        if (profile) {
+          setUserProfile(profile);
+        } else {
+          setError('Profile not found');
         }
         
         // Load user posts
-        try {
-          const postsResponse = await communityService.getUserPosts(userId, 1);
-          if (isMounted) {
-            const posts = postsResponse?.data;
-            if (Array.isArray(posts)) {
-              setUserPosts(posts);
-            } else {
-              setUserPosts([]);
-            }
-          }
-        } catch (postsError) {
-          console.error('Error loading posts:', postsError);
-          if (isMounted) {
-            setUserPosts([]);
-          }
-        }
-
-      } catch (error: any) {
-        console.error('Error loading user data:', error);
-        if (isMounted) {
-          setError(error?.message || 'Failed to load user data');
-          setUserProfile(null);
+        const postsData = await communityService.getUserPosts(userId, 1);
+        if (cancelled) return;
+        
+        if (postsData && postsData.data && Array.isArray(postsData.data)) {
+          setUserPosts(postsData.data);
+        } else {
           setUserPosts([]);
         }
+        
+      } catch (err: any) {
+        if (cancelled) return;
+        console.error('Error loading user data:', err);
+        setError(err?.message || 'Failed to load user data');
+        setUserProfile(null);
+        setUserPosts([]);
       } finally {
-        if (isMounted) {
+        if (!cancelled) {
           setLoading(false);
         }
       }
     };
 
-    // Small delay to ensure component is mounted
-    timeoutId = setTimeout(() => {
-      if (isMounted) {
-        fetchData();
-      }
-    }, 50);
+    loadData();
 
     return () => {
-      isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      cancelled = true;
     };
   }, [userId]);
 
@@ -191,6 +166,9 @@ export default function UserProfileScreen() {
       }, 0)
     : 0;
 
+  // Responsive design
+  const isLargeScreen = width >= 1024;
+
 
 
   return (
@@ -241,34 +219,11 @@ export default function UserProfileScreen() {
         </View>
       )}
 
+
+
       {/* Mobile Header */}
-      {isMobile && (
+      {!isLargeScreen && (
         <View style={styles.mobileHeader}>
-          <View style={styles.mobileHeaderContent}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoEmoji}>🦋</Text>
-            </View>
-            <Text style={styles.appName}>Butterfliy</Text>
-          </View>
-          <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/(tabs)/locations')}>
-            <MaterialCommunityIcons name="map-marker" size={20} color="#667eea" />
-            <Text style={styles.headerIconText}>Locations</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-      >
-
-        {/* Cover Photo with Back Button and Profile Avatar */}
-        <View style={styles.coverSection}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200' }}
-            style={styles.coverImage}
-          />
-          {/* Back Button Overlay */}
           <TouchableOpacity 
             onPress={() => {
               if (router.canGoBack()) {
@@ -276,97 +231,165 @@ export default function UserProfileScreen() {
               } else {
                 router.push('/(tabs)/community');
               }
-            }} 
-            style={styles.backButtonOverlay}
+            }}
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
-            <Text style={styles.backButtonText}>Back to</Text>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#667eea" />
           </TouchableOpacity>
-          
-          <View style={styles.profileAvatarContainer}>
-            {userAvatar ? (
-              <Avatar.Image
-                size={100}
-                source={{ uri: userAvatar }}
-                style={styles.profileAvatar}
-              />
-            ) : (
-              <Avatar.Text
-                size={100}
-                label={userInitials}
-                style={styles.profileAvatar}
-              />
-            )}
-          </View>
+          <Text style={styles.mobileHeaderTitle}>Profile</Text>
+          <View style={{ width: 24 }} />
         </View>
+      )}
 
-        {/* Profile Info */}
-        <View style={styles.profileInfo}>
-          <View style={styles.profileNameRow}>
-            <MaterialCommunityIcons name="fire" size={20} color="#FF6B6B" />
-            <Text style={styles.profileName}>{userName}</Text>
-          </View>
-          <Text style={styles.profileBio}>{userBio}</Text>
-
-          {/* Stats - Horizontal Layout */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="account-group" size={24} color="#9ca3af" />
-              <Text style={styles.statNumber}>{followersCount}</Text>
-              <Text style={styles.statLabel}>followers</Text>
-            </View>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="image-multiple" size={24} color="#9ca3af" />
-              <Text style={styles.statNumber}>{postsCount}</Text>
-              <Text style={styles.statLabel}>posts</Text>
-            </View>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="heart" size={24} color="#9ca3af" />
-              <Text style={styles.statNumber}>{likesCount}</Text>
-              <Text style={styles.statLabel}>likes</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Navigation Tabs */}
-        <View style={styles.navTabs}>
-          <TouchableOpacity
-            style={[styles.navTab, activeTab === 'posts' && styles.navTabActive]}
-            onPress={() => setActiveTab('posts')}
+      {/* Two Column Layout - Desktop / Single Column - Mobile */}
+      <View style={[styles.mainContainer, !isLargeScreen && styles.mobileMainContainer]}>
+        {/* Left Sidebar - Profile Info (Desktop) / Top Section (Mobile) */}
+        {isLargeScreen && (
+          <View style={styles.leftProfileSidebar}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           >
-            <Text style={[styles.navTabText, activeTab === 'posts' && styles.navTabTextActive]}>
-              Posts
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.navTab, activeTab === 'community' && styles.navTabActive]}
-            onPress={() => setActiveTab('community')}
-          >
-            <View style={styles.navTabWithBadge}>
-              <Text style={[styles.navTabText, activeTab === 'community' && styles.navTabTextActive]}>
-                Community
-              </Text>
-              {postsCount > 0 && (
-                <View style={styles.tabBadge}>
-                  <Text style={styles.tabBadgeText}>{postsCount}</Text>
-                </View>
+            {/* Back Button */}
+            <TouchableOpacity 
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.push('/(tabs)/community');
+                }
+              }} 
+              style={styles.backButton}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={20} color="#667eea" />
+              <Text style={styles.backButtonTextNew}>Back</Text>
+            </TouchableOpacity>
+
+            {/* Profile Avatar */}
+            <View style={styles.profileAvatarSection}>
+              {userAvatar ? (
+                <Avatar.Image
+                  size={120}
+                  source={{ uri: userAvatar }}
+                  style={styles.profileAvatar}
+                />
+              ) : (
+                <Avatar.Text
+                  size={120}
+                  label={userInitials}
+                  style={styles.profileAvatar}
+                />
               )}
             </View>
-          </TouchableOpacity>
-        </View>
 
-        {/* Content Layout - Responsive */}
-        {isMobile ? (
-          /* Mobile Layout - Single Column */
-          <View style={styles.mobileContent}>
-            {/* Posts Content */}
-            <View style={styles.postsContent}>
-              {activeTab === 'community' ? (
-                <View style={styles.emptyState}>
-                  <MaterialCommunityIcons name="account-group" size={64} color="#ccc" />
-                  <Text style={styles.emptyText}>No community activity yet</Text>
+            {/* Profile Name */}
+            <View style={styles.profileNameSection}>
+              <View style={styles.profileNameRow}>
+                <Text style={styles.profileName}>{userName}</Text>
+                <MaterialCommunityIcons name="fire" size={20} color="#FF6B6B" />
+              </View>
+              <Text style={styles.profileBio}>{userBio}</Text>
+            </View>
+
+            {/* Stats - Vertical Layout */}
+            <View style={styles.statsColumn}>
+              <View style={styles.statItemVertical}>
+                <Text style={styles.statNumberLarge}>{postsCount}</Text>
+                <Text style={styles.statLabelLarge}>Posts</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItemVertical}>
+                <Text style={styles.statNumberLarge}>{followersCount}</Text>
+                <Text style={styles.statLabelLarge}>Followers</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItemVertical}>
+                <Text style={styles.statNumberLarge}>{userProfile?.followingCount || 0}</Text>
+                <Text style={styles.statLabelLarge}>Following</Text>
+              </View>
+            </View>
+
+            {/* Follow Button */}
+            <TouchableOpacity style={styles.followButton}>
+              <MaterialCommunityIcons name="account-plus" size={20} color="#fff" />
+              <Text style={styles.followButtonText}>Follow</Text>
+            </TouchableOpacity>
+
+            {/* Additional Info */}
+            <View style={styles.additionalInfo}>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="heart" size={18} color="#9ca3af" />
+                <Text style={styles.infoText}>{likesCount} total likes</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="calendar" size={18} color="#9ca3af" />
+                <Text style={styles.infoText}>Joined {new Date(userProfile?.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</Text>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+        )}
+
+        {/* Mobile Profile Section */}
+        {!isLargeScreen && (
+          <ScrollView 
+            style={styles.mobileScrollView}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          >
+            {/* Profile Header */}
+            <View style={styles.mobileProfileHeader}>
+              {/* Avatar and Stats Row */}
+              <View style={styles.mobileAvatarRow}>
+                {userAvatar ? (
+                  <Avatar.Image
+                    size={80}
+                    source={{ uri: userAvatar }}
+                    style={styles.mobileAvatar}
+                  />
+                ) : (
+                  <Avatar.Text
+                    size={80}
+                    label={userInitials}
+                    style={styles.mobileAvatar}
+                  />
+                )}
+                
+                <View style={styles.mobileStatsRow}>
+                  <View style={styles.mobileStatItem}>
+                    <Text style={styles.mobileStatNumber}>{postsCount}</Text>
+                    <Text style={styles.mobileStatLabel}>Posts</Text>
+                  </View>
+                  <View style={styles.mobileStatItem}>
+                    <Text style={styles.mobileStatNumber}>{followersCount}</Text>
+                    <Text style={styles.mobileStatLabel}>Followers</Text>
+                  </View>
+                  <View style={styles.mobileStatItem}>
+                    <Text style={styles.mobileStatNumber}>{userProfile?.followingCount || 0}</Text>
+                    <Text style={styles.mobileStatLabel}>Following</Text>
+                  </View>
                 </View>
-              ) : userPosts.length === 0 ? (
+              </View>
+
+              {/* Name and Bio */}
+              <View style={styles.mobileNameSection}>
+                <View style={styles.mobileNameRow}>
+                  <Text style={styles.mobileName}>{userName}</Text>
+                  <MaterialCommunityIcons name="fire" size={18} color="#FF6B6B" />
+                </View>
+                <Text style={styles.mobileBio}>{userBio}</Text>
+              </View>
+
+              {/* Follow Button */}
+              <TouchableOpacity style={styles.mobileFollowButton}>
+                <MaterialCommunityIcons name="account-plus" size={18} color="#fff" />
+                <Text style={styles.mobileFollowButtonText}>Follow</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Posts Section */}
+            <View style={styles.mobilePostsSection}>
+              <Text style={styles.mobilePostsTitle}>Posts</Text>
+              {userPosts.length === 0 ? (
                 <View style={styles.emptyState}>
                   <MaterialCommunityIcons name="post-outline" size={64} color="#ccc" />
                   <Text style={styles.emptyText}>No posts yet</Text>
@@ -378,22 +401,22 @@ export default function UserProfileScreen() {
                       {post.mediaUrls && post.mediaUrls.length > 0 && (
                         <Image 
                           source={{ uri: post.mediaUrls[0] }} 
-                          style={styles.postCardImage}
+                          style={styles.mobilePostImage}
                           resizeMode="cover"
                         />
                       )}
-                      <Card.Content style={styles.postCardContent}>
-                        <Text style={styles.postCardTitle} numberOfLines={2}>
+                      <Card.Content style={styles.mobilePostContent}>
+                        <Text style={styles.mobilePostTitle} numberOfLines={2}>
                           {post.caption || 'My travel post'}
                         </Text>
-                        <View style={styles.postCardFooter}>
-                          <View style={styles.postCardStat}>
-                            <MaterialCommunityIcons name="heart-outline" size={16} color="#9ca3af" />
-                            <Text style={styles.postCardStatText}>{post.likes?.length || 0}</Text>
+                        <View style={styles.mobilePostFooter}>
+                          <View style={styles.mobilePostStat}>
+                            <MaterialCommunityIcons name="heart" size={14} color="#FF6B6B" />
+                            <Text style={styles.mobilePostStatText}>{post.likes?.length || 0}</Text>
                           </View>
-                          <View style={styles.postCardStat}>
-                            <MaterialCommunityIcons name="bookmark-outline" size={16} color="#9ca3af" />
-                            <Text style={styles.postCardStatText}>{post.saves || 0}</Text>
+                          <View style={styles.mobilePostStat}>
+                            <MaterialCommunityIcons name="comment" size={14} color="#667eea" />
+                            <Text style={styles.mobilePostStatText}>{post.commentCount || 0}</Text>
                           </View>
                         </View>
                       </Card.Content>
@@ -402,125 +425,80 @@ export default function UserProfileScreen() {
                 </View>
               )}
             </View>
+          </ScrollView>
+        )}
 
-            {/* Friends Section - Mobile */}
-            <View style={styles.mobileFriendsSection}>
-              <View style={styles.friendsHeader}>
-                <Text style={styles.friendsTitle}>Friends</Text>
-                <TouchableOpacity>
-                  <Text style={styles.viewAllText}>View All</Text>
-                </TouchableOpacity>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {SAMPLE_FRIENDS.map((friend) => (
-                  <TouchableOpacity key={friend.id} style={styles.mobileFriendItem}>
-                    <Avatar.Text size={56} label={friend.avatar} style={styles.friendAvatar} />
-                    <Text style={styles.friendName} numberOfLines={1}>{friend.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        ) : (
-          /* Desktop/Tablet Layout - Two Columns */
-          <View style={styles.mainLayout}>
-            {/* Left Sidebar - Friends */}
-            <View style={styles.leftSidebar}>
-              <View style={styles.friendsSection}>
-                <View style={styles.friendsHeader}>
-                  <Text style={styles.friendsTitle}>Friends</Text>
-                  <TouchableOpacity>
-                    <Text style={styles.viewAllText}>View All</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.friendsGrid}>
-                  {SAMPLE_FRIENDS.map((friend) => (
-                    <TouchableOpacity key={friend.id} style={styles.friendGridItem}>
-                      <Avatar.Text size={56} label={friend.avatar} style={styles.friendAvatar} />
-                      <Text style={styles.friendName} numberOfLines={1}>{friend.name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {/* Right Content - Posts */}
-            <View style={styles.rightContent}>
-              {/* Sort Dropdown */}
+        {/* Right Content - Posts (Desktop Only) */}
+        {isLargeScreen && (
+          <View style={styles.rightPostsContent}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          >
+            {/* Posts Header */}
+            <View style={styles.postsHeader}>
+              <Text style={styles.postsHeaderTitle}>Posts</Text>
               <View style={styles.sortContainer}>
                 <Text style={styles.sortLabel}>Sort by:</Text>
                 <TouchableOpacity style={styles.sortButton}>
-                  <Text style={styles.sortText}>Most popular</Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color="#6b7280" />
+                  <Text style={styles.sortText}>Most Recent</Text>
+                  <MaterialCommunityIcons name="chevron-down" size={18} color="#6b7280" />
                 </TouchableOpacity>
               </View>
-
-              {/* Posts Content */}
-              <View style={styles.postsContent}>
-                {activeTab === 'community' ? (
-                  <View style={styles.emptyState}>
-                    <MaterialCommunityIcons name="account-group" size={64} color="#ccc" />
-                    <Text style={styles.emptyText}>No community activity yet</Text>
-                  </View>
-                ) : userPosts.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <MaterialCommunityIcons name="post-outline" size={64} color="#ccc" />
-                    <Text style={styles.emptyText}>No posts yet</Text>
-                  </View>
-                ) : (
-                  <View style={styles.postsGrid}>
-                    {userPosts.map((post) => (
-                      <Card key={post.id} style={styles.postCard}>
-                        {post.mediaUrls && post.mediaUrls.length > 0 && (
-                          <Image 
-                            source={{ uri: post.mediaUrls[0] }} 
-                            style={styles.postCardImage}
-                            resizeMode="cover"
-                          />
-                        )}
-                        <Card.Content style={styles.postCardContent}>
-                          <View style={styles.postCardHeader}>
-                            <View style={styles.postCardTitleRow}>
-                              <Text style={styles.postCardTitle} numberOfLines={1}>
-                                {post.caption || 'My travel post'}
-                              </Text>
-                              {post.isPremium && (
-                                <Chip style={styles.premiumBadge} textStyle={styles.premiumText}>
-                                  Premium
-                                </Chip>
-                              )}
-                            </View>
-                            <Text style={styles.postCardTime}>
-                              {new Date(post.createdAt).toLocaleDateString('en-US', { 
-                                hour: 'numeric', 
-                                minute: '2-digit',
-                                hour12: true 
-                              })}
-                            </Text>
-                          </View>
-                          <Text style={styles.postCardDescription} numberOfLines={2}>
-                            {post.caption || 'Exploring beautiful destinations...'}
-                          </Text>
-                          <View style={styles.postCardFooter}>
-                            <View style={styles.postCardStat}>
-                              <MaterialCommunityIcons name="heart-outline" size={16} color="#9ca3af" />
-                              <Text style={styles.postCardStatText}>{post.likes?.length || 0} likes</Text>
-                            </View>
-                            <View style={styles.postCardStat}>
-                              <MaterialCommunityIcons name="bookmark-outline" size={16} color="#9ca3af" />
-                              <Text style={styles.postCardStatText}>{post.saves || 0} saved</Text>
-                            </View>
-                          </View>
-                        </Card.Content>
-                      </Card>
-                    ))}
-                  </View>
-                )}
-              </View>
             </View>
-          </View>
+
+            {/* Posts Grid */}
+            {userPosts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="post-outline" size={64} color="#ccc" />
+                <Text style={styles.emptyText}>No posts yet</Text>
+              </View>
+            ) : (
+              <View style={styles.postsGrid}>
+                {userPosts.map((post) => (
+                  <Card key={post.id} style={styles.postCard}>
+                    {post.mediaUrls && post.mediaUrls.length > 0 && (
+                      <Image 
+                        source={{ uri: post.mediaUrls[0] }} 
+                        style={styles.postCardImage}
+                        resizeMode="cover"
+                      />
+                    )}
+                    <Card.Content style={styles.postCardContent}>
+                      <View style={styles.postCardHeader}>
+                        <Text style={styles.postCardTitle} numberOfLines={2}>
+                          {post.caption || 'My travel post'}
+                        </Text>
+                        <Text style={styles.postCardTime}>
+                          {new Date(post.createdAt).toLocaleDateString('en-US', { 
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </Text>
+                      </View>
+                      <View style={styles.postCardFooter}>
+                        <View style={styles.postCardStat}>
+                          <MaterialCommunityIcons name="heart" size={16} color="#FF6B6B" />
+                          <Text style={styles.postCardStatText}>{post.likes?.length || 0}</Text>
+                        </View>
+                        <View style={styles.postCardStat}>
+                          <MaterialCommunityIcons name="comment" size={16} color="#667eea" />
+                          <Text style={styles.postCardStatText}>{post.commentCount || 0}</Text>
+                        </View>
+                        <View style={styles.postCardStat}>
+                          <MaterialCommunityIcons name="bookmark" size={16} color="#f59e0b" />
+                          <Text style={styles.postCardStatText}>{post.saveCount || 0}</Text>
+                        </View>
+                      </View>
+                    </Card.Content>
+                  </Card>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        </View>
         )}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -528,7 +506,197 @@ export default function UserProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fafafa',
+  },
+  mainContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  leftProfileSidebar: {
+    width: 320,
+    backgroundColor: '#fff',
+    borderRightWidth: 1,
+    borderRightColor: '#e5e7eb',
+    padding: 24,
+  },
+  rightPostsContent: {
+    flex: 1,
+    backgroundColor: '#fafafa',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 24,
+    paddingVertical: 8,
+  },
+  backButtonTextNew: {
+    fontSize: 14,
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  profileAvatarSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profileNameSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  statsColumn: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+  },
+  statItemVertical: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  statNumberLarge: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  statLabelLarge: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  statDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 8,
+  },
+  followButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#667eea',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 24,
+    elevation: 2,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  followButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  additionalInfo: {
+    gap: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  postsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  postsHeaderTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  postsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    gap: 16,
+  },
+  postCard: {
+    width: '31%',
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  postCardImage: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#e5e7eb',
+  },
+  postCardContent: {
+    padding: 12,
+  },
+  postCardHeader: {
+    marginBottom: 12,
+  },
+  postCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  postCardTime: {
+    fontSize: 11,
+    color: '#9ca3af',
+  },
+  postCardFooter: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  postCardStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  postCardStatText: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 80,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginTop: 12,
+  },
+  sortContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sortLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  sortText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
   },
   appHeader: {
     flexDirection: 'row',
@@ -612,11 +780,37 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9ca3af',
   },
+  profileAvatar: {
+    backgroundColor: '#667eea',
+    elevation: 4,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  profileName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.5,
+  },
+  profileBio: {
+    fontSize: 13,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fafafa',
   },
   loadingText: {
     marginTop: 12,
@@ -641,306 +835,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  scrollView: {
-    flex: 1,
-  },
-  coverSection: {
-    position: 'relative',
-    height: 200,
-    marginTop: 0,
-  },
-  coverImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#e5e7eb',
-  },
-  backButtonOverlay: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  backButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  profileAvatarContainer: {
-    position: 'absolute',
-    bottom: -50,
-    left: 24,
-    borderWidth: 5,
-    borderColor: '#fff',
-    borderRadius: 55,
-    backgroundColor: '#fff',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    overflow: 'hidden',
-  },
-  profileAvatar: {
-    backgroundColor: '#667eea',
-    borderRadius: 50,
-  },
-  profileInfo: {
-    backgroundColor: '#fff',
-    paddingTop: 64,
-    paddingHorizontal: 24,
-    paddingBottom: 32,
-  },
-  profileNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  profileName: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#111827',
-    letterSpacing: -0.5,
-  },
-  profileBio: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 32,
-    lineHeight: 20,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  statItem: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#9ca3af',
-    textTransform: 'lowercase',
-  },
-  navTabs: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    paddingHorizontal: 24,
-  },
-  navTab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  navTabActive: {
-    borderBottomColor: '#667eea',
-  },
-  navTabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#9ca3af',
-  },
-  navTabTextActive: {
-    color: '#667eea',
-    fontWeight: '700',
-  },
-  navTabWithBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  tabBadge: {
-    backgroundColor: '#FF6B6B',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    minWidth: 20,
-    alignItems: 'center',
-  },
-  tabBadgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  mainLayout: {
-    flexDirection: 'row',
-    backgroundColor: '#fafafa',
-    padding: 16,
-    gap: 16,
-  },
-  leftSidebar: {
-    width: 280,
-  },
-  rightContent: {
-    flex: 1,
-  },
-  sortContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 16,
-    gap: 8,
-  },
-  sortLabel: {
-    fontSize: 13,
-    color: '#6b7280',
-  },
-  sortButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  sortText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  postsContent: {
-    flex: 1,
-  },
-  postsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  postCard: {
-    width: '48%',
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  postCardImage: {
-    width: '100%',
-    height: 220,
-    backgroundColor: '#e5e7eb',
-  },
-  postCardContent: {
-    padding: 14,
-  },
-  postCardHeader: {
-    marginBottom: 8,
-  },
-  postCardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  postCardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-    flex: 1,
-  },
-  premiumBadge: {
-    backgroundColor: '#FF6B6B',
-    height: 24,
-  },
-  premiumText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  postCardTime: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  postCardDescription: {
-    fontSize: 13,
-    color: '#6b7280',
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  postCardFooter: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  postCardStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  postCardStatText: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  friendsSection: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-  },
-  friendsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  friendsTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-    letterSpacing: -0.5,
-  },
-  viewAllText: {
-    fontSize: 13,
-    color: '#667eea',
-    fontWeight: '700',
-  },
-  friendsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  friendGridItem: {
-    alignItems: 'center',
-    width: '45%',
-  },
-  friendAvatar: {
-    backgroundColor: '#667eea',
-    marginBottom: 8,
-  },
-  friendName: {
-    fontSize: 12,
-    color: '#111827',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#6b7280',
-    marginTop: 12,
-  },
   // Mobile Styles
   mobileHeader: {
     flexDirection: 'row',
@@ -951,42 +845,137 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
   },
-  mobileHeaderContent: {
+  mobileHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  mobileMainContainer: {
+    flexDirection: 'column',
+  },
+  mobileScrollView: {
+    flex: 1,
+    backgroundColor: '#fafafa',
+  },
+  mobileProfileHeader: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  mobileAvatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    marginBottom: 16,
   },
-  mobileContent: {
+  mobileAvatar: {
+    backgroundColor: '#667eea',
+    marginRight: 20,
+  },
+  mobileStatsRow: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  mobileStatItem: {
+    alignItems: 'center',
+  },
+  mobileStatNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  mobileStatLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  mobileNameSection: {
+    marginBottom: 16,
+  },
+  mobileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  mobileName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  mobileBio: {
+    fontSize: 13,
+    color: '#6b7280',
+    lineHeight: 18,
+  },
+  mobileFollowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#667eea',
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  mobileFollowButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  mobilePostsSection: {
+    padding: 16,
+  },
+  mobilePostsTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 16,
   },
   mobilePostsGrid: {
-    padding: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   mobilePostCard: {
-    marginBottom: 16,
+    width: '48%',
+    marginBottom: 0,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#fff',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 4,
   },
-  mobileFriendsSection: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginTop: 8,
+  mobilePostImage: {
+    width: '100%',
+    height: 140,
+    backgroundColor: '#e5e7eb',
   },
-  mobileFriendItem: {
+  mobilePostContent: {
+    padding: 10,
+  },
+  mobilePostTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  mobilePostFooter: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  mobilePostStat: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
-    width: 70,
+    gap: 4,
+  },
+  mobilePostStatText: {
+    fontSize: 11,
+    color: '#6b7280',
+    fontWeight: '600',
   },
 });

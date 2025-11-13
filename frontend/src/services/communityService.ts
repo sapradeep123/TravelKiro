@@ -354,11 +354,20 @@ export const communityService = {
    * Get user's posts with privacy checks
    */
   async getUserPosts(userId: string, page: number = 1): Promise<PaginatedPosts> {
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
+    try {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
 
-    const response = await api.get(`/community/users/${userId}/posts?${params.toString()}`);
-    return response.data;
+      const response = await withRetry(() => api.get(`/community/users/${userId}/posts?${params.toString()}`));
+      // Backend returns { data: { posts: [...], pagination: {...} } }
+      // Transform to { data: [...], pagination: {...} }
+      return {
+        data: response.data.data.posts || [],
+        pagination: response.data.data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }
+      };
+    } catch (error) {
+      throw new Error(getUserFriendlyErrorMessage(error));
+    }
   },
 
   /**

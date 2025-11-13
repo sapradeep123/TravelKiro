@@ -308,11 +308,20 @@ export default function UserProfileScreen() {
               </View>
             </View>
 
-            {/* Follow Button */}
-            <TouchableOpacity style={styles.followButton}>
-              <MaterialCommunityIcons name="account-plus" size={20} color="#fff" />
-              <Text style={styles.followButtonText}>Follow</Text>
-            </TouchableOpacity>
+            {/* Action Buttons */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity style={styles.followButton}>
+                <MaterialCommunityIcons name="account-plus" size={20} color="#fff" />
+                <Text style={styles.followButtonText}>Follow</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.messageButton}
+                onPress={() => router.push(`/chat?userId=${userId}&name=${userName}`)}
+              >
+                <MaterialCommunityIcons name="message" size={20} color="#667eea" />
+                <Text style={styles.messageButtonText}>Message</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Additional Info */}
             <View style={styles.additionalInfo}>
@@ -379,11 +388,19 @@ export default function UserProfileScreen() {
                 <Text style={styles.mobileBio}>{userBio}</Text>
               </View>
 
-              {/* Follow Button */}
-              <TouchableOpacity style={styles.mobileFollowButton}>
-                <MaterialCommunityIcons name="account-plus" size={18} color="#fff" />
-                <Text style={styles.mobileFollowButtonText}>Follow</Text>
-              </TouchableOpacity>
+              {/* Action Buttons */}
+              <View style={styles.mobileActionButtons}>
+                <TouchableOpacity style={styles.mobileFollowButton}>
+                  <MaterialCommunityIcons name="account-plus" size={18} color="#fff" />
+                  <Text style={styles.mobileFollowButtonText}>Follow</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.mobileMessageButton}
+                  onPress={() => router.push(`/chat?userId=${userId}&name=${userName}`)}
+                >
+                  <MaterialCommunityIcons name="message" size={18} color="#667eea" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Posts Section */}
@@ -569,7 +586,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#e5e7eb',
     marginVertical: 8,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
   followButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -577,7 +600,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#667eea',
     paddingVertical: 14,
     borderRadius: 12,
-    marginBottom: 24,
     elevation: 2,
     shadowColor: '#667eea',
     shadowOffset: { width: 0, height: 2 },
@@ -586,6 +608,23 @@ const styles = StyleSheet.create({
   },
   followButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  messageButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#fff',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#667eea',
+  },
+  messageButtonText: {
+    color: '#667eea',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -910,7 +949,12 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     lineHeight: 18,
   },
+  mobileActionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   mobileFollowButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -923,6 +967,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  mobileMessageButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#667eea',
   },
   mobilePostsSection: {
     padding: 16,

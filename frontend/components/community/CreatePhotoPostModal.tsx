@@ -100,7 +100,7 @@ export default function CreatePhotoPostModal({
 
   const handleSubmit = async () => {
     console.log('handleSubmit called with images:', images.length);
-    alert(`Starting upload with ${images.length} images`);
+    console.log(`Starting upload with ${images.length} images`);
     
     if (images.length === 0) {
       Alert.alert('No Images', 'Please select at least one image to post.');

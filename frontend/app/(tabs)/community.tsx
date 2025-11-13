@@ -512,11 +512,54 @@ export default function CommunityScreen() {
     </View>
   );
 
+  // Helper function to fix image URLs for web
+  const getImageUrl = (url: string): string => {
+    if (!url) {
+      console.log('[getImageUrl] Empty URL');
+      return url;
+    }
+    
+    console.log('[getImageUrl] Input URL:', url);
+    
+    // If the URL is already absolute and not localhost, return as is
+    if (url.startsWith('http') && !url.includes('localhost')) {
+      console.log('[getImageUrl] Already absolute non-localhost URL');
+      return url;
+    }
+    
+    // For localhost URLs or relative paths, use the API base URL
+    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+    console.log('[getImageUrl] API_URL:', API_URL);
+    
+    // If it's a full localhost URL, replace the host
+    if (url.includes('localhost')) {
+      const urlPath = url.split('/uploads/')[1];
+      if (urlPath) {
+        const finalUrl = `${API_URL}/uploads/${urlPath}`;
+        console.log('[getImageUrl] Localhost URL converted to:', finalUrl);
+        return finalUrl;
+      }
+    }
+    
+    // If it's a relative path
+    if (url.startsWith('/uploads/')) {
+      const finalUrl = `${API_URL}${url}`;
+      console.log('[getImageUrl] Relative path converted to:', finalUrl);
+      return finalUrl;
+    }
+    
+    console.log('[getImageUrl] No conversion needed, returning:', url);
+    return url;
+  };
+
   const renderPost = ({ item }: { item: CommunityPost }) => {
     const isLiked = (item as any).isLiked || false;
     const likeCount = (item as any).likeCount || 0;
     const commentCount = (item as any).commentCount || 0;
     const currentImageIndex = imageIndices[item.id] || 0;
+    
+    // Debug logging
+    console.log('Rendering post:', item.id, 'mediaUrls:', item.mediaUrls);
     
     const handleImageScroll = (event: any) => {
       const contentOffsetX = event.nativeEvent.contentOffset.x;
@@ -559,31 +602,36 @@ export default function CommunityScreen() {
         {/* Post Images - Carousel for multiple images */}
         {item.mediaUrls && item.mediaUrls.length > 0 && (
           <View style={styles.imageCarouselContainer}>
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onScroll={handleImageScroll}
-              scrollEventThrottle={16}
-              style={styles.imageCarousel}
-            >
-              {item.mediaUrls.map((url, index) => (
+            {item.mediaUrls.map((url, index) => {
+              const imageUrl = getImageUrl(url);
+              console.log('Original URL:', url, '-> Fixed URL:', imageUrl);
+              
+              // Only show first image for now (simplified)
+              if (index > 0) return null;
+              
+              return (
                 <TouchableOpacity
                   key={`${item.id}-image-${index}`}
                   activeOpacity={0.9}
                   onPress={() => {
-                    // TODO: Open full-screen image gallery
-                    console.log('Image tapped:', url);
+                    console.log('Image tapped:', imageUrl);
                   }}
+                  style={{ width: '100%', height: 400 }}
                 >
                   <Image 
-                    source={{ uri: url }} 
+                    source={{ uri: imageUrl }} 
                     style={styles.postImage}
                     resizeMode="cover"
+                    onError={(error) => {
+                      console.error('Image failed to load:', imageUrl, error.nativeEvent?.error);
+                    }}
+                    onLoad={() => {
+                      console.log('Image loaded successfully:', imageUrl);
+                    }}
                   />
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              );
+            })}
             
             {/* Image Counter for multiple images */}
             {item.mediaUrls.length > 1 && (
@@ -1632,9 +1680,12 @@ const styles = StyleSheet.create({
   },
   imageCarouselContainer: {
     position: 'relative',
+    width: '100%',
+    height: 400,
   },
   imageCarousel: {
     width: '100%',
+    height: 400,
   },
   postImage: {
     width: '100%',

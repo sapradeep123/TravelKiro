@@ -12,6 +12,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import CreatePhotoPostModal from '../../components/community/CreatePhotoPostModal';
 import CreateAlbumModal from '../../components/albums/CreateAlbumModal';
 import PhotoManagementModal from '../../components/community/PhotoManagementModal';
+import EditProfileModal from '../../components/community/EditProfileModal';
 import { TEST_PHOTOS, TEST_ALBUMS } from '../../src/utils/testPhotoData';
 
 type TabType = 'posts' | 'groups';
@@ -88,6 +89,7 @@ export default function CommunityScreen() {
   const [createPostModalVisible, setCreatePostModalVisible] = useState(false);
   const [createAlbumModalVisible, setCreateAlbumModalVisible] = useState(false);
   const [photoManagementModalVisible, setPhotoManagementModalVisible] = useState(false);
+  const [editProfileModalVisible, setEditProfileModalVisible] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; postId?: string } | null>(null);
   const [imageIndices, setImageIndices] = useState<{[key: string]: number}>({});
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -392,10 +394,10 @@ export default function CommunityScreen() {
         <Card.Content>
           <View style={styles.sidebarHeader}>
             <Text variant="titleMedium" style={styles.sidebarTitle}>About Me</Text>
-            <IconButton icon="pencil" size={18} onPress={() => Alert.alert('Edit Profile', 'Profile editing coming soon!')} />
+            <IconButton icon="pencil" size={18} onPress={() => setEditProfileModalVisible(true)} />
           </View>
           <Text variant="bodySmall" style={styles.aboutText}>
-            Hi! My name is {user?.profile?.name || 'Travel Enthusiast'}. I love traveling and exploring new places. Join me on my adventures across India and beyond! 🌍✈️
+            {user?.profile?.bio || `Hi! My name is ${user?.profile?.name || 'Travel Enthusiast'}. I love traveling and exploring new places. Join me on my adventures across India and beyond! 🌍✈️`}
           </Text>
           <Divider style={styles.divider} />
           <View style={styles.infoRow}>
@@ -1257,6 +1259,20 @@ export default function CommunityScreen() {
             handleRefresh();
           }}
         />
+
+        {/* Edit Profile Modal */}
+        <EditProfileModal
+          visible={editProfileModalVisible}
+          onClose={() => setEditProfileModalVisible(false)}
+          onProfileUpdated={() => {
+            setEditProfileModalVisible(false);
+            showMessage('Profile updated successfully!');
+            // Optionally reload user data here
+          }}
+          currentProfile={{
+            bio: user?.profile?.bio,
+          }}
+        />
       </View>
     );
   }
@@ -1544,6 +1560,20 @@ export default function CommunityScreen() {
         onRefresh={() => {
           loadAlbums();
           handleRefresh();
+        }}
+      />
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        visible={editProfileModalVisible}
+        onClose={() => setEditProfileModalVisible(false)}
+        onProfileUpdated={() => {
+          setEditProfileModalVisible(false);
+          showMessage('Profile updated successfully!');
+          // Optionally reload user data here
+        }}
+        currentProfile={{
+          bio: user?.profile?.bio,
         }}
       />
 

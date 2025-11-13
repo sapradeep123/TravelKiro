@@ -166,6 +166,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="messages"
+        options={{
+          title: 'Messages',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons 
+              name={focused ? "message" : "message-outline"} 
+              size={28} 
+              color={color} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -262,6 +275,24 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="location-feed"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="post-detail"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="album-detail"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="photo-test"
         options={{
           href: null,
         }}

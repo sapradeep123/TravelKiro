@@ -18,7 +18,8 @@ interface PhotoPostPreviewProps {
 }
 
 const { width: screenWidth } = Dimensions.get('window');
-const imageWidth = screenWidth - 32; // Account for padding
+const modalWidth = Math.min(screenWidth - 32, 600); // Max 600px width
+const imageHeight = 400; // Fixed height for better control
 
 export default function PhotoPostPreview({
   images,
@@ -39,20 +40,13 @@ export default function PhotoPostPreview({
 
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffsetX / imageWidth);
+    const index = Math.round(contentOffsetX / modalWidth);
     setCurrentImageIndex(index);
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={true}>
       <View style={styles.content}>
-        {/* Preview Header */}
-        <View style={styles.header}>
-          <MaterialCommunityIcons name="eye" size={24} color="#667eea" />
-          <Text style={styles.headerText}>Preview</Text>
-          <Text style={styles.headerSubtext}>This is how your post will appear</Text>
-        </View>
-
         {/* Post Card Preview */}
         <Card style={styles.postCard}>
           {/* Post Header */}
@@ -162,39 +156,6 @@ export default function PhotoPostPreview({
             </Text>
           </View>
         )}
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <Button
-            mode="outlined"
-            onPress={onEdit}
-            disabled={uploading}
-            style={styles.editButton}
-            icon="pencil"
-          >
-            Edit
-          </Button>
-          <Button
-            mode="contained"
-            onPress={onSubmit}
-            disabled={uploading || images.length === 0}
-            style={styles.postButton}
-            icon="send"
-            loading={uploading}
-          >
-            {uploading ? 'Posting...' : 'Post'}
-          </Button>
-        </View>
-
-        {/* Info Message */}
-        {!uploading && (
-          <View style={styles.infoContainer}>
-            <MaterialCommunityIcons name="information" size={16} color="#999" />
-            <Text style={styles.infoText}>
-              Review your post carefully before publishing
-            </Text>
-          </View>
-        )}
       </View>
     </ScrollView>
   );
@@ -203,29 +164,16 @@ export default function PhotoPostPreview({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
   },
   content: {
-    padding: 16,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  headerText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 8,
-  },
-  headerSubtext: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    padding: 0,
   },
   postCard: {
-    marginBottom: 16,
+    marginBottom: 0,
     backgroundColor: '#fff',
+    elevation: 0,
+    shadowOpacity: 0,
   },
   postHeader: {
     flexDirection: 'row',
@@ -269,8 +217,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   carouselImage: {
-    width: imageWidth,
-    height: imageWidth,
+    width: modalWidth,
+    height: imageHeight,
   },
   imageCounter: {
     position: 'absolute',
@@ -335,10 +283,12 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   uploadingContainer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
+    backgroundColor: '#f0f4ff',
+    padding: 20,
+    margin: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
   },
   progressBar: {
     height: 8,
@@ -346,31 +296,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   uploadingText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#667eea',
     textAlign: 'center',
     fontWeight: '600',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  editButton: {
-    flex: 1,
-  },
-  postButton: {
-    flex: 2,
-  },
-  infoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-  },
-  infoText: {
-    fontSize: 12,
-    color: '#999',
   },
 });

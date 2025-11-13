@@ -120,18 +120,25 @@ export default function CommunityScreen() {
       if (activeTab === 'posts') {
         const response = await communityService.getFeed();
         // communityService.getFeed returns { data: Post[], pagination: {...} }
-        const mappedPosts = response.data.map((post: any) => ({
-          ...post,
-          likes: [], // Will be populated from likeCount
-          comments: [], // Will be populated from commentCount
-        }));
-        setPosts(mappedPosts);
+        if (response && response.data && Array.isArray(response.data)) {
+          const mappedPosts = response.data.map((post: any) => ({
+            ...post,
+            likes: [], // Will be populated from likeCount
+            comments: [], // Will be populated from commentCount
+          }));
+          setPosts(mappedPosts);
+        } else {
+          console.error('Invalid response from getFeed:', response);
+          setPosts([]);
+        }
       } else {
         const data = await groupTravelService.getAllGroupTravels();
-        setGroupTravels(data);
+        setGroupTravels(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error loading data:', error);
+      setPosts([]);
+      setGroupTravels([]);
     } finally {
       setLoading(false);
     }
@@ -184,17 +191,23 @@ export default function CommunityScreen() {
     }
     try {
       // Optimistically update the UI
-      setPosts(prevPosts => prevPosts.map(post => {
-        if (post.id === postId) {
-          const isCurrentlyLiked = (post as any).isLiked || false;
-          return {
-            ...post,
-            isLiked: !isCurrentlyLiked,
-            likeCount: isCurrentlyLiked ? (post as any).likeCount - 1 : (post as any).likeCount + 1
-          } as any;
+      setPosts(prevPosts => {
+        if (!Array.isArray(prevPosts)) {
+          console.error('prevPosts is not an array:', prevPosts);
+          return [];
         }
-        return post;
-      }));
+        return prevPosts.map(post => {
+          if (post.id === postId) {
+            const isCurrentlyLiked = (post as any).isLiked || false;
+            return {
+              ...post,
+              isLiked: !isCurrentlyLiked,
+              likeCount: isCurrentlyLiked ? (post as any).likeCount - 1 : (post as any).likeCount + 1
+            } as any;
+          }
+          return post;
+        });
+      });
       
       await communityService.toggleLike(postId);
       // No message needed - visual feedback is enough
@@ -254,15 +267,21 @@ export default function CommunityScreen() {
       await communityService.addComment(selectedPostId, finalText);
       
       // Update the comment count optimistically
-      setPosts(prevPosts => prevPosts.map(post => {
-        if (post.id === selectedPostId) {
-          return {
-            ...post,
-            commentCount: ((post as any).commentCount || 0) + 1
-          } as any;
+      setPosts(prevPosts => {
+        if (!Array.isArray(prevPosts)) {
+          console.error('prevPosts is not an array:', prevPosts);
+          return [];
         }
-        return post;
-      }));
+        return prevPosts.map(post => {
+          if (post.id === selectedPostId) {
+            return {
+              ...post,
+              commentCount: ((post as any).commentCount || 0) + 1
+            } as any;
+          }
+          return post;
+        });
+      });
       
       setCommentText('');
       setReplyingTo(null);
@@ -697,7 +716,11 @@ export default function CommunityScreen() {
       <Card style={styles.postCard}>
         {/* Post Header */}
         <View style={styles.postHeader}>
-          <View style={styles.postUserInfo}>
+          <TouchableOpacity 
+            style={styles.postUserInfo}
+            onPress={() => router.push(`/user-profile?userId=${(item.user as any)?.id}`)}
+            activeOpacity={0.7}
+          >
             <Avatar.Text
               size={48}
               label={(item.user as any)?.profile?.name?.substring(0, 2).toUpperCase() || 'U'}
@@ -711,7 +734,7 @@ export default function CommunityScreen() {
                 {formatPostDate(item.createdAt)}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
           <IconButton 
             icon="dots-horizontal" 
             size={20} 

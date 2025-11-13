@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Modal, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { Appbar, Button, Divider } from 'react-native-paper';
+import { View, StyleSheet, Modal, ScrollView, KeyboardAvoidingView, Platform, Alert, Text, TouchableOpacity } from 'react-native';
+import { Divider } from 'react-native-paper';
 import ImagePickerSection, { SelectedImage } from './ImagePickerSection';
 import LocationPickerSection from './LocationPickerSection';
 import CaptionInputSection from './CaptionInputSection';
@@ -95,7 +95,9 @@ export default function CreatePhotoPostModal({
   };
 
   const handleEdit = () => {
-    setIsPreview(false);
+    if (!uploading) {
+      setIsPreview(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -216,27 +218,61 @@ export default function CreatePhotoPostModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      transparent={true}
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        {/* Header */}
-        <Appbar.Header>
-          <Appbar.BackAction onPress={handleClose} disabled={uploading} />
-          <Appbar.Content title={isPreview ? 'Preview Post' : 'Create Post'} />
-          {!isPreview && (
-            <Button
-              onPress={handlePreview}
-              disabled={images.length === 0}
-              mode="text"
-            >
-              Preview
-            </Button>
-          )}
-        </Appbar.Header>
+      <View style={styles.modalOverlay}>
+        <View style={styles.backdrop} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalContainer}
+        >
+          <View style={styles.container}>
+            {/* Drag Handle */}
+            <View style={styles.dragHandle}>
+              <View style={styles.dragHandleBar} />
+            </View>
+
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity
+                onPress={isPreview ? handleEdit : handleClose}
+                disabled={uploading}
+                style={styles.cancelButton}
+              >
+                <Text style={styles.cancelButtonText}>
+                  {isPreview ? '← Back' : 'Cancel'}
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.headerTitle}>
+                <Text style={styles.headerTitleText}>
+                  {isPreview ? 'Preview' : 'Create Post'}
+                </Text>
+              </View>
+              {!isPreview ? (
+                <TouchableOpacity
+                  onPress={handlePreview}
+                  disabled={images.length === 0}
+                  style={[styles.nextButton, images.length === 0 && styles.nextButtonDisabled]}
+                >
+                  <Text style={[styles.nextButtonText, images.length === 0 && styles.nextButtonTextDisabled]}>
+                    Next
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleSubmit}
+                  disabled={uploading}
+                  style={[styles.postButtonHeader, uploading && styles.postButtonDisabled]}
+                >
+                  {uploading ? (
+                    <Text style={styles.postButtonText}>Posting...</Text>
+                  ) : (
+                    <Text style={styles.postButtonText}>Post</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
 
         {/* Content */}
         {isPreview ? (
@@ -288,20 +324,123 @@ export default function CreatePhotoPostModal({
             <View style={styles.bottomSpacing} />
           </ScrollView>
         )}
-      </KeyboardAvoidingView>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'transparent',
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContainer: {
+    height: '95%',
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 20,
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  dragHandle: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+  },
+  dragHandleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#d1d5db',
+    borderRadius: 2,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#fff',
+  },
+  headerTitle: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  cancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  nextButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  nextButtonDisabled: {
+    opacity: 0.4,
+  },
+  nextButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#667eea',
+  },
+  nextButtonTextDisabled: {
+    color: '#9ca3af',
+  },
+  postButtonHeader: {
+    backgroundColor: '#667eea',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  postButtonDisabled: {
+    opacity: 0.6,
+  },
+  postButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
   },
   scrollView: {
     flex: 1,
   },
   bottomSpacing: {
-    height: 40,
+    height: 120,
   },
 });

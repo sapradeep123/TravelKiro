@@ -458,6 +458,22 @@ export default function CommunityScreen() {
         </Card.Content>
       </Card>
 
+      {/* Messages */}
+      <Card style={styles.sidebarCard}>
+        <Card.Content>
+          <TouchableOpacity 
+            style={styles.messagesHeader}
+            onPress={() => router.push('/(tabs)/messages')}
+          >
+            <View style={styles.sidebarHeader}>
+              <MaterialCommunityIcons name="message" size={20} color="#667eea" />
+              <Text variant="titleMedium" style={styles.sidebarTitle}>Messages</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
+          </TouchableOpacity>
+        </Card.Content>
+      </Card>
+
       {/* Friends */}
       <Card style={styles.sidebarCard}>
         <Card.Content>
@@ -1662,6 +1678,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  messagesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   sidebarTitle: {
     fontWeight: '700',

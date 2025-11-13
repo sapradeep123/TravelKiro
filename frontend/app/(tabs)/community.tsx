@@ -10,6 +10,9 @@ import { albumService } from '../../src/services/albumService';
 import { CommunityPost, GroupTravel, Album } from '../../src/types';
 import { useAuth } from '../../src/contexts/AuthContext';
 import CreatePhotoPostModal from '../../components/community/CreatePhotoPostModal';
+import CreateAlbumModal from '../../components/albums/CreateAlbumModal';
+import PhotoManagementModal from '../../components/community/PhotoManagementModal';
+import { TEST_PHOTOS, TEST_ALBUMS } from '../../src/utils/testPhotoData';
 
 type TabType = 'posts' | 'groups';
 
@@ -83,9 +86,13 @@ export default function CommunityScreen() {
   const [reportCategory, setReportCategory] = useState<string>('');
   const [reportReason, setReportReason] = useState('');
   const [createPostModalVisible, setCreatePostModalVisible] = useState(false);
+  const [createAlbumModalVisible, setCreateAlbumModalVisible] = useState(false);
+  const [photoManagementModalVisible, setPhotoManagementModalVisible] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; postId?: string } | null>(null);
   const [imageIndices, setImageIndices] = useState<{[key: string]: number}>({});
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loadingAlbums, setLoadingAlbums] = useState(false);
+  const [userPhotos, setUserPhotos] = useState<Array<{ url: string; postId: string }>>([]);
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
@@ -101,6 +108,7 @@ export default function CommunityScreen() {
     loadData();
     if (user) {
       loadAlbums();
+      loadUserPhotos();
     }
   }, [activeTab, user]);
 
@@ -137,6 +145,26 @@ export default function CommunityScreen() {
       console.error('Error loading albums:', error);
     } finally {
       setLoadingAlbums(false);
+    }
+  };
+
+  const loadUserPhotos = async () => {
+    if (!user) return;
+    try {
+      const response = await communityService.getUserPosts(user.id, 1);
+      const photos: Array<{ url: string; postId: string }> = [];
+      
+      response.data.forEach((post: any) => {
+        if (post.mediaUrls && post.mediaUrls.length > 0) {
+          post.mediaUrls.forEach((url: string) => {
+            photos.push({ url, postId: post.id });
+          });
+        }
+      });
+      
+      setUserPhotos(photos.slice(0, 9)); // Show only first 9 photos
+    } catch (error) {
+      console.error('Error loading user photos:', error);
     }
   };
 
@@ -490,7 +518,7 @@ export default function CommunityScreen() {
             <IconButton 
               icon="plus" 
               size={18} 
-              onPress={() => Alert.alert('Create Album', 'Album creation coming soon!')} 
+              onPress={() => setCreateAlbumModalVisible(true)} 
             />
           </View>
           {loadingAlbums ? (
@@ -501,7 +529,7 @@ export default function CommunityScreen() {
               <Text style={styles.emptyAlbumsText}>No albums yet</Text>
               <Button 
                 mode="outlined" 
-                onPress={() => Alert.alert('Create Album', 'Album creation coming soon!')}
+                onPress={() => setCreateAlbumModalVisible(true)}
                 style={styles.createAlbumBtn}
                 compact
               >
@@ -554,22 +582,32 @@ export default function CommunityScreen() {
           <View style={styles.sidebarHeader}>
             <Text variant="titleMedium" style={styles.sidebarTitle}>Photos</Text>
             <TouchableOpacity onPress={() => Alert.alert('Photos', 'View all photos')}>
-              <Text style={styles.photoCount}>{SAMPLE_PHOTOS.length}</Text>
+              <Text style={styles.photoCount}>{userPhotos.length}</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.photosGrid}>
-            {SAMPLE_PHOTOS.map((photo, i) => (
-              <TouchableOpacity 
-                key={i}
-                onPress={() => Alert.alert('Photo', `Viewing photo ${i + 1}`)}
-              >
-                <Image 
-                  source={{ uri: photo }} 
-                  style={styles.photoItem}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
+          {userPhotos.length === 0 ? (
+            <View style={styles.emptyPhotos}>
+              <MaterialCommunityIcons name="image-outline" size={48} color="#ccc" />
+              <Text style={styles.emptyPhotosText}>No photos yet</Text>
+            </View>
+          ) : (
+            <View style={styles.photosGrid}>
+              {userPhotos.map((photo, i) => (
+                <TouchableOpacity 
+                  key={i}
+                  onPress={() => {
+                    setSelectedPhoto({ url: getImageUrl(photo.url), postId: photo.postId });
+                    setPhotoManagementModalVisible(true);
+                  }}
+                >
+                  <Image 
+                    source={{ uri: getImageUrl(photo.url) }} 
+                    style={styles.photoItem}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </Card.Content>
       </Card>
 
@@ -699,7 +737,8 @@ export default function CommunityScreen() {
                   key={`${item.id}-image-${index}`}
                   activeOpacity={0.9}
                   onPress={() => {
-                    console.log('Image tapped:', imageUrl);
+                    setSelectedPhoto({ url: imageUrl, postId: item.id });
+                    setPhotoManagementModalVisible(true);
                   }}
                   style={{ width: '100%', height: 400 }}
                 >
@@ -1190,6 +1229,34 @@ export default function CommunityScreen() {
             handleRefresh();
           }}
         />
+
+        {/* Create Album Modal */}
+        <CreateAlbumModal
+          visible={createAlbumModalVisible}
+          onClose={() => setCreateAlbumModalVisible(false)}
+          onAlbumCreated={(album) => {
+            showMessage('Album created successfully!');
+            setCreateAlbumModalVisible(false);
+            loadAlbums();
+          }}
+        />
+
+        {/* Photo Management Modal */}
+        <PhotoManagementModal
+          visible={photoManagementModalVisible}
+          photoUrl={selectedPhoto?.url || ''}
+          postId={selectedPhoto?.postId}
+          onClose={() => {
+            setPhotoManagementModalVisible(false);
+            setSelectedPhoto(null);
+          }}
+          currentUserId={user?.id}
+          albums={albums}
+          onRefresh={() => {
+            loadAlbums();
+            handleRefresh();
+          }}
+        />
       </View>
     );
   }
@@ -1452,6 +1519,34 @@ export default function CommunityScreen() {
         }}
       />
 
+      {/* Create Album Modal */}
+      <CreateAlbumModal
+        visible={createAlbumModalVisible}
+        onClose={() => setCreateAlbumModalVisible(false)}
+        onAlbumCreated={(album) => {
+          showMessage('Album created successfully!');
+          setCreateAlbumModalVisible(false);
+          loadAlbums();
+        }}
+      />
+
+      {/* Photo Management Modal */}
+      <PhotoManagementModal
+        visible={photoManagementModalVisible}
+        photoUrl={selectedPhoto?.url || ''}
+        postId={selectedPhoto?.postId}
+        onClose={() => {
+          setPhotoManagementModalVisible(false);
+          setSelectedPhoto(null);
+        }}
+        currentUserId={user?.id}
+        albums={albums}
+        onRefresh={() => {
+          loadAlbums();
+          handleRefresh();
+        }}
+      />
+
       {/* Floating Action Button */}
       {activeTab === 'posts' && user && (
         <TouchableOpacity
@@ -1460,6 +1555,20 @@ export default function CommunityScreen() {
           activeOpacity={0.8}
         >
           <MaterialCommunityIcons name="plus" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      {/* Test Button - For Development */}
+      {__DEV__ && (
+        <TouchableOpacity
+          style={styles.testFab}
+          onPress={() => {
+            setSelectedPhoto({ url: TEST_PHOTOS[0].url, postId: TEST_PHOTOS[0].postId });
+            setPhotoManagementModalVisible(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="test-tube" size={24} color="#fff" />
         </TouchableOpacity>
       )}
     </View>
@@ -1667,6 +1776,15 @@ const styles = StyleSheet.create({
     height: 84,
     borderRadius: 8,
   } as any,
+  emptyPhotos: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  emptyPhotosText: {
+    color: '#65676b',
+    fontSize: 13,
+  },
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1921,6 +2039,22 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: '#667eea',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  testFab: {
+    position: 'absolute',
+    bottom: 160,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FF6B6B',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,

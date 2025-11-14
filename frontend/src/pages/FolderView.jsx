@@ -62,11 +62,17 @@ export default function FolderView() {
     const root = new FolderNode('root', '')
     const rootDocs = []
 
-    docs.forEach(doc => {
+    console.log('Building folder tree from', docs.length, 'documents')
+    
+    docs.forEach((doc, index) => {
       if (doc.s3_url) {
         try {
           const url = new URL(doc.s3_url)
           const pathParts = url.pathname.split('/').filter(p => p)
+          
+          console.log(`Document ${index + 1}:`, doc.name)
+          console.log('  s3_url:', doc.s3_url)
+          console.log('  pathParts:', pathParts, 'length:', pathParts.length)
           
           // Path structure: [bucket, user_id, folder_path, filename]
           // Example: /docflow/user_id/Parent/SubFolder/filename.pdf
@@ -76,33 +82,53 @@ export default function FolderView() {
             // Everything after user_id and before filename is the folder path
             const folderPathParts = pathParts.slice(2, -1) // Skip bucket, user_id, and filename
             
+            console.log('  folderPathParts:', folderPathParts)
+            
             if (folderPathParts.length > 0) {
               // Build nested folder structure
               let current = root
               let currentPath = ''
               
-              folderPathParts.forEach((folderName, index) => {
+              folderPathParts.forEach((folderName, idx) => {
                 currentPath = currentPath ? `${currentPath}/${folderName}` : folderName
+                console.log(`    Level ${idx}: Adding folder "${folderName}" (path: "${currentPath}")`)
                 current = current.addChild(folderName, currentPath)
               })
               
               // Add document to the deepest folder
               current.documents.push(doc)
+              console.log(`  ✅ Added to folder: "${currentPath}"`)
             } else {
+              console.log('  📁 Document in root (no folder parts)')
               rootDocs.push(doc)
             }
           } else {
             // Document in root (no folder)
+            console.log('  📁 Document in root (pathParts.length < 4)')
             rootDocs.push(doc)
           }
         } catch (e) {
-          console.error('Error parsing URL:', e, doc.s3_url)
+          console.error('  ❌ Error parsing URL:', e, doc.s3_url)
           rootDocs.push(doc)
         }
       } else {
+        console.log(`Document ${index + 1}:`, doc.name, '- No s3_url')
         rootDocs.push(doc)
       }
     })
+
+    console.log('Folder tree built:')
+    console.log('  Root children:', root.children.size)
+    console.log('  Root documents:', rootDocs.length)
+    
+    // Log all folder paths
+    const logFolderPaths = (node, prefix = '') => {
+      node.children.forEach((child, name) => {
+        console.log(`  ${prefix}📁 ${name} (${child.documents.length} docs, ${child.children.size} sub-folders)`)
+        logFolderPaths(child, prefix + '  ')
+      })
+    }
+    logFolderPaths(root)
 
     return { root, rootDocs }
   }
@@ -117,12 +143,22 @@ export default function FolderView() {
       
       const { root, rootDocs } = buildFolderTree(docs)
       
+      console.log('Setting folder tree state:')
+      console.log('  Root has', root.children.size, 'children')
+      console.log('  Root documents:', rootDocs.length)
+      
       setFolderTree(root)
       setDocuments(rootDocs)
       
       // Auto-expand root if it has children
       if (root.children.size > 0) {
         setExpandedPaths(new Set(['root']))
+        // Auto-select first folder
+        const firstFolder = Array.from(root.children.keys())[0]
+        if (firstFolder) {
+          const firstChild = root.children.get(firstFolder)
+          setSelectedPath(firstChild.path)
+        }
       }
     } catch (error) {
       console.error('Failed to load folders:', error)
@@ -576,10 +612,15 @@ export default function FolderView() {
           }}
           onSuccess={() => {
             setShowUpload(false)
+            // Reload immediately and then again after a delay to ensure data is fresh
+            console.log('Upload successful, reloading folders...')
             setTimeout(() => {
-              console.log('Reloading folders after upload...')
               loadFoldersAndDocuments()
-            }, 1500)
+            }, 500)
+            setTimeout(() => {
+              console.log('Second reload to ensure folders are visible...')
+              loadFoldersAndDocuments()
+            }, 2000)
           }}
           defaultFolder={selectedPath && selectedPath !== 'root' ? selectedPath : undefined}
         />

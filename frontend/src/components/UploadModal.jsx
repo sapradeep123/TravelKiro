@@ -38,12 +38,27 @@ export default function UploadModal({ onClose, onSuccess }) {
       setCategories(uniqueCategories.sort())
       
       // Extract unique folders (from s3_url path structure)
+      // s3_url format: http://minio:9000/docflow/user_id/folder/filename.pdf
+      // or: http://minio:9000/docflow/user_id/filename.pdf (no folder)
       const uniqueFolders = [...new Set(docs.map(doc => {
         if (doc.s3_url) {
-          const parts = doc.s3_url.split('/')
-          // Extract folder from path like: http://minio:9000/docflow/user_id/folder/file.pdf
-          if (parts.length > 4) {
-            return parts[parts.length - 2] // Second to last part is usually the folder
+          try {
+            const url = new URL(doc.s3_url)
+            const pathParts = url.pathname.split('/').filter(p => p) // Remove empty strings
+            // Path structure: docflow/user_id/folder/filename or docflow/user_id/filename
+            // If there are 4+ parts (docflow, user_id, folder, filename), folder is at index 2
+            // If there are 3 parts (docflow, user_id, filename), there's no folder
+            if (pathParts.length >= 4) {
+              // pathParts[0] = 'docflow', pathParts[1] = user_id, pathParts[2] = folder, pathParts[3] = filename
+              return pathParts[2] // This is the folder name
+            }
+          } catch (e) {
+            // Fallback: try simple split if URL parsing fails
+            const parts = doc.s3_url.split('/').filter(p => p && !p.includes(':'))
+            // parts should be: [docflow, user_id, folder, filename] or [docflow, user_id, filename]
+            if (parts.length >= 4) {
+              return parts[2] // folder is at index 2
+            }
           }
         }
         return null

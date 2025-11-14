@@ -56,11 +56,23 @@ export default function Documents() {
       setCategories(uniqueCategories.sort())
       
       // Extract unique folders from s3_url
+      // s3_url format: http://minio:9000/docflow/user_id/folder/filename.pdf
       const uniqueFolders = [...new Set(docs.map(doc => {
         if (doc.s3_url) {
-          const parts = doc.s3_url.split('/')
-          if (parts.length > 4) {
-            return parts[parts.length - 2]
+          try {
+            const url = new URL(doc.s3_url)
+            const pathParts = url.pathname.split('/').filter(p => p) // Remove empty strings
+            // Path structure: docflow/user_id/folder/filename
+            // If there are 4+ parts, folder is at index 2
+            if (pathParts.length >= 4) {
+              return pathParts[2] // This is the folder name
+            }
+          } catch (e) {
+            // Fallback: try simple split if URL parsing fails
+            const parts = doc.s3_url.split('/').filter(p => p && !p.includes(':'))
+            if (parts.length >= 4) {
+              return parts[2] // folder is at index 2
+            }
           }
         }
         return null
@@ -173,9 +185,17 @@ export default function Documents() {
     // Filter by folder
     if (selectedFolder) {
       if (doc.s3_url) {
-        const parts = doc.s3_url.split('/')
-        const docFolder = parts.length > 4 ? parts[parts.length - 2] : null
-        if (docFolder !== selectedFolder) return false
+        try {
+          const url = new URL(doc.s3_url)
+          const pathParts = url.pathname.split('/').filter(p => p)
+          const docFolder = pathParts.length >= 4 ? pathParts[2] : null
+          if (docFolder !== selectedFolder) return false
+        } catch (e) {
+          // Fallback
+          const parts = doc.s3_url.split('/').filter(p => p && !p.includes(':'))
+          const docFolder = parts.length >= 4 ? parts[2] : null
+          if (docFolder !== selectedFolder) return false
+        }
       } else {
         return false
       }

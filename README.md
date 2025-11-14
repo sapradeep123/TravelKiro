@@ -1,110 +1,259 @@
-# DocFlow - Document Management API
+# DocFlow - Complete Document Management System
 
 <div align="center">
-    <img src="app/docs/github-banner.png"><br>
+    <h1>📄 DocFlow</h1>
+    <p>A modern, full-stack Document Management System with React frontend and FastAPI backend</p>
 </div>
 
-![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![Python](https://img.shields.io/badge/python-3.11+-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
-![Postgres](https://img.shields.io/badge/postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
-![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=JSON%20web%20tokens)
-![Swagger](https://img.shields.io/badge/-Swagger-%23Clojure?style=for-the-badge&logo=swagger&logoColor=white)
-![Github Pages](https://img.shields.io/badge/github%20pages-121013?style=for-the-badge&logo=github&logoColor=white)
-![GMail](https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Postgres](https://img.shields.io/badge/postgres-15-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
 
-DocFlow is a powerful Document Management API designed to streamline document handling, including seamless uploading, downloading, organization, versioning, sharing, and more.
+## 🚀 Quick Start
 
-## 😎 Upcoming Updates
+### Prerequisites
 
-- 🟨 Document Interactions - Adding Comments and Tags
-- 🟨 Import documents from unread emails
-- 🟨 Video Preview
-- 🟨 Adding custom metadata fields to document
-- 🟨 2-factor authentication
-- 🟨 Storage quota per user? (Maybe to enable limit storage per user)
-- 🟨 Bulk file importer
+- **Docker** and **Docker Compose** (recommended)
+- OR **Python 3.11+**, **Node.js 18+**, and **PostgreSQL 15+**
 
-## 🚀 Key Features
+### Option 1: Docker Setup (Recommended)
 
-- 💡 Document Upload and Download
-- 💡 Organization and Searching
-- 💡 Versioning
-- 💡 Sharing
-- 💡 Authentication and Authorization
-- 💡 Access Control List
-- 💡 Deletion and Archiving
-- 💡 Document Preview
-- 💡 Send file via Email
-- 💡 Minio Support—for on-premise object storage
+```bash
+# Clone the repository
+git clone https://github.com/sapradeep123/DocMS.git
+cd DocMS
 
+# Copy environment file
+cp app/.env.example app/.env
 
-## 📖 API Documentation and Image
+# Edit app/.env with your configuration (see Configuration section)
 
-Explore the [API Documentation](https://documenter.getpostman.com/view/20984268/2s9YRGxUcp) for detailed information on how to use DocFlow's features.
+# Start all services
+docker compose up --build
 
-Details about features and commands can be found [here](app/docs).
-
-Download docker image from [docker-hub](https://hub.docker.com/r/jiisanda/docflow).
-
-Or just run
-```commandline
-docker pull jiisanda/docflow:1
+# The application will be available at:
+# - Frontend: http://localhost:3000
+# - Backend API: http://localhost:8000
+# - API Docs: http://localhost:8000/docs
 ```
 
-## 🔸 Setup Docflow 
+### Option 2: Manual Setup
 
-Follow the steps outlined in the [setup.md](app/docs/setup.md) file.
+See [SETUP.md](SETUP.md) for detailed manual setup instructions.
 
-## 🧩 Implementation Detail
+## 📋 Features
 
+### ✅ Implemented Features
 
-| Features                         | Implementation Detail                                            |
-|----------------------------------|------------------------------------------------------------------|
-| Upload                           | [Detail](https://github.com/jiisanda/docflow#-document-upload)   |
-| Download                         | [Detail](https://github.com/jiisanda/docflow#-document-download) |
-| Sharing                          | [Detail](https://github.com/jiisanda/docflow#-document-sharing)  |
-| Document Preview                 | [Detail](https://github.com/jiisanda/docflow#-document-preview)  |
+- ✅ **Document Upload and Download** - Drag & drop, bulk upload
+- ✅ **Organization and Searching** - Advanced filters, tags, categories
+- ✅ **Versioning** - Track document versions
+- ✅ **Sharing** - Share documents with expiration and visit limits
+- ✅ **Authentication and Authorization** - JWT-based auth
+- ✅ **Access Control List** - Fine-grained permissions
+- ✅ **Deletion and Archiving** - Soft delete with trash recovery
+- ✅ **Document Preview** - Preview PDFs, images, and more
+- ✅ **Send file via Email** - Email documents directly
+- ✅ **MinIO Support** - On-premise object storage
+- ✅ **Comments** - Add comments to documents
+- ✅ **Tags** - Organize with tags
+- ✅ **Custom Metadata** - Add custom fields to documents
+- ✅ **Bulk File Importer** - Import multiple files at once
+- ✅ **Modern UI** - Paperless-ngx inspired interface
+- ✅ **Mobile Responsive** - Works on all devices
+- ✅ **Collapsible Sidebar** - Space-efficient navigation
 
+## 🏗️ Project Structure
 
-### 📤 Document Upload
+```
+DocMS/
+├── app/                    # Backend FastAPI application
+│   ├── api/               # API routes and dependencies
+│   ├── core/              # Core configuration
+│   ├── db/                # Database models and repositories
+│   ├── schemas/           # Pydantic schemas
+│   └── main.py            # FastAPI application entry point
+├── frontend/              # React frontend application
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── pages/         # Page components
+│   │   ├── contexts/      # React contexts
+│   │   └── services/      # API services
+│   └── package.json       # Frontend dependencies
+├── scripts/               # Utility scripts
+│   ├── seed_data.py       # Seed sample data
+│   └── create_test_user.py # Create test user
+├── docker-compose.yml     # Docker services configuration
+└── README.md             # This file
+```
 
-Here's how documents are uploaded in DocFlow:
+## ⚙️ Configuration
 
-![upload-document](app/docs/imgs/document/document_upload.png)
+### Environment Variables
 
-For a detailed explanation, visit the [Document Upload Documentation](app/docs/features/upload.md).
+Create `app/.env` file (copy from `app/.env.example`):
 
-### 📥 Document Download
+```env
+# Database
+DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/docflow
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_password
+POSTGRES_DB=docflow
 
-Here's how a user can download a file in DocFlow.
+# JWT
+SECRET_KEY=your-secret-key-here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-![download-document](app/docs/imgs/document/docflow_download.png)
+# MinIO/S3
+MINIO_ENDPOINT=minio:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET_NAME=docflow
+MINIO_USE_SSL=false
 
-For detailed explanation, visit the [Document Download Documentation](). 
+# API
+API_PREFIX=/v2
+API_HOST=0.0.0.0
+API_PORT=8000
 
-### 📨 Document Sharing
+# Email (Optional)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM_EMAIL=your-email@gmail.com
+```
 
-Learn how to share documents in DocFlow:
+## 🧪 Testing
 
-![share-document](app/docs/imgs/sharing/document_sharing.png)
+### Create Test Data
 
-For detailed instructions, visit the [Document Sharing Documentation](app/docs/features/sharing.md).
+```bash
+# Using Docker
+docker compose exec api python scripts/seed_data.py
 
-### 👀 Document Preview
+# Or manually
+cd scripts
+pip install -r requirements.txt
+python seed_data.py
+```
 
-Here's how the preview of docs works in DocFlow.
+### Test Users
 
-![preview-document](app/docs/imgs/document/document_preview.png)
+After seeding, you can login with:
 
-For detailed instructions, visit the [Document Preview Documentation](app/docs/features/preview.md)
+- **Admin User:**
+  - Email: `admin@docflow.com`
+  - Username: `admin`
+  - Password: `admin123`
 
-## 📜 License
+- **Other test users:** See [TEST_USERS.md](TEST_USERS.md)
+
+## 📚 API Documentation
+
+Once the backend is running, visit:
+- **Swagger UI:** http://localhost:8000/docs
+- **ReDoc:** http://localhost:8000/redoc
+
+## 🛠️ Development
+
+### Backend Development
+
+```bash
+# Install dependencies
+pip install -r requirements/api.txt
+
+# Run migrations
+alembic upgrade head
+
+# Run development server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Frontend Development
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+## 🐳 Docker Commands
+
+```bash
+# Start services
+docker compose up -d
+
+# View logs
+docker compose logs -f api
+docker compose logs -f frontend
+
+# Stop services
+docker compose down
+
+# Rebuild after changes
+docker compose up --build
+
+# Access database
+docker compose exec postgres psql -U postgres -d docflow
+```
+
+## 📱 Frontend Features
+
+- **Responsive Design** - Works on desktop, tablet, and mobile
+- **Dark Sidebar** - Collapsible navigation
+- **Document Grid/List View** - Toggle between views
+- **Advanced Filtering** - Filter by tags, date, type
+- **Real-time Updates** - Instant feedback on actions
+- **Drag & Drop Upload** - Easy file uploads
+- **Document Preview** - View documents without downloading
+
+## 🔐 Security
+
+- JWT-based authentication
+- Password hashing with bcrypt
+- CORS configuration
+- Input validation with Pydantic
+- SQL injection protection with SQLAlchemy
+
+## 📝 License
 
 [![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](./LICENSE)
 
-## 📧 Contact Us
+## 🤝 Contributing
 
-For any questions or support, please [contact](mailto:harshjaiswal2307@gmail.com).
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-Test DocFlow to manage documents seamlessly!
+## 📧 Support
+
+For issues and questions:
+- Open an issue on GitHub
+- Check [SETUP.md](SETUP.md) for setup help
+- See [FRONTEND_QUICKSTART.md](FRONTEND_QUICKSTART.md) for frontend setup
+
+## 🎯 Roadmap
+
+- [ ] 2-factor authentication
+- [ ] Video preview support
+- [ ] Storage quota per user
+- [ ] Email import from unread emails
+- [ ] Advanced analytics dashboard
+
+---
+
+**Made with ❤️ by the DocFlow Team**

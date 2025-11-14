@@ -1,18 +1,98 @@
-services:
-  api:
-    depends_on:
-      - postgres
-    ports:
-      - "8000:8000"
-    env_file: app/.env
+version: '3.8'
 
+services:
   postgres:
     image: postgres:15
-    env_file: app/.env
+    container_name: docflow-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-NewStrongPassword_2025!}
+      POSTGRES_DB: ${POSTGRES_DB:-docflow}
     volumes:
       - postgres-db:/var/lib/postgresql/data
     ports:
-        - "5433:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - docflow-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: docflow-minio
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - docflow-network
+
+  api:
+    build:
+      context: .
+      dockerfile: api.Dockerfile
+    container_name: docflow-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    env_file:
+      - app/.env
+    environment:
+      DATABASE_HOSTNAME: postgres
+      POSTGRES_PORT: 5432
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - docflow-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: docflow-frontend
+    depends_on:
+      - api
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    command: npm run dev
+    networks:
+      - docflow-network
 
 volumes:
   postgres-db:
+    driver: local
+  minio-data:
+    driver: local
+
+networks:
+  docflow-network:
+    driver: bridge

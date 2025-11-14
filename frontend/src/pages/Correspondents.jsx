@@ -16,7 +16,7 @@ export default function Correspondents() {
     try {
       setLoading(true)
       // Get all documents and extract unique owners/correspondents
-      const response = await api.get('/v2/metadata?limit=100&offset=0')
+      const response = await api.get('/v2/metadata?limit=99&offset=0')
       const data = response.data
       console.log('Correspondents API Response:', data) // Debug log
       

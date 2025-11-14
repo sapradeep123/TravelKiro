@@ -19,7 +19,7 @@ export default function Tags() {
     try {
       setLoading(true)
       // Get all documents to extract unique tags
-      const response = await api.get('/v2/metadata?limit=100&offset=0')
+      const response = await api.get('/v2/metadata?limit=99&offset=0')
       const data = response.data
       console.log('Tags API Response:', data) // Debug log
       

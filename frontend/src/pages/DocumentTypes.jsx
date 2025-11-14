@@ -15,7 +15,7 @@ export default function DocumentTypes() {
   const loadDocumentTypes = async () => {
     try {
       setLoading(true)
-      const response = await api.get('/v2/metadata?limit=100&offset=0')
+      const response = await api.get('/v2/metadata?limit=99&offset=0')
       const data = response.data
       console.log('DocumentTypes API Response:', data) // Debug log
       

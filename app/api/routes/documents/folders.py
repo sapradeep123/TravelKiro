@@ -19,7 +19,7 @@ router = APIRouter(tags=["Folders"])
     name="list_folders",
 )
 async def list_folders(
-    repository: FolderRepository = Depends(FolderRepository),
+    repository: FolderRepository = Depends(get_repository(FolderRepository)),
     user: TokenData = Depends(get_current_user),
 ) -> List[FolderRead]:
     """
@@ -37,7 +37,7 @@ async def list_folders(
 )
 async def create_folder(
     folder: FolderCreate,
-    repository: FolderRepository = Depends(FolderRepository),
+    repository: FolderRepository = Depends(get_repository(FolderRepository)),
     user: TokenData = Depends(get_current_user),
 ) -> FolderRead:
     """

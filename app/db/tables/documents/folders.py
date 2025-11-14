@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Column, DateTime, ForeignKey, String, text
+from sqlalchemy import Column, DateTime, ForeignKey, String, text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, relationship
 
@@ -47,6 +47,12 @@ class Folder(Base):
         server_default=text("NOW()"),
     )
 
+    owner = relationship("User", back_populates="folders")
     parent = relationship("Folder", remote_side=[id], backref="children")
+
+    # Ensure path is unique per owner
+    __table_args__ = (
+        UniqueConstraint("owner_id", "path", name="uq_folder_owner_path"),
+    )
 
 

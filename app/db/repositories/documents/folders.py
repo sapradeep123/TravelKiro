@@ -23,7 +23,16 @@ class FolderRepository:
         stmt = select(self.folder_cls).where(self.folder_cls.owner_id == owner.id)
         result = await self.session.execute(stmt)
         folders = result.scalars().all()
-        return [FolderRead.from_orm(folder) for folder in folders]
+        return [
+            FolderRead(
+                id=str(folder.id),
+                name=folder.name,
+                path=folder.path,
+                parent_id=str(folder.parent_id) if folder.parent_id else None,
+                created_at=folder.created_at,
+            )
+            for folder in folders
+        ]
 
     async def get_by_path(self, owner: TokenData, path: str) -> Optional[Folder]:
         stmt = select(self.folder_cls).where(
@@ -67,7 +76,13 @@ class FolderRepository:
             self.session.add(folder)
             await self.session.commit()
             await self.session.refresh(folder)
-            return FolderRead.from_orm(folder)
+            return FolderRead(
+                id=str(folder.id),
+                name=folder.name,
+                path=folder.path,
+                parent_id=str(folder.parent_id) if folder.parent_id else None,
+                created_at=folder.created_at,
+            )
         except IntegrityError as e:
             await self.session.rollback()
             raise http_400(msg="Folder already exists") from e

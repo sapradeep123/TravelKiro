@@ -26,3 +26,4 @@ class User(Base):
 
     owner_of = relationship("DocumentMetadata", back_populates="owner")
     comments = relationship("DocumentComment", back_populates="user")
+    folders = relationship("Folder", back_populates="owner")

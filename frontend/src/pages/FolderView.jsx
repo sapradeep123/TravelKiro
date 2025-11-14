@@ -158,38 +158,40 @@ export default function FolderView() {
     }
   }
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) {
       toast.error('Please enter a folder name')
       return
     }
     
     const trimmedName = newFolderName.trim()
-    const current = getCurrentFolder()
-    const fullPath = currentPath.length > 0 
-      ? `${currentPath.join('/')}/${trimmedName}` 
-      : trimmedName
+    const parentPathString = currentPath.length > 0 ? currentPath.join('/') : null
     
-    // Check if folder already exists
-    if (current) {
-      if (current.children.has(trimmedName)) {
-        toast.error('Folder already exists')
-        return
-      }
-    } else {
-      if (folderTree.children.has(trimmedName)) {
-        toast.error('Folder already exists')
-        return
-      }
+    // Check if folder already exists in current view
+    const current = getCurrentFolder()
+    const targetNode = current || folderTree
+    if (targetNode.children.has(trimmedName)) {
+      toast.error('Folder already exists in this location')
+      return
     }
     
-    // Folders are created when documents are uploaded to them
-    setShowCreateFolder(false)
-    setNewFolderName('')
-    setShowUpload(true)
-    // Store the folder path to use in upload
-    sessionStorage.setItem('pendingFolder', fullPath)
-    toast(`Upload a document to create the folder "${fullPath}"`, { icon: 'ℹ️' })
+    try {
+      // Call API to create folder in database
+      await api.post('/v2/folders', {
+        name: trimmedName,
+        parent_path: parentPathString || null
+      })
+      
+      toast.success(`Folder "${trimmedName}" created successfully!`)
+      setShowCreateFolder(false)
+      setNewFolderName('')
+      
+      // Reload folders to show the new one
+      await loadFoldersAndDocuments()
+    } catch (error) {
+      console.error('Error creating folder:', error)
+      toast.error('Failed to create folder: ' + (error.response?.data?.detail || error.message))
+    }
   }
 
   const handleDeleteDocument = async (docName) => {

@@ -185,7 +185,7 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
         }
         
         // Include folder path in custom_metadata for easier folder-document mapping
-        const meta: any = { ...customMetadata }
+        const meta = { ...customMetadata }
         if (folder && folder.trim()) {
           meta.folder_path = folder.trim()
         }

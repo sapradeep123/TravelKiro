@@ -9,6 +9,14 @@ from app.db.models import check_tables
 from app.logs.logger import docflow_logger
 from app.scripts.init_bucket import create_bucket_if_not_exists
 
+# Import all models to ensure they are registered with SQLAlchemy Base
+from app.db.tables.auth.auth import User  # noqa: F401
+from app.db.tables.documents.documents_metadata import DocumentMetadata  # noqa: F401
+from app.db.tables.documents.document_sharing import DocumentSharing  # noqa: F401
+from app.db.tables.documents.comments import DocumentComment  # noqa: F401
+from app.db.tables.documents.notify import Notify  # noqa: F401
+from app.db.tables.documents.folders import Folder  # noqa: F401
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

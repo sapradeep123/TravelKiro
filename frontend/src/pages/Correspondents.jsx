@@ -26,22 +26,50 @@ export default function Correspondents() {
       const docs = docsKey ? (data[docsKey] || []) : []
       console.log('Correspondents - Documents array:', docs) // Debug log
       
-      // Group by owner_id to get correspondents
+      // Group by owner_id and access_to to get all correspondents
       const correspondentMap = new Map()
+      
       docs.forEach(doc => {
+        // Add document owner
         if (doc.owner_id) {
           if (!correspondentMap.has(doc.owner_id)) {
             correspondentMap.set(doc.owner_id, {
               id: doc.owner_id,
-              name: doc.owner_id, // You might want to fetch user details
-              documentCount: 0
+              name: doc.owner_id, // Display ID for now, can be enhanced with user lookup
+              email: null,
+              documentCount: 0,
+              isOwner: true
             })
           }
           correspondentMap.get(doc.owner_id).documentCount++
         }
+        
+        // Add users who have access to the document
+        if (doc.access_to && Array.isArray(doc.access_to)) {
+          doc.access_to.forEach(userId => {
+            if (userId && userId !== doc.owner_id) {
+              if (!correspondentMap.has(userId)) {
+                // Check if it looks like an email
+                const isEmail = userId.includes('@')
+                correspondentMap.set(userId, {
+                  id: userId,
+                  name: isEmail ? userId.split('@')[0] : userId,
+                  email: isEmail ? userId : null,
+                  documentCount: 0,
+                  isOwner: false
+                })
+              }
+              correspondentMap.get(userId).documentCount++
+            }
+          })
+        }
       })
       
-      setCorrespondents(Array.from(correspondentMap.values()))
+      // Convert to array and sort by document count (descending)
+      const correspondentsList = Array.from(correspondentMap.values())
+        .sort((a, b) => b.documentCount - a.documentCount)
+      
+      setCorrespondents(correspondentsList)
     } catch (error) {
       console.error('Correspondents load error:', error) // Debug log
       toast.error('Failed to load correspondents: ' + (error.response?.data?.detail || error.message))
@@ -51,7 +79,9 @@ export default function Correspondents() {
   }
 
   const filteredCorrespondents = correspondents.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.email && c.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    c.id.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   if (loading) {
@@ -88,14 +118,25 @@ export default function Correspondents() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
         {filteredCorrespondents.map((correspondent) => (
-          <div key={correspondent.id} className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="text-blue-600" size={20} />
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900">{correspondent.name}</h3>
-                <p className="text-sm text-gray-500">{correspondent.documentCount} documents</p>
+          <div key={correspondent.id} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <div className={`p-2 rounded-lg flex-shrink-0 ${correspondent.isOwner ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                  <Users className={correspondent.isOwner ? 'text-blue-600' : 'text-gray-600'} size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-gray-900 truncate">
+                    {correspondent.email || correspondent.name}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {correspondent.documentCount} {correspondent.documentCount === 1 ? 'document' : 'documents'}
+                  </p>
+                  {correspondent.isOwner && (
+                    <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                      Owner
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -17,16 +17,23 @@ export default function Tags() {
 
   const loadTags = async () => {
     try {
+      setLoading(true)
       // Get all documents to extract unique tags
       const response = await api.get('/v2/metadata?limit=100&offset=0')
       const data = response.data
+      console.log('Tags API Response:', data) // Debug log
+      
       // Find the key that starts with "documents of "
       const docsKey = Object.keys(data).find(key => key.startsWith('documents of '))
-      const docs = docsKey ? data[docsKey] || [] : []
+      console.log('Tags - Found docsKey:', docsKey) // Debug log
+      const docs = docsKey ? (data[docsKey] || []) : []
+      console.log('Tags - Documents array:', docs) // Debug log
+      
       const allTags = [...new Set(docs.flatMap(doc => doc.tags || []))]
       setTags(allTags.map(tag => ({ name: tag, count: docs.filter(d => d.tags && d.tags.includes(tag)).length })))
     } catch (error) {
-      toast.error('Failed to load tags')
+      console.error('Tags load error:', error) // Debug log
+      toast.error('Failed to load tags: ' + (error.response?.data?.detail || error.message))
     } finally {
       setLoading(false)
     }

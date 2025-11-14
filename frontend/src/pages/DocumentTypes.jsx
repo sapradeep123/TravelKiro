@@ -14,11 +14,16 @@ export default function DocumentTypes() {
 
   const loadDocumentTypes = async () => {
     try {
+      setLoading(true)
       const response = await api.get('/v2/metadata?limit=100&offset=0')
       const data = response.data
+      console.log('DocumentTypes API Response:', data) // Debug log
+      
       // Find the key that starts with "documents of "
       const docsKey = Object.keys(data).find(key => key.startsWith('documents of '))
-      const docs = docsKey ? data[docsKey] || [] : []
+      console.log('DocumentTypes - Found docsKey:', docsKey) // Debug log
+      const docs = docsKey ? (data[docsKey] || []) : []
+      console.log('DocumentTypes - Documents array:', docs) // Debug log
       
       // Group by file_type
       const typeMap = new Map()
@@ -35,7 +40,8 @@ export default function DocumentTypes() {
       
       setDocumentTypes(Array.from(typeMap.values()))
     } catch (error) {
-      toast.error('Failed to load document types')
+      console.error('DocumentTypes load error:', error) // Debug log
+      toast.error('Failed to load document types: ' + (error.response?.data?.detail || error.message))
     } finally {
       setLoading(false)
     }

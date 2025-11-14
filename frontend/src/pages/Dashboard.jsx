@@ -22,9 +22,13 @@ export default function Dashboard() {
     try {
       const response = await api.get('/v2/metadata?limit=10&offset=0')
       const data = response.data
+      console.log('Dashboard API Response:', data) // Debug log
+      
       // Find the key that starts with "documents of "
       const docsKey = Object.keys(data).find(key => key.startsWith('documents of '))
-      const docs = docsKey ? data[docsKey] || [] : []
+      console.log('Found docsKey:', docsKey) // Debug log
+      const docs = docsKey ? (data[docsKey] || []) : []
+      console.log('Documents array:', docs) // Debug log
       
       const now = new Date()
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
@@ -37,6 +41,7 @@ export default function Dashboard() {
         thisMonth: docs.filter(d => new Date(d.created_at) >= monthAgo).length,
       })
     } catch (error) {
+      console.error('Dashboard load error:', error) // Debug log
       toast.error('Failed to load dashboard')
     } finally {
       setLoading(false)

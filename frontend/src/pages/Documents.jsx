@@ -42,11 +42,16 @@ export default function Documents() {
 
   const loadDocuments = async () => {
     try {
+      setLoading(true)
       const response = await api.get(`/v2/metadata?limit=${itemsPerPage}&offset=${(currentPage - 1) * itemsPerPage}`)
       const data = response.data
+      console.log('Documents API Response:', data) // Debug log
+      
       // Find the key that starts with "documents of "
       const docsKey = Object.keys(data).find(key => key.startsWith('documents of '))
-      const docs = docsKey ? data[docsKey] || [] : []
+      console.log('Found docsKey:', docsKey) // Debug log
+      const docs = docsKey ? (data[docsKey] || []) : []
+      console.log('Documents array:', docs) // Debug log
       
       // Sort documents
       const sorted = [...docs].sort((a, b) => {

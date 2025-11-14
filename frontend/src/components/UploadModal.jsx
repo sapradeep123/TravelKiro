@@ -42,55 +42,20 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
 
   const loadCategoriesAndFolders = async () => {
     try {
-      // Load existing categories and folders from documents
-      const response = await api.get('/v2/metadata?limit=99&offset=0')
-      const data = response.data
-      const docsKey = Object.keys(data).find(key => key.startsWith('documents of '))
-      const docs = docsKey ? (data[docsKey] || []) : []
+      // First, load existing documents to extract categories
+      const metaResponse = await api.get('/v2/metadata?limit=99&offset=0')
+      const metaData = metaResponse.data
+      const docsKey = Object.keys(metaData).find(key => key.startsWith('documents of '))
+      const docs = docsKey ? (metaData[docsKey] || []) : []
       
-      // Extract unique categories
       const uniqueCategories = [...new Set(docs.flatMap(doc => doc.categories || []).filter(Boolean))]
       setCategories(uniqueCategories.sort())
-      
-      // Extract unique folders (from s3_url path structure)
-      // s3_url format: http://minio:9000/docflow/user_id/folder/filename.pdf
-      // URL structure: {endpoint}/{bucket}/{user_id}/{folder}/{filename}
-      // After parsing: pathParts = [bucket, user_id, folder, filename]
-      const uniqueFolders = [...new Set(docs.map(doc => {
-        if (doc.s3_url) {
-          try {
-            const url = new URL(doc.s3_url)
-            const pathParts = url.pathname.split('/').filter(p => p) // Remove empty strings
-            console.log('Folder extraction - s3_url:', doc.s3_url, 'pathParts:', pathParts) // Debug
-            // Path structure: [bucket, user_id, ...folder_path..., filename]
-            // If there are 4+ parts, everything between user_id and filename is the folder path
-            if (pathParts.length >= 4) {
-              // pathParts[0] = bucket, pathParts[1] = user_id, pathParts[2..-2] = folder path, pathParts[-1] = filename
-              const folderPathParts = pathParts.slice(2, -1) // Skip bucket, user_id, and filename
-              if (folderPathParts.length > 0) {
-                // Join folder path parts with '/' to get full nested path
-                const folderPath = folderPathParts.join('/')
-                console.log('Extracted folder path:', folderPath) // Debug
-                return folderPath
-              }
-            }
-          } catch (e) {
-            console.error('Error parsing URL:', e, doc.s3_url) // Debug
-            // Fallback: try simple split if URL parsing fails
-            const parts = doc.s3_url.split('/').filter(p => p && !p.includes(':'))
-            // parts should be: [bucket, user_id, ...folder_path..., filename]
-            if (parts.length >= 4) {
-              const folderPathParts = parts.slice(2, -1) // Skip bucket, user_id, and filename
-              if (folderPathParts.length > 0) {
-                return folderPathParts.join('/')
-              }
-            }
-          }
-        }
-        return null
-      }).filter(Boolean))]
-      console.log('All extracted folders:', uniqueFolders) // Debug
-      setFolders(uniqueFolders.sort())
+
+      // Then, load logical folders from backend (independent of documents)
+      const foldersResponse = await api.get('/v2/folders')
+      const folderData = foldersResponse.data || []
+      const folderPaths = folderData.map(f => f.path).sort()
+      setFolders(folderPaths)
     } catch (error) {
       console.error('Failed to load categories and folders:', error)
     }
@@ -205,7 +170,7 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
         },
       })
 
-      // Update metadata with tags, category, and custom metadata
+      // Update metadata with tags, category, folder path and custom metadata
       const uploadedDocs = Array.isArray(response.data) ? response.data : [response.data]
       for (const doc of uploadedDocs) {
         const updateData = {}
@@ -219,8 +184,13 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
           updateData.tags = tags.split(',').map(t => t.trim()).filter(Boolean)
         }
         
-        if (Object.keys(customMetadata).length > 0) {
-          updateData.custom_metadata = customMetadata
+        // Include folder path in custom_metadata for easier folder-document mapping
+        const meta: any = { ...customMetadata }
+        if (folder && folder.trim()) {
+          meta.folder_path = folder.trim()
+        }
+        if (Object.keys(meta).length > 0) {
+          updateData.custom_metadata = meta
         }
         
         if (Object.keys(updateData).length > 0) {

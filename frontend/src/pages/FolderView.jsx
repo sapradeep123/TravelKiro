@@ -58,116 +58,57 @@ export default function FolderView() {
     loadFoldersAndDocuments()
   }, [])
 
-  const buildFolderTree = (docs) => {
+  const buildFolderTreeFromDefinitions = (folderDefs) => {
     const root = new FolderNode('root', '')
-    const rootDocs = []
 
-    console.log('Building folder tree from', docs.length, 'documents')
+    folderDefs.forEach((folder) => {
+      const pathParts = folder.path.split('/').filter(Boolean)
+      let current = root
+      let currentPath = ''
 
-    docs.forEach((doc, index) => {
-      if (doc.s3_url) {
-        try {
-          const url = new URL(doc.s3_url)
-          const pathParts = url.pathname.split('/').filter(p => p)
-          
-          console.log(`Doc ${index + 1} (${doc.name}):`)
-          console.log('  s3_url:', doc.s3_url)
-          console.log('  pathParts:', pathParts, 'length:', pathParts.length)
-          
-          // Path structure: [bucket, user_id, folder_path, filename]
-          // Example: /docflow/user_id/Parent/SubFolder/filename.pdf
-          // pathParts = ['docflow', 'user_id', 'Parent', 'SubFolder', 'filename.pdf']
-          if (pathParts.length >= 4) {
-            const folderPathParts = pathParts.slice(2, -1) // Skip bucket, user_id, and filename
-            console.log('  folderPathParts:', folderPathParts)
-            
-            if (folderPathParts.length > 0) {
-              // Build nested folder structure
-              let current = root
-              let currentPath = ''
-              
-              folderPathParts.forEach((folderName, idx) => {
-                currentPath = currentPath ? `${currentPath}/${folderName}` : folderName
-                console.log(`    Level ${idx}: Adding "${folderName}" (path: "${currentPath}")`)
-                current = current.addChild(folderName, currentPath)
-              })
-              
-              // Add document to the deepest folder
-              current.documents.push(doc)
-              console.log(`  ✅ Added to folder: "${currentPath}"`)
-            } else {
-              console.log('  📁 In root (no folder parts)')
-              rootDocs.push(doc)
-            }
-          } else {
-            console.log('  📁 In root (pathParts.length < 4)')
-            rootDocs.push(doc)
-          }
-        } catch (e) {
-          console.error('  ❌ Error parsing URL:', e, doc.s3_url)
-          rootDocs.push(doc)
-        }
-      } else {
-        console.log(`Doc ${index + 1} (${doc.name}): No s3_url`)
-        rootDocs.push(doc)
-      }
+      pathParts.forEach((part) => {
+        currentPath = currentPath ? `${currentPath}/${part}` : part
+        current = current.addChild(part, currentPath)
+      })
     })
 
-    console.log('Tree building complete:')
-    console.log('  Root children:', root.children.size)
-    console.log('  Root documents:', rootDocs.length)
-
-    return { root, rootDocs }
+    return root
   }
 
   const loadFoldersAndDocuments = async () => {
     try {
       setLoading(true)
-      console.log('Loading folders and documents...')
-      const response = await api.get('/v2/metadata?limit=99&offset=0')
-      const data = response.data
-      console.log('API Response:', data)
-      
-      const docsKey = Object.keys(data).find(key => key.startsWith('documents of '))
-      console.log('Found docsKey:', docsKey)
-      const docs = docsKey ? (data[docsKey] || []) : []
-      console.log('Total documents loaded:', docs.length)
-      
-      if (docs.length === 0) {
-        console.log('No documents found')
-        setFolderTree(new FolderNode('root', ''))
-        setDocuments([])
-        return
-      }
-      
-      // Log first few documents for debugging
-      docs.slice(0, 3).forEach((doc, idx) => {
-        console.log(`Document ${idx + 1}:`, {
-          name: doc.name,
-          s3_url: doc.s3_url,
-          id: doc.id
-        })
-      })
-      
-      const { root, rootDocs } = buildFolderTree(docs)
-      
-      console.log('Folder tree built:')
-      console.log('  Root children:', root.children.size)
-      console.log('  Root documents:', rootDocs.length)
-      
-      // Log all folder paths
-      const logFolders = (node, prefix = '') => {
-        node.children.forEach((child, name) => {
-          console.log(`${prefix}📁 ${name} (${child.documents.length} docs, ${child.children.size} sub-folders)`)
-          logFolders(child, prefix + '  ')
-        })
-      }
-      logFolders(root)
-      
+      // Load logical folders (definitions)
+      const foldersResponse = await api.get('/v2/folders')
+      const folderDefs = foldersResponse.data || []
+
+      // Build folder tree from definitions (independent of documents)
+      const root = buildFolderTreeFromDefinitions(folderDefs)
       setFolderTree(root)
+
+      // Load documents and map them to folders via custom_metadata.folder_path
+      const metaResponse = await api.get('/v2/metadata?limit=99&offset=0')
+      const metaData = metaResponse.data
+      const docsKey = Object.keys(metaData).find(key => key.startsWith('documents of '))
+      const docs = docsKey ? (metaData[docsKey] || []) : []
+
+      // Attach documents to folders based on custom_metadata.folder_path
+      const rootDocs = []
+      docs.forEach((doc) => {
+        const folderPath = doc.custom_metadata?.folder_path
+        if (folderPath) {
+          const parts = folderPath.split('/').filter(Boolean)
+          let current = root
+          parts.forEach((part) => {
+            current = current.addChild(part, part) // build path, will align with definitions
+          })
+          current.documents.push(doc)
+        } else {
+          rootDocs.push(doc)
+        }
+      })
+
       setDocuments(rootDocs)
-      
-      console.log('State updated - folders:', root.children.size, 'root docs:', rootDocs.length)
     } catch (error) {
       console.error('Failed to load folders:', error)
       toast.error('Failed to load folders: ' + (error.response?.data?.detail || error.message))
@@ -205,26 +146,15 @@ export default function FolderView() {
     if (!current) {
       // We're at root
       const folders = Array.from(folderTree.children.values())
-      console.log('getCurrentContent (root):', {
-        folders: folders.length,
-        documents: documents.length,
-        folderNames: folders.map(f => f.name)
-      })
       return {
         folders: folders,
-        documents: documents
+        documents: documents,
       }
     }
     const folders = Array.from(current.children.values())
-    console.log('getCurrentContent (folder):', {
-      path: currentPath.join('/'),
-      folders: folders.length,
-      documents: current.documents.length,
-      folderNames: folders.map(f => f.name)
-    })
     return {
       folders: folders,
-      documents: current.documents
+      documents: current.documents,
     }
   }
 

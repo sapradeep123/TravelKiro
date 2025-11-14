@@ -11,6 +11,7 @@ from app.api.routes.documents.document_organization import (
 from app.api.routes.documents.document_sharing import router as document_sharing_router
 from app.api.routes.documents.notify import router as notify_router
 from app.api.routes.documents.comments import router as comments_router
+from app.api.routes.documents.folders import router as folders_router
 
 router = APIRouter()
 
@@ -21,3 +22,4 @@ router.include_router(documents_metadata_router, prefix="/metadata")
 router.include_router(document_organization_router, prefix="/filter")
 router.include_router(document_sharing_router)
 router.include_router(comments_router, prefix="/documents")
+router.include_router(folders_router, prefix="/folders")

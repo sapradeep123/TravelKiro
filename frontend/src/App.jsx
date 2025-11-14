@@ -12,6 +12,7 @@ import Correspondents from './pages/Correspondents'
 import DocumentTypes from './pages/DocumentTypes'
 import CustomFields from './pages/CustomFields'
 import Categories from './pages/Categories'
+import FolderView from './pages/FolderView'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
@@ -52,7 +53,7 @@ function App() {
             <Route path="correspondents" element={<Correspondents />} />
             <Route path="document-types" element={<DocumentTypes />} />
             <Route path="categories" element={<Categories />} />
-            <Route path="storage-paths" element={<div className="p-6"><h1 className="text-2xl font-semibold">Storage Paths</h1><p className="text-gray-600 mt-2">Coming soon...</p></div>} />
+            <Route path="storage-paths" element={<FolderView />} />
             <Route path="custom-fields" element={<CustomFields />} />
             <Route path="templates" element={<div className="p-6"><h1 className="text-2xl font-semibold">Templates</h1><p className="text-gray-600 mt-2">Coming soon...</p></div>} />
             <Route path="mail" element={<div className="p-6"><h1 className="text-2xl font-semibold">Mail</h1><p className="text-gray-600 mt-2">Coming soon...</p></div>} />

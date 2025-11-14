@@ -14,7 +14,7 @@ from sqlalchemy import (
     Table,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, relationship
 
 from app.db.models import Base
@@ -56,8 +56,10 @@ class DocumentMetadata(Base):
     status: Enum = Column(Enum(StatusEnum), default=StatusEnum.private)
     file_hash: Optional[str] = Column(String)
     access_to: Optional[List[str]] = Column(ARRAY(String))
+    custom_metadata = Column(JSONB, nullable=True)  # For custom metadata fields
 
     update_access = relationship(
         "User", secondary=doc_user_access, passive_deletes=True
     )
     owner = relationship("User", back_populates="owner_of")
+    comments = relationship("DocumentComment", back_populates="document", cascade="all, delete-orphan")

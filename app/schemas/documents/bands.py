@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -28,6 +28,7 @@ class DocumentMetadataPatch(BaseModel):
     tags: Optional[List[str]] = None
     categories: Optional[List[str]] = None
     access_to: Optional[List[str]] = None
+    custom_metadata: Optional[Dict[str, Any]] = None
 
 
 # Document Sharing
@@ -47,7 +48,7 @@ class DocUserAccess(BaseModel):
     user_id: str
 
     class Config:
-        from_attribute = True
+        from_attributes = True
 
 
 class DocUserAccessCreate(BaseModel):

@@ -54,7 +54,11 @@ class AuthRepository:
         return new_user
 
     async def login(self, ipdata):
+        # Try to find user by username first, then by email
         user = await self.get_user(field="username", detail=ipdata.username)
+        if user is None:
+            # Try email if username didn't work
+            user = await self.get_user(field="email", detail=ipdata.username)
         if user is None:
             raise http_403(msg="Recheck the credentials")
         user = user.__dict__

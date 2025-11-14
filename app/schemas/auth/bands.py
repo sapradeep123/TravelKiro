@@ -1,11 +1,7 @@
 from datetime import datetime
-from typing import Annotated, Optional
-from ulid import ULID
+from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field
-
-
-PydanticULID = Annotated[str, ULID]
 
 
 class UserAuth(BaseModel):
@@ -15,7 +11,7 @@ class UserAuth(BaseModel):
 
 
 class UserOut(BaseModel):
-    id: PydanticULID
+    id: str
     email: EmailStr
     user_since: datetime
 

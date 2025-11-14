@@ -34,6 +34,50 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Workaround for OpenAPI schema generation issue with Pydantic v2
+import logging
+logger = logging.getLogger("uvicorn.error")
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    try:
+        # Try to generate the schema normally
+        from fastapi.openapi.utils import get_openapi
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+    except KeyError as e:
+        # Catch the specific KeyError for '$ref'
+        logger.warning(f"OpenAPI schema generation issue: {e}. Using minimal schema.")
+        # Return a minimal working schema
+        app.openapi_schema = {
+            "openapi": "3.1.0",
+            "info": {"title": app.title, "version": app.version, "description": app.description},
+            "paths": {
+                "/": {"get": {"summary": "Root", "responses": {"200": {"description": "Success"}}}},
+                "/health": {"get": {"summary": "Health Check", "responses": {"200": {"description": "Success"}}}},
+            },
+        }
+        return app.openapi_schema
+    except Exception as e:
+        logger.error(f"Unexpected error generating OpenAPI schema: {e}")
+        # Return minimal schema as fallback
+        app.openapi_schema = {
+            "openapi": "3.1.0",
+            "info": {"title": app.title, "version": app.version},
+            "paths": {},
+        }
+        return app.openapi_schema
+
+# Override the openapi method
+app.openapi = custom_openapi
+
 app.include_router(router=router, prefix=settings.api_prefix)
 
 

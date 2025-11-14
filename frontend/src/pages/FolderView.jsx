@@ -162,7 +162,7 @@ export default function FolderView() {
     setShowCreateFolder(false)
     setNewFolderName('')
     setShowUpload(true)
-    toast.info(`Upload a document to create the folder "${trimmedName}"`)
+    toast(`Upload a document to create the folder "${trimmedName}"`, { icon: 'ℹ️' })
   }
 
   const handleDeleteDocument = async (docName) => {
@@ -288,7 +288,16 @@ export default function FolderView() {
 
           {/* Folder Tree */}
           <div className="space-y-1">
-            {filteredFolders.map((folder) => {
+            {filteredFolders.length === 0 && folders.length === 0 ? (
+              <div className="text-center py-8">
+                <Folder className="mx-auto text-gray-400 mb-2" size={32} />
+                <p className="text-sm text-gray-500">No folders yet</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Create a folder and upload documents to it
+                </p>
+              </div>
+            ) : (
+              filteredFolders.map((folder) => {
               const isExpanded = expandedFolders.has(folder.name)
               const isSelected = selectedFolder === folder.name
               
@@ -332,12 +341,8 @@ export default function FolderView() {
                   )}
                 </div>
               )
-            })}
+            }))}
           </div>
-
-          {filteredFolders.length === 0 && folders.length > 0 && (
-            <p className="text-sm text-gray-500 text-center py-4">No folders match your search</p>
-          )}
         </div>
 
         {/* Documents View */}

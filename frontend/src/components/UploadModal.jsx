@@ -173,6 +173,9 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
     // Add folder if specified
     if (folder && folder.trim()) {
       formData.append('folder', folder.trim())
+      console.log('Uploading to folder:', folder.trim())
+    } else {
+      console.log('Uploading to root (no folder)')
     }
 
     try {
@@ -205,7 +208,8 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
         }
       }
 
-      toast.success(`Successfully uploaded ${files.length} file(s)`)
+      toast.success(`Successfully uploaded ${files.length} file(s)${folder ? ` to folder "${folder}"` : ''}`)
+      console.log('Upload successful, response:', response.data)
       onSuccess()
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Upload failed')

@@ -52,9 +52,15 @@ export default function FolderView() {
             const url = new URL(doc.s3_url)
             const pathParts = url.pathname.split('/').filter(p => p)
             
+            console.log('Folder extraction - s3_url:', doc.s3_url)
+            console.log('Folder extraction - pathParts:', pathParts)
+            
             // Path structure: [bucket, user_id, folder, filename]
+            // Example: /docflow/01KA16R373RZ872JKFE0G00DMC/MPPCB/filename.pdf
+            // pathParts = ['docflow', '01KA16R373RZ872JKFE0G00DMC', 'MPPCB', 'filename.pdf']
             if (pathParts.length >= 4) {
-              const folderName = pathParts[2]
+              const folderName = pathParts[2] // Index 2 is the folder
+              console.log('Extracted folder name:', folderName)
               if (!folderMap.has(folderName)) {
                 folderMap.set(folderName, {
                   name: folderName,
@@ -65,11 +71,14 @@ export default function FolderView() {
               folderMap.get(folderName).documents.push(doc)
             } else {
               // Document in root (no folder)
+              console.log('Document in root - pathParts length:', pathParts.length)
               rootDocuments.push(doc)
             }
           } catch (e) {
+            console.error('Error parsing URL:', e, doc.s3_url)
             // Fallback parsing
             const parts = doc.s3_url.split('/').filter(p => p && !p.includes(':'))
+            console.log('Fallback parsing - parts:', parts)
             if (parts.length >= 4) {
               const folderName = parts[2]
               if (!folderMap.has(folderName)) {
@@ -89,6 +98,9 @@ export default function FolderView() {
         }
       })
       
+      console.log('Folder map:', Array.from(folderMap.keys()))
+      console.log('Root documents count:', rootDocuments.length)
+      
       // Convert to array and sort
       const foldersList = Array.from(folderMap.values())
         .map(folder => ({
@@ -96,6 +108,9 @@ export default function FolderView() {
           documentCount: folder.documents.length
         }))
         .sort((a, b) => a.name.localeCompare(b.name))
+      
+      console.log('Final folders list:', foldersList)
+      console.log('Final root documents:', rootDocuments.length)
       
       setFolders(foldersList)
       setDocuments(rootDocuments)
@@ -474,8 +489,11 @@ export default function FolderView() {
           }}
           onSuccess={() => {
             setShowUpload(false)
-            // Reload folders after successful upload
-            loadFoldersAndDocuments()
+            // Reload folders after successful upload with a small delay
+            setTimeout(() => {
+              console.log('Reloading folders after upload...')
+              loadFoldersAndDocuments()
+            }, 1500)
           }}
           defaultFolder={selectedFolder || undefined}
         />

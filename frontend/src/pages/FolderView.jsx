@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import UploadModal from '../components/UploadModal'
 
 export default function FolderView() {
   const [folders, setFolders] = useState([])
@@ -140,10 +141,13 @@ export default function FolderView() {
       return
     }
     
-    // Folder will be created when a document is uploaded to it
-    toast.success(`Folder "${trimmedName}" will be created when you upload a document to it`)
+    // Folders are created when documents are uploaded to them
+    // So we'll open the upload modal with this folder pre-selected
+    setSelectedFolder(trimmedName)
     setShowCreateFolder(false)
     setNewFolderName('')
+    setShowUpload(true)
+    toast.info(`Upload a document to create the folder "${trimmedName}"`)
   }
 
   const handleDeleteDocument = async (docName) => {
@@ -433,6 +437,9 @@ export default function FolderView() {
                 onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
                 autoFocus
               />
+              <p className="text-xs text-gray-500 mt-2">
+                Folders are created automatically when you upload documents to them.
+              </p>
             </div>
             <div className="flex items-center justify-end space-x-3">
               <button
@@ -455,37 +462,23 @@ export default function FolderView() {
         </div>
       )}
 
-      {/* Upload Modal - would need to import UploadModal component */}
+      {/* Upload Modal */}
       {showUpload && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Upload Document</h2>
-              <button
-                onClick={() => setShowUpload(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            <p className="text-gray-600 mb-4">
-              {selectedFolder 
-                ? `Upload to folder: "${selectedFolder}"`
-                : 'Upload to root folder'}
-            </p>
-            <p className="text-sm text-gray-500">
-              Please use the main Upload button on the Documents page to upload files with folder selection.
-            </p>
-            <div className="flex items-center justify-end mt-6">
-              <button
-                onClick={() => setShowUpload(false)}
-                className="btn-primary"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <UploadModal
+          onClose={() => {
+            setShowUpload(false)
+            // Reload folders after upload
+            setTimeout(() => {
+              loadFoldersAndDocuments()
+            }, 1000)
+          }}
+          onSuccess={() => {
+            setShowUpload(false)
+            // Reload folders after successful upload
+            loadFoldersAndDocuments()
+          }}
+          defaultFolder={selectedFolder || undefined}
+        />
       )}
     </div>
   )

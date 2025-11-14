@@ -4,7 +4,7 @@ import { api } from '../services/api'
 import { Upload, X, File, Loader, Folder, FolderPlus } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-export default function UploadModal({ onClose, onSuccess }) {
+export default function UploadModal({ onClose, onSuccess, defaultFolder = null }) {
   const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState({})
@@ -13,7 +13,7 @@ export default function UploadModal({ onClose, onSuccess }) {
   const [categories, setCategories] = useState([])
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
-  const [folder, setFolder] = useState('')
+  const [folder, setFolder] = useState(defaultFolder || '')
   const [folders, setFolders] = useState([])
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
@@ -23,7 +23,11 @@ export default function UploadModal({ onClose, onSuccess }) {
 
   useEffect(() => {
     loadCategoriesAndFolders()
-  }, [])
+    // Set default folder if provided
+    if (defaultFolder) {
+      setFolder(defaultFolder)
+    }
+  }, [defaultFolder])
 
   const loadCategoriesAndFolders = async () => {
     try {
@@ -39,23 +43,28 @@ export default function UploadModal({ onClose, onSuccess }) {
       
       // Extract unique folders (from s3_url path structure)
       // s3_url format: http://minio:9000/docflow/user_id/folder/filename.pdf
-      // or: http://minio:9000/docflow/user_id/filename.pdf (no folder)
+      // URL structure: {endpoint}/{bucket}/{user_id}/{folder}/{filename}
+      // After parsing: pathParts = [bucket, user_id, folder, filename]
       const uniqueFolders = [...new Set(docs.map(doc => {
         if (doc.s3_url) {
           try {
             const url = new URL(doc.s3_url)
             const pathParts = url.pathname.split('/').filter(p => p) // Remove empty strings
-            // Path structure: docflow/user_id/folder/filename or docflow/user_id/filename
-            // If there are 4+ parts (docflow, user_id, folder, filename), folder is at index 2
-            // If there are 3 parts (docflow, user_id, filename), there's no folder
+            console.log('Folder extraction - s3_url:', doc.s3_url, 'pathParts:', pathParts) // Debug
+            // Path structure: [bucket, user_id, folder, filename] when folder exists
+            // Path structure: [bucket, user_id, filename] when no folder
+            // If there are 4+ parts, folder is at index 2 (after bucket and user_id)
             if (pathParts.length >= 4) {
-              // pathParts[0] = 'docflow', pathParts[1] = user_id, pathParts[2] = folder, pathParts[3] = filename
-              return pathParts[2] // This is the folder name
+              // pathParts[0] = bucket, pathParts[1] = user_id, pathParts[2] = folder, pathParts[3] = filename
+              const folderName = pathParts[2]
+              console.log('Extracted folder:', folderName) // Debug
+              return folderName
             }
           } catch (e) {
+            console.error('Error parsing URL:', e, doc.s3_url) // Debug
             // Fallback: try simple split if URL parsing fails
             const parts = doc.s3_url.split('/').filter(p => p && !p.includes(':'))
-            // parts should be: [docflow, user_id, folder, filename] or [docflow, user_id, filename]
+            // parts should be: [bucket, user_id, folder, filename] or [bucket, user_id, filename]
             if (parts.length >= 4) {
               return parts[2] // folder is at index 2
             }
@@ -63,6 +72,7 @@ export default function UploadModal({ onClose, onSuccess }) {
         }
         return null
       }).filter(Boolean))]
+      console.log('All extracted folders:', uniqueFolders) // Debug
       setFolders(uniqueFolders.sort())
     } catch (error) {
       console.error('Failed to load categories and folders:', error)

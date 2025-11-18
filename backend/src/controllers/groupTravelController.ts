@@ -61,8 +61,9 @@ export class GroupTravelController {
   async getGroupTravelById(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      const user = (req as AuthRequest).user;
 
-      const groupTravel = await groupTravelService.getGroupTravelById(id);
+      const groupTravel = await groupTravelService.getGroupTravelById(id, user?.userId);
 
       res.status(200).json({ data: groupTravel });
     } catch (error) {
@@ -178,6 +179,38 @@ export class GroupTravelController {
       } else {
         res.status(500).json({ error: 'Internal server error' });
       }
+    }
+  }
+
+  async getMyGroupTravels(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const groupTravels = await groupTravelService.getMyGroupTravels(user.userId);
+
+      res.status(200).json({ data: groupTravels });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  async getMyBids(req: Request, res: Response) {
+    try {
+      const user = (req as AuthRequest).user;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const bids = await groupTravelService.getMyBids(user.userId);
+
+      res.status(200).json({ data: bids });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 }

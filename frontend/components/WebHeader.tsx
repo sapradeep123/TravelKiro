@@ -116,6 +116,18 @@ export default function WebHeader() {
             titleStyle={styles.menuItemTitle}
             style={styles.menuItem}
           />
+          {user?.role === 'SITE_ADMIN' && (
+            <Menu.Item 
+              onPress={() => {
+                setMenuVisible(false);
+                router.push('/admin-settings' as any);
+              }} 
+              title="Site Settings" 
+              leadingIcon="cog"
+              titleStyle={styles.menuItemTitle}
+              style={styles.menuItem}
+            />
+          )}
           <Menu.Item 
             onPress={() => {
               setMenuVisible(false);

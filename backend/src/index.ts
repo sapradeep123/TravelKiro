@@ -17,6 +17,8 @@ import seedRoutes from './routes/seed';
 import eventTypeRoutes from './routes/eventTypes';
 import albumRoutes, { photoRouter, commentRouter } from './routes/albums';
 import messagingRoutes from './routes/messaging';
+import siteSettingsRoutes from './routes/siteSettings';
+import uploadRoutes from './routes/upload';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -68,6 +70,8 @@ app.use('/api/albums', albumRoutes);
 app.use('/api/album-photos', photoRouter);
 app.use('/api/photo-comments', commentRouter);
 app.use('/api/messaging', messagingRoutes);
+app.use('/api/site-settings', siteSettingsRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Error handling
 app.use(notFoundHandler);

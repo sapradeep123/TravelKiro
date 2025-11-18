@@ -26,6 +26,8 @@ const SAMPLE_FRIENDS = [
 export default function UserProfileScreen() {
   const params = useLocalSearchParams();
   const userId = Array.isArray(params.userId) ? params.userId[0] : params.userId;
+  const returnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const tab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
@@ -37,6 +39,17 @@ export default function UserProfileScreen() {
   const [userPosts, setUserPosts] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'posts' | 'community'>('posts');
   const [error, setError] = useState<string | null>(null);
+
+  const handleBackNavigation = () => {
+    if (returnTo === 'community') {
+      // Navigate back to community page
+      router.push('/(tabs)/community');
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push('/(tabs)/community');
+    }
+  };
 
   useEffect(() => {
     if (!userId) {
@@ -224,15 +237,7 @@ export default function UserProfileScreen() {
       {/* Mobile Header */}
       {!isLargeScreen && (
         <View style={styles.mobileHeader}>
-          <TouchableOpacity 
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.push('/(tabs)/community');
-              }
-            }}
-          >
+          <TouchableOpacity onPress={handleBackNavigation}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="#667eea" />
           </TouchableOpacity>
           <Text style={styles.mobileHeaderTitle}>Profile</Text>
@@ -251,13 +256,7 @@ export default function UserProfileScreen() {
           >
             {/* Back Button */}
             <TouchableOpacity 
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.push('/(tabs)/community');
-                }
-              }} 
+              onPress={handleBackNavigation}
               style={styles.backButton}
             >
               <MaterialCommunityIcons name="arrow-left" size={20} color="#667eea" />

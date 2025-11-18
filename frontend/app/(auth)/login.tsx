@@ -1,16 +1,44 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, ImageBackground } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { TextInput, Button, Text, ActivityIndicator, Card } from 'react-native-paper';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { siteSettingsService } from '../../src/services/siteSettingsService';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [siteSettings, setSiteSettings] = useState({
+    siteName: 'Butterfliy',
+    siteTitle: 'Travel Encyclopedia',
+    logoUrl: null as string | null,
+    welcomeMessage: 'Welcome Back',
+    welcomeSubtitle: 'Sign in to explore the world',
+  });
   const { login } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    loadSiteSettings();
+  }, []);
+
+  const loadSiteSettings = async () => {
+    try {
+      const response = await siteSettingsService.getSettings();
+      setSiteSettings({
+        siteName: response.data.siteName || 'Butterfliy',
+        siteTitle: response.data.siteTitle || 'Travel Encyclopedia',
+        logoUrl: response.data.logoUrl || null,
+        welcomeMessage: response.data.welcomeMessage || 'Welcome Back',
+        welcomeSubtitle: response.data.welcomeSubtitle || 'Sign in to explore the world',
+      });
+    } catch (error) {
+      console.error('Error loading site settings:', error);
+      // Use defaults if loading fails
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -45,19 +73,27 @@ export default function LoginScreen() {
             <View style={styles.content}>
               {/* Logo/Icon Area */}
               <View style={styles.logoContainer}>
-                <View style={styles.logoCircle}>
-                  <Text style={styles.logoText}>🌍</Text>
-                </View>
+                {siteSettings.logoUrl ? (
+                  <Image 
+                    source={{ uri: siteSettings.logoUrl }} 
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={styles.logoCircle}>
+                    <Text style={styles.logoText}>🌍</Text>
+                  </View>
+                )}
               </View>
 
               {/* Login Card */}
               <Card style={styles.card} elevation={5}>
                 <Card.Content>
                   <Text variant="headlineMedium" style={styles.title}>
-                    Welcome Back
+                    {siteSettings.welcomeMessage}
                   </Text>
                   <Text variant="bodyMedium" style={styles.subtitle}>
-                    Sign in to explore the world
+                    {siteSettings.welcomeSubtitle}
                   </Text>
 
                   <TextInput
@@ -174,6 +210,10 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: 50,
+  },
+  logoImage: {
+    width: 250,
+    height: 80,
   },
   card: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',

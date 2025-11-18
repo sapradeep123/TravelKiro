@@ -5,6 +5,8 @@ import { authenticate } from '../middleware/auth';
 const router = Router();
 
 router.get('/', groupTravelController.getAllGroupTravels);
+router.get('/my-travels', authenticate, groupTravelController.getMyGroupTravels);
+router.get('/my-bids', authenticate, groupTravelController.getMyBids);
 router.get('/:id', groupTravelController.getGroupTravelById);
 router.post('/', authenticate, groupTravelController.createGroupTravel);
 router.post('/:id/interest', authenticate, groupTravelController.expressInterest);

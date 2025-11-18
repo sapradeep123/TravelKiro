@@ -64,6 +64,9 @@ export class GroupTravelService {
   async getAllGroupTravels(filters?: {
     status?: GroupTravelStatus;
   }) {
+    // Auto-deactivate expired group travels
+    await this.deactivateExpiredGroupTravels();
+
     const where: any = {};
 
     if (filters?.status) {
@@ -107,7 +110,29 @@ export class GroupTravelService {
     return groupTravels;
   }
 
-  async getGroupTravelById(id: string) {
+  async deactivateExpiredGroupTravels() {
+    const now = new Date();
+    
+    // Deactivate group travels where travel date has passed
+    await prisma.groupTravel.updateMany({
+      where: {
+        travelDate: {
+          lt: now,
+        },
+        status: {
+          not: 'COMPLETED',
+        },
+      },
+      data: {
+        status: 'COMPLETED',
+      },
+    });
+  }
+
+  async getGroupTravelById(id: string, userId?: string) {
+    // Auto-deactivate if expired
+    await this.deactivateExpiredGroupTravels();
+
     const groupTravel = await prisma.groupTravel.findUnique({
       where: { id },
       include: {
@@ -144,6 +169,22 @@ export class GroupTravelService {
 
     if (!groupTravel) {
       throw new Error('Group travel not found');
+    }
+
+    // Filter bids based on user access
+    if (userId) {
+      const isCreator = groupTravel.creatorId === userId;
+      const isInterested = groupTravel.interestedUsers.some(
+        (interest) => interest.userId === userId
+      );
+
+      // Only show bids to creator and interested users
+      if (!isCreator && !isInterested) {
+        groupTravel.bids = [];
+      }
+    } else {
+      // Hide bids from unauthenticated users
+      groupTravel.bids = [];
     }
 
     return groupTravel;
@@ -330,6 +371,87 @@ export class GroupTravelService {
     });
 
     return { message: 'Group travel closed successfully' };
+  }
+
+  async getMyGroupTravels(userId: string) {
+    await this.deactivateExpiredGroupTravels();
+
+    const groupTravels = await prisma.groupTravel.findMany({
+      where: {
+        creatorId: userId,
+      },
+      include: {
+        creator: {
+          include: {
+            profile: true,
+          },
+        },
+        interestedUsers: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        bids: {
+          include: {
+            guide: {
+              include: {
+                profile: true,
+              },
+            },
+            dailyItinerary: {
+              orderBy: {
+                day: 'asc',
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return groupTravels;
+  }
+
+  async getMyBids(userId: string) {
+    await this.deactivateExpiredGroupTravels();
+
+    const bids = await prisma.travelBid.findMany({
+      where: {
+        guideId: userId,
+      },
+      include: {
+        groupTravel: {
+          include: {
+            creator: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        guide: {
+          include: {
+            profile: true,
+          },
+        },
+        dailyItinerary: {
+          orderBy: {
+            day: 'asc',
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return bids;
   }
 }
 

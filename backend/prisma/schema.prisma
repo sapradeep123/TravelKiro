@@ -1043,3 +1043,20 @@ model CommentReport {
   @@index([status])
   @@map("comment_reports")
 }
+
+// Site Settings for Admin Configuration
+model SiteSettings {
+  id                String   @id @default(uuid())
+  siteName          String   @default("Butterfliy")
+  siteTitle         String   @default("Travel Encyclopedia")
+  logoUrl           String?
+  faviconUrl        String?
+  welcomeMessage    String   @default("Welcome Back")
+  welcomeSubtitle   String   @default("Sign in to explore the world")
+  termsAndConditions String? @db.Text
+  privacyPolicy     String?  @db.Text
+  updatedAt         DateTime @updatedAt
+  updatedBy         String?
+  
+  @@map("site_settings")
+}

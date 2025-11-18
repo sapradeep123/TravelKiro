@@ -131,8 +131,8 @@ export default function CommunityScreen() {
           setPosts([]);
         }
       } else {
-        const data = await groupTravelService.getAllGroupTravels();
-        setGroupTravels(Array.isArray(data) ? data : []);
+        const response = await groupTravelService.getAllGroupTravels();
+        setGroupTravels(Array.isArray(response.data) ? response.data : []);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -893,25 +893,71 @@ export default function CommunityScreen() {
     }
   };
 
+  const handleUserPress = (userId: string) => {
+    if (userId === user?.id) {
+      router.push('/(tabs)/profile');
+    } else {
+      router.push(`/user-profile?userId=${userId}&returnTo=community&tab=groups` as any);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const renderGroupTravel = ({ item }: { item: GroupTravel }) => {
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 4) return `${weeks}w ago`;
+    return formatDate(dateString);
+  };
+
+  const renderGroupTravel = ({ item }: { item: any }) => {
     const isExpired = new Date(item.expiryDate) < new Date();
-    const isInterested = item.interestedUsers.some((u: any) => u.userId === user?.id);
+    const isInterested = item.interestedUsers?.some((u: any) => u.userId === user?.id);
     
     return (
       <Card style={styles.postCard}>
         <Card.Content>
-          <View style={styles.groupHeader}>
-            <Avatar.Icon size={56} icon="account-multiple" style={styles.groupAvatar} />
-            <View style={styles.groupHeaderInfo}>
-              <Text variant="titleLarge" style={styles.groupTitle}>{item.title}</Text>
-              <Text variant="bodySmall" style={styles.groupCreator}>
-                by {item.creator.profile.name}
+          {/* Creator Profile Section */}
+          <TouchableOpacity 
+            style={styles.groupCreatorSection}
+            onPress={() => handleUserPress(item.creator.id)}
+          >
+            <Avatar.Text 
+              size={48} 
+              label={item.creator.profile.name.charAt(0).toUpperCase()} 
+              style={styles.creatorAvatar}
+            />
+            <View style={styles.creatorInfo}>
+              <Text variant="titleMedium" style={styles.creatorName}>
+                {item.creator.profile.name}
               </Text>
+              <Text variant="bodySmall" style={styles.creatorRole}>
+                {item.creator.role === 'TOURIST_GUIDE' ? 'Tourist Guide' : 'Traveler'}
+              </Text>
+              <Text variant="bodySmall" style={styles.postTime}>
+                Posted {formatTimeAgo(item.createdAt)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Group Travel Header */}
+          <View style={styles.groupTravelHeader}>
+            <View style={styles.groupTitleSection}>
+              <MaterialCommunityIcons name="airplane" size={24} color="#667eea" />
+              <Text variant="titleLarge" style={styles.groupTitle}>{item.title}</Text>
             </View>
             {item.status === 'OPEN' && !isExpired ? (
               <Chip icon="check-circle" style={styles.openChip} textStyle={styles.chipText} compact>
@@ -924,36 +970,66 @@ export default function CommunityScreen() {
             )}
           </View>
 
+          {/* Location Info */}
+          {(item.customCountry || item.customState || item.customArea) && (
+            <View style={styles.locationInfo}>
+              <MaterialCommunityIcons name="map-marker" size={16} color="#666" />
+              <Text variant="bodySmall" style={styles.locationText}>
+                {[item.customArea, item.customState, item.customCountry].filter(Boolean).join(', ')}
+              </Text>
+            </View>
+          )}
+
           <Text variant="bodyMedium" style={styles.groupDescription}>
             {item.description}
           </Text>
 
-          <View style={styles.groupDetails}>
-            <View style={styles.groupDetailItem}>
-              <MaterialCommunityIcons name="calendar" size={20} color="#667eea" />
-              <Text style={styles.groupDetailText}>{formatDate(item.travelDate)}</Text>
+          {/* Travel Details Grid */}
+          <View style={styles.groupDetailsGrid}>
+            <View style={styles.groupDetailCard}>
+              <MaterialCommunityIcons name="calendar" size={24} color="#667eea" />
+              <Text style={styles.detailLabel}>Travel Date</Text>
+              <Text style={styles.detailValue}>{formatDate(item.travelDate)}</Text>
             </View>
-            <View style={styles.groupDetailItem}>
-              <MaterialCommunityIcons name="account-multiple" size={20} color="#4CAF50" />
-              <Text style={styles.groupDetailText}>{item.interestedUsers.length} interested</Text>
+            <View style={styles.groupDetailCard}>
+              <MaterialCommunityIcons name="clock-outline" size={24} color="#FF9800" />
+              <Text style={styles.detailLabel}>Expires</Text>
+              <Text style={styles.detailValue}>{formatDate(item.expiryDate)}</Text>
             </View>
-            <View style={styles.groupDetailItem}>
-              <MaterialCommunityIcons name="briefcase" size={20} color="#FF9800" />
-              <Text style={styles.groupDetailText}>{item.bids.length} bids</Text>
+            <View style={styles.groupDetailCard}>
+              <MaterialCommunityIcons name="account-multiple" size={24} color="#4CAF50" />
+              <Text style={styles.detailLabel}>Interested</Text>
+              <Text style={styles.detailValue}>{item.interestedUsers.length} people</Text>
+            </View>
+            <View style={styles.groupDetailCard}>
+              <MaterialCommunityIcons name="briefcase" size={24} color="#9C27B0" />
+              <Text style={styles.detailLabel}>Bids</Text>
+              <Text style={styles.detailValue}>{item.bids.length} received</Text>
             </View>
           </View>
 
-          {item.status === 'OPEN' && !isExpired && (
+          {/* Action Buttons */}
+          <View style={styles.groupActions}>
+            {item.status === 'OPEN' && !isExpired && (
+              <Button
+                mode={isInterested ? 'outlined' : 'contained'}
+                onPress={() => handleExpressInterest(item.id, item.title)}
+                disabled={isInterested}
+                style={[styles.groupButton, { flex: 1 }]}
+                icon={isInterested ? 'check' : 'account-plus'}
+              >
+                {isInterested ? 'Already Joined' : 'Join Group'}
+              </Button>
+            )}
             <Button
-              mode={isInterested ? 'outlined' : 'contained'}
-              onPress={() => handleExpressInterest(item.id, item.title)}
-              disabled={isInterested}
-              style={styles.groupButton}
-              icon={isInterested ? 'check' : 'account-plus'}
+              mode="outlined"
+              onPress={() => router.push(`/group-travel-detail?id=${item.id}` as any)}
+              style={[styles.groupButton, { flex: 1 }]}
+              icon="eye"
             >
-              {isInterested ? 'Already Joined' : 'Join Group'}
+              View Details
             </Button>
-          )}
+          </View>
         </Card.Content>
       </Card>
     );
@@ -2106,6 +2182,89 @@ const styles = StyleSheet.create({
   chipText: {
     color: '#fff',
     fontSize: 11,
+  },
+  groupCreatorSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+  },
+  creatorAvatar: {
+    backgroundColor: '#667eea',
+  },
+  creatorInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  creatorName: {
+    fontWeight: '700',
+    color: '#1c1e21',
+    fontSize: 16,
+  },
+  creatorRole: {
+    color: '#667eea',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  postTime: {
+    color: '#65676b',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  groupTravelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  groupTitleSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 12,
+  },
+  locationText: {
+    color: '#65676b',
+    fontSize: 13,
+  },
+  groupDetailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  groupDetailCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 11,
+    color: '#65676b',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#1c1e21',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  groupActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
   fab: {
     position: 'absolute',

@@ -10,12 +10,10 @@ import {
 } from 'react-native';
 import { router, Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { groupTravelService } from '../../src/services/groupTravelService';
-import { GroupTravel } from '../../src/types';
-import { useAuth } from '../../src/contexts/AuthContext';
+import { groupTravelService } from '../src/services/groupTravelService';
+import { GroupTravel } from '../src/types';
 
-export default function GroupTravelScreen() {
-  const { user } = useAuth();
+export default function MyGroupTravelsScreen() {
   const [groupTravels, setGroupTravels] = useState<GroupTravel[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -26,7 +24,7 @@ export default function GroupTravelScreen() {
 
   const loadGroupTravels = async () => {
     try {
-      const response = await groupTravelService.getAllGroupTravels('OPEN');
+      const response = await groupTravelService.getMyGroupTravels();
       setGroupTravels(response.data);
     } catch (error) {
       console.error('Error loading group travels:', error);
@@ -72,13 +70,6 @@ export default function GroupTravelScreen() {
         </Text>
       </View>
 
-      <View style={styles.infoRow}>
-        <Ionicons name="time-outline" size={16} color="#666" />
-        <Text style={styles.infoText}>
-          Expires: {formatDate(item.expiryDate)}
-        </Text>
-      </View>
-
       <View style={styles.statsRow}>
         <View style={styles.stat}>
           <Ionicons name="people-outline" size={16} color="#007AFF" />
@@ -107,36 +98,12 @@ export default function GroupTravelScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Group Travel</Text>
-        {user && (
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={() => router.push('/create-group-travel' as Href)}
-          >
-            <Ionicons name="add" size={24} color="#FFF" />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={28} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Group Travels</Text>
+        <View style={{ width: 28 }} />
       </View>
-
-      {user?.role === 'TOURIST_GUIDE' && (
-        <TouchableOpacity
-          style={styles.myBidsButton}
-          onPress={() => router.push('/my-bids' as Href)}
-        >
-          <Ionicons name="briefcase-outline" size={20} color="#007AFF" />
-          <Text style={styles.myBidsText}>My Bids</Text>
-        </TouchableOpacity>
-      )}
-
-      {user && (
-        <TouchableOpacity
-          style={styles.myTravelsButton}
-          onPress={() => router.push('/my-group-travels' as Href)}
-        >
-          <Ionicons name="list-outline" size={20} color="#007AFF" />
-          <Text style={styles.myTravelsText}>My Group Travels</Text>
-        </TouchableOpacity>
-      )}
 
       <FlatList
         data={groupTravels}
@@ -149,7 +116,13 @@ export default function GroupTravelScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="airplane-outline" size={64} color="#CCC" />
-            <Text style={styles.emptyText}>No group travels available</Text>
+            <Text style={styles.emptyText}>No group travels created yet</Text>
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={() => router.push('/create-group-travel' as Href)}
+            >
+              <Text style={styles.createButtonText}>Create Group Travel</Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -177,46 +150,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
-  },
-  createButton: {
-    backgroundColor: '#007AFF',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  myBidsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#FFF',
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
-    gap: 8,
-  },
-  myBidsText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  myTravelsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#FFF',
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
-    gap: 8,
-  },
-  myTravelsText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
   },
   listContent: {
     padding: 16,
@@ -301,5 +236,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     marginTop: 16,
+    marginBottom: 24,
+  },
+  createButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  createButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

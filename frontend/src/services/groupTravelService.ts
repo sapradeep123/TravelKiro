@@ -1,62 +1,75 @@
 import api from './api';
-import { GroupTravel } from '../types';
+
+export interface CreateGroupTravelData {
+  title: string;
+  description: string;
+  locationId?: string;
+  customCountry?: string;
+  customState?: string;
+  customArea?: string;
+  travelDate: string;
+  expiryDate: string;
+}
+
+export interface SubmitBidData {
+  numberOfDays: number;
+  accommodationDetails: string;
+  foodDetails: string;
+  transportDetails: string;
+  totalCost: number;
+  dailyItinerary: Array<{
+    day: number;
+    activities: string;
+    meals: string;
+    accommodation: string;
+  }>;
+}
 
 export const groupTravelService = {
-  async getAllGroupTravels(filters?: {
-    status?: string;
-  }): Promise<GroupTravel[]> {
-    const params = new URLSearchParams();
-    if (filters?.status) params.append('status', filters.status);
-
-    const response = await api.get(`/group-travel?${params.toString()}`);
-    return response.data.data;
+  async getAllGroupTravels(status?: string) {
+    const response = await api.get('/group-travel', {
+      params: { status },
+    });
+    return response.data;
   },
 
-  async getGroupTravelById(id: string): Promise<GroupTravel> {
+  async getGroupTravelById(id: string) {
     const response = await api.get(`/group-travel/${id}`);
-    return response.data.data;
+    return response.data;
   },
 
-  async createGroupTravel(data: {
-    title: string;
-    description: string;
-    locationId?: string;
-    customCountry?: string;
-    customState?: string;
-    customArea?: string;
-    travelDate: string;
-    expiryDate: string;
-  }): Promise<GroupTravel> {
+  async createGroupTravel(data: CreateGroupTravelData) {
     const response = await api.post('/group-travel', data);
-    return response.data.data;
+    return response.data;
   },
 
-  async expressInterest(groupTravelId: string): Promise<void> {
-    await api.post(`/group-travel/${groupTravelId}/interest`);
+  async expressInterest(groupTravelId: string) {
+    const response = await api.post(`/group-travel/${groupTravelId}/interest`, {});
+    return response.data;
   },
 
-  async submitBid(groupTravelId: string, data: {
-    numberOfDays: number;
-    accommodationDetails: string;
-    foodDetails: string;
-    transportDetails: string;
-    totalCost: number;
-    dailyItinerary: Array<{
-      day: number;
-      activities: string;
-      meals: string;
-      accommodation: string;
-    }>;
-  }): Promise<any> {
+  async submitBid(groupTravelId: string, data: SubmitBidData) {
     const response = await api.post(`/group-travel/${groupTravelId}/bid`, data);
-    return response.data.data;
+    return response.data;
   },
 
-  async approveBidContact(bidId: string): Promise<void> {
-    await api.post(`/group-travel/bids/${bidId}/approve-contact`);
+  async approveBidContact(bidId: string) {
+    const response = await api.post(`/group-travel/bids/${bidId}/approve-contact`, {});
+    return response.data;
   },
 
-  async closeGroupTravel(groupTravelId: string): Promise<void> {
-    await api.put(`/group-travel/${groupTravelId}/close`);
+  async closeGroupTravel(id: string) {
+    const response = await api.put(`/group-travel/${id}/close`, {});
+    return response.data;
+  },
+
+  async getMyGroupTravels() {
+    const response = await api.get('/group-travel/my-travels');
+    return response.data;
+  },
+
+  async getMyBids() {
+    const response = await api.get('/group-travel/my-bids');
+    return response.data;
   },
 };

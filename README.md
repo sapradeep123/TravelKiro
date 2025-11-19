@@ -68,9 +68,13 @@ cd frontend && npm start     # Port 8081
 
 ## Documentation
 
+📚 **[Complete Project Documentation](./PROJECT_DOCUMENTATION.md)** - All-in-one comprehensive guide
+
+Additional Resources:
 - [Getting Started Guide](./docs/GETTING_STARTED.md)
 - [Features Documentation](./docs/FEATURES.md)
 - [API Reference](./docs/API_REFERENCE.md)
+- [Accommodations Guide](./docs/ACCOMMODATIONS_GUIDE.md)
 
 ## Project Structure
 

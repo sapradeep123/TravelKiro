@@ -59,9 +59,24 @@ export default function AdminSettingsScreen() {
   const loadSettings = async () => {
     try {
       const response = await siteSettingsService.getSettings();
-      setSettings(response.data);
-      setLogoPreview(response.data.logoUrl || null);
-      setFaviconPreview(response.data.faviconUrl || null);
+      // GET returns: { data: { ...settings } }
+      // Service returns: response.data = { data: { ...settings } }
+      // So response.data.data contains the actual settings
+      const settingsData = response.data?.data || response.data || response;
+      console.log('Loaded settings:', JSON.stringify(settingsData, null, 2));
+      
+      setSettings({
+        siteName: settingsData.siteName || '',
+        siteTitle: settingsData.siteTitle || '',
+        logoUrl: settingsData.logoUrl || '',
+        faviconUrl: settingsData.faviconUrl || '',
+        welcomeMessage: settingsData.welcomeMessage || '',
+        welcomeSubtitle: settingsData.welcomeSubtitle || '',
+        termsAndConditions: settingsData.termsAndConditions || '',
+        privacyPolicy: settingsData.privacyPolicy || '',
+      });
+      setLogoPreview(settingsData.logoUrl || null);
+      setFaviconPreview(settingsData.faviconUrl || null);
     } catch (error) {
       console.error('Error loading settings:', error);
       Alert.alert('Error', 'Failed to load settings');
@@ -166,19 +181,70 @@ export default function AdminSettingsScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      console.log('Saving settings:', settings);
-      const response = await siteSettingsService.updateSettings(settings);
-      console.log('Settings saved successfully:', response);
+      // Clean up the settings - convert empty strings to null/undefined for optional fields
+      const cleanedSettings: any = {
+        siteName: settings.siteName?.trim() || '',
+        siteTitle: settings.siteTitle?.trim() || '',
+        welcomeMessage: settings.welcomeMessage?.trim() || '',
+        welcomeSubtitle: settings.welcomeSubtitle?.trim() || '',
+      };
       
-      // Reload settings from server to ensure UI is in sync
-      await loadSettings();
-      console.log('Settings reloaded from server');
+      // Only include logo/favicon if they have actual values
+      if (settings.logoUrl && settings.logoUrl.trim()) {
+        cleanedSettings.logoUrl = settings.logoUrl.trim();
+      }
+      if (settings.faviconUrl && settings.faviconUrl.trim()) {
+        cleanedSettings.faviconUrl = settings.faviconUrl.trim();
+      }
+      if (settings.termsAndConditions && settings.termsAndConditions.trim()) {
+        cleanedSettings.termsAndConditions = settings.termsAndConditions.trim();
+      }
+      if (settings.privacyPolicy && settings.privacyPolicy.trim()) {
+        cleanedSettings.privacyPolicy = settings.privacyPolicy.trim();
+      }
+      
+      console.log('Saving cleaned settings:', cleanedSettings);
+      const response = await siteSettingsService.updateSettings(cleanedSettings);
+      console.log('Settings saved - full response:', JSON.stringify(response, null, 2));
+      
+      // API PUT returns: { message: '...', data: { ...settings } }
+      // Service returns: response.data = { message: '...', data: { ...settings } }
+      // So response.data.data contains the actual settings object
+      const settingsData = response.data?.data || response.data || response;
+      console.log('Extracted settings data:', JSON.stringify(settingsData, null, 2));
+      
+      // Update state immediately with saved data - use a new object to force re-render
+      const updatedSettings = {
+        siteName: String(settingsData.siteName || ''),
+        siteTitle: String(settingsData.siteTitle || ''),
+        logoUrl: String(settingsData.logoUrl || ''),
+        faviconUrl: String(settingsData.faviconUrl || ''),
+        welcomeMessage: String(settingsData.welcomeMessage || ''),
+        welcomeSubtitle: String(settingsData.welcomeSubtitle || ''),
+        termsAndConditions: String(settingsData.termsAndConditions || ''),
+        privacyPolicy: String(settingsData.privacyPolicy || ''),
+      };
+      
+      console.log('Updating state with:', updatedSettings);
+      
+      // Force state update with a completely new object
+      setSettings({ ...updatedSettings });
+      setLogoPreview(settingsData.logoUrl || null);
+      setFaviconPreview(settingsData.faviconUrl || null);
+      
+      // Small delay to ensure state update is processed
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       Alert.alert('Success', 'Settings saved successfully!');
+      
+      // Reload from server after alert to ensure sync
+      setTimeout(async () => {
+        await loadSettings();
+      }, 500);
     } catch (error: any) {
       console.error('Error saving settings:', error);
-      console.error('Error details:', error.response?.data);
-      Alert.alert('Error', error.response?.data?.error || 'Failed to save settings');
+      console.error('Error response:', error.response?.data);
+      Alert.alert('Error', error.response?.data?.error || error.message || 'Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -238,6 +304,7 @@ export default function AdminSettingsScreen() {
               <Text style={styles.label}>Site Name</Text>
               <Text style={styles.hint}>Name displayed next to the logo</Text>
               <TextInput
+                key={`siteName-${settings.siteName}`}
                 style={styles.input}
                 value={settings.siteName}
                 onChangeText={(text) => setSettings({ ...settings, siteName: text })}
@@ -249,6 +316,7 @@ export default function AdminSettingsScreen() {
               <Text style={styles.label}>Site Title</Text>
               <Text style={styles.hint}>Browser tab title</Text>
               <TextInput
+                key={`siteTitle-${settings.siteTitle}`}
                 style={styles.input}
                 value={settings.siteTitle}
                 onChangeText={(text) => setSettings({ ...settings, siteTitle: text })}
@@ -308,6 +376,7 @@ export default function AdminSettingsScreen() {
               <Text style={styles.label}>Welcome Message</Text>
               <Text style={styles.hint}>Main heading on login page</Text>
               <TextInput
+                key={`welcomeMessage-${settings.welcomeMessage}`}
                 style={styles.input}
                 value={settings.welcomeMessage}
                 onChangeText={(text) => setSettings({ ...settings, welcomeMessage: text })}
@@ -319,6 +388,7 @@ export default function AdminSettingsScreen() {
               <Text style={styles.label}>Welcome Subtitle</Text>
               <Text style={styles.hint}>Subtitle text below the heading</Text>
               <TextInput
+                key={`welcomeSubtitle-${settings.welcomeSubtitle}`}
                 style={styles.input}
                 value={settings.welcomeSubtitle}
                 onChangeText={(text) => setSettings({ ...settings, welcomeSubtitle: text })}

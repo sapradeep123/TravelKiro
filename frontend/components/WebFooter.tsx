@@ -98,6 +98,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#2c3e50',
     paddingTop: 40,
     paddingBottom: 20,
+    position: 'relative', // Ensure it's not fixed
+    width: '100%',
   },
   container: {
     flexDirection: 'row',

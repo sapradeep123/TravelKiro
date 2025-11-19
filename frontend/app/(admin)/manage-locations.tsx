@@ -384,13 +384,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',
+    flexDirection: 'column', // Ensure footer flows naturally
   },
   scrollContainer: {
     flex: 1,
   },
   content: {
     padding: 20,
-    minHeight: '100%',
+    paddingBottom: 40, // Add padding so footer doesn't overlap content
   },
   webContent: {
     maxWidth: 1400,

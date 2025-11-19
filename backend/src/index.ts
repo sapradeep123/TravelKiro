@@ -47,6 +47,31 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   }
 }));
 
+// Root route - API information
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Travel Encyclopedia API',
+    version: '1.0.0',
+    status: 'running',
+    message: 'Welcome to Travel Encyclopedia API',
+    endpoints: {
+      health: '/health',
+      auth: '/api/auth',
+      users: '/api/users',
+      locations: '/api/locations',
+      events: '/api/events',
+      packages: '/api/packages',
+      accommodations: '/api/accommodations',
+      community: '/api/community',
+      'group-travel': '/api/group-travel',
+      albums: '/api/albums',
+      messaging: '/api/messaging',
+      uploads: '/uploads',
+    },
+    documentation: 'Visit /health for server status'
+  });
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Travel Encyclopedia API is running' });

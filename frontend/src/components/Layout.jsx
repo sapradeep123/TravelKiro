@@ -27,6 +27,8 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import MobileBottomNav from './MobileBottomNav'
+import FloatingActionButton from './FloatingActionButton'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -319,9 +321,18 @@ export default function Layout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50">
+        <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0">
           <Outlet context={{ searchQuery }} />
         </main>
+
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav />
+
+        {/* Floating Action Button */}
+        <FloatingActionButton onUpload={() => {
+          // Navigate to documents page with upload modal
+          navigate('/documents?upload=true')
+        }} />
       </div>
     </div>
   )

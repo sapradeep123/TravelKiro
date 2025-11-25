@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, TIMESTAMP
+from sqlalchemy import Column, String, Text, TIMESTAMP, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.expression import text
 
@@ -20,10 +20,23 @@ class User(Base):
     username: str = Column(String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
     password = Column(Text, nullable=False)
+    full_name = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_super_admin = Column(Boolean, default=False, nullable=False)  # First user becomes super admin
     user_since = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
+    updated_at = Column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"), onupdate=text("now()")
+    )
+    password_changed_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
+    # Document relationships
     owner_of = relationship("DocumentMetadata", back_populates="owner")
     comments = relationship("DocumentComment", back_populates="user")
     folders = relationship("Folder", back_populates="owner")
+    
+    # RBAC relationships
+    roles = relationship("Role", secondary="user_roles", back_populates="users")
+    groups = relationship("Group", secondary="user_groups", back_populates="users")
+    accounts = relationship("Account", secondary="account_users", back_populates="users")

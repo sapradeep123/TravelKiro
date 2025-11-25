@@ -16,6 +16,15 @@ from app.db.tables.documents.document_sharing import DocumentSharing  # noqa: F4
 from app.db.tables.documents.comments import DocumentComment  # noqa: F401
 from app.db.tables.documents.notify import Notify  # noqa: F401
 from app.db.tables.documents.folders import Folder  # noqa: F401
+# RBAC models
+from app.db.tables.rbac.models import (  # noqa: F401
+    Role, Group, Module, Permission, Account, PasswordPolicy, APIKey, PasswordHistory
+)
+# DMS models
+from app.db.tables.dms.sections import Section  # noqa: F401
+from app.db.tables.dms.folders_new import FolderNew  # noqa: F401
+from app.db.tables.dms.files import FileNew  # noqa: F401
+from app.db.tables.dms.metadata import MetadataDefinition, FileMetadata, RelatedFile  # noqa: F401
 
 
 @asynccontextmanager

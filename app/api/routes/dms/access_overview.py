@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies.database import get_db
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.repositories import get_db
+from app.api.dependencies.auth_utils import get_current_user
 from app.api.dependencies.rbac import require_permission
 from app.db.tables.auth.auth import User
 from app.db.repositories.dms.access_overview_repository import AccessOverviewRepository

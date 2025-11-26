@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from app.api.dependencies.database import get_db
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.repositories import get_db
+from app.api.dependencies.auth_utils import get_current_user
 from app.db.tables.auth.auth import User
 from app.db.tables.rbac.models import account_users
 from app.schemas.dms.sharing_schemas import (

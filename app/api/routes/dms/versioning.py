@@ -289,7 +289,7 @@ async def list_file_reminders(
     summary="Get my reminders"
 )
 async def get_my_reminders(
-    due: Optional[str] = Query(None, pattern=r'^(now|all)$'$'),
+    due: Optional[str] = Query(None, pattern=r'^(now|all)$'),
     skip: int = 0,
     limit: int = 100,
     current_user: TokenData = Depends(get_current_user),

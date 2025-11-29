@@ -396,6 +396,22 @@ class ApprovalStepDetail(ApprovalStepOut):
     """Step with approver details"""
     approver_username: str
     approver_email: str
+    workflow: Optional['ApprovalWorkflowSummary'] = None
+
+
+class ApprovalWorkflowSummary(BaseModel):
+    """Workflow summary for step details"""
+    id: str
+    file_id: str
+    mode: str
+    resolution_text: Optional[str]
+    status: str
+    file_name: str
+    document_id: str
+    initiator_username: str
+    
+    class Config:
+        from_attributes = True
 
 
 class ApprovalWorkflowOut(BaseModel):

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import Layout from '../components/Layout';
+import { api } from '../services/api';
 import FileVersions from '../components/FileVersions';
 import FileLock from '../components/FileLock';
 import FileReminders from '../components/FileReminders';
 import FileMetadata from '../components/FileMetadata';
 import { useAuth } from '../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const FileDetailDMS = () => {
   const { fileId } = useParams();
@@ -16,20 +16,20 @@ const FileDetailDMS = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('details');
   const [error, setError] = useState(null);
-  const accountId = user?.default_account_id || user?.accounts?.[0]?.id || localStorage.getItem('accountId');
+  const accountId = user?.default_account_id || user?.accounts?.[0]?.id;
 
   useEffect(() => {
-    fetchFileDetails();
-  }, [fileId]);
+    if (accountId && fileId) {
+      fetchFileDetails();
+    }
+  }, [fileId, accountId]);
 
   const fetchFileDetails = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/dms/files-dms/${fileId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'X-Account-Id': accountId
-        }
+      setError(null);
+      const response = await api.get(`/v2/dms/files-dms/${fileId}`, {
+        headers: { 'X-Account-Id': accountId }
       });
       setFile(response.data);
     } catch (err) {
@@ -42,11 +42,8 @@ const FileDetailDMS = () => {
 
   const handleDownload = async () => {
     try {
-      const response = await axios.get(`/dms/files-dms/${fileId}/download`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'X-Account-Id': accountId
-        },
+      const response = await api.get(`/v2/dms/files-dms/${fileId}/download`, {
+        headers: { 'X-Account-Id': accountId },
         responseType: 'blob'
       });
 
@@ -57,8 +54,9 @@ const FileDetailDMS = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      toast.success('Download started');
     } catch (err) {
-      setError('Failed to download file');
+      toast.error('Failed to download file');
     }
   };
 
@@ -72,36 +70,39 @@ const FileDetailDMS = () => {
     return new Date(dateString).toLocaleString();
   };
 
+  if (!accountId) {
+    return (
+      <div className="p-6">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
+          No account assigned. Please contact your administrator.
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <Layout>
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-        </div>
-      </Layout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
   if (error || !file) {
     return (
-      <Layout>
-        <div className="container-fluid py-4">
-          <div className="alert alert-danger">
-            {error || 'File not found'}
-          </div>
-          <button className="btn btn-secondary" onClick={() => navigate(-1)}>
-            Go Back
-          </button>
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          {error || 'File not found'}
         </div>
-      </Layout>
+        <button className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300" onClick={() => navigate(-1)}>
+          Go Back
+        </button>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="container-fluid py-4">
+    <div className="p-4 md:p-6">
         {/* Header */}
         <div className="row mb-4">
           <div className="col">
@@ -290,23 +291,6 @@ const FileDetailDMS = () => {
           )}
         </div>
       </div>
-
-      {/* Mobile Styles */}
-      <style jsx>{`
-        @media (max-width: 768px) {
-          .container-fluid {
-            padding-bottom: 80px;
-          }
-          .nav-tabs {
-            flex-wrap: nowrap;
-            overflow-x: auto;
-          }
-          .nav-tabs .nav-link {
-            white-space: nowrap;
-          }
-        }
-      `}</style>
-    </Layout>
   );
 };
 

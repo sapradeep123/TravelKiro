@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const Inbox = () => {
   const { user } = useAuth();
@@ -9,8 +10,10 @@ const Inbox = () => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [folders, setFolders] = useState([]);
   const [targetFolder, setTargetFolder] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState('unprocessed'); // all, unprocessed, processed
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [filter, setFilter] = useState('unprocessed');
+  const [error, setError] = useState(null);
 
   const accountId = user?.default_account_id || user?.accounts?.[0]?.id;
 
@@ -24,7 +27,9 @@ const Inbox = () => {
 
   const loadInboxAddress = async () => {
     try {
-      const response = await axios.get(`/dms/inbox/address/${accountId}`);
+      const response = await api.get(`/v2/dms/inbox/address/${accountId}`, {
+        headers: { 'X-Account-Id': accountId }
+      });
       setInboxAddress(response.data.inbox_address);
     } catch (error) {
       console.error('Failed to load inbox address:', error);
@@ -33,22 +38,30 @@ const Inbox = () => {
 
   const loadEntries = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const params = { account_id: accountId };
       if (filter !== 'all') {
         params.is_processed = filter === 'processed';
       }
       
-      const response = await axios.get('/dms/inbox', { params });
+      const response = await api.get('/v2/dms/inbox', { 
+        params,
+        headers: { 'X-Account-Id': accountId }
+      });
       setEntries(response.data);
     } catch (error) {
       console.error('Failed to load inbox entries:', error);
+      setError('Failed to load inbox entries');
+    } finally {
+      setLoading(false);
     }
   };
 
   const loadFolders = async () => {
     try {
-      const response = await axios.get('/dms/folders', {
-        params: { account_id: accountId }
+      const response = await api.get('/v2/dms/folders', {
+        headers: { 'X-Account-Id': accountId }
       });
       setFolders(response.data);
     } catch (error) {
@@ -58,24 +71,26 @@ const Inbox = () => {
 
   const handleMoveToFolder = async (entryId) => {
     if (!targetFolder) {
-      alert('Please select a folder');
+      toast.error('Please select a folder');
       return;
     }
 
-    setLoading(true);
+    setProcessing(true);
     try {
-      await axios.post(`/dms/inbox/${entryId}/move`, {
+      await api.post(`/v2/dms/inbox/${entryId}/move`, {
         folder_id: targetFolder
+      }, {
+        headers: { 'X-Account-Id': accountId }
       });
       
-      alert('Attachments moved to folder successfully!');
+      toast.success('Attachments moved to folder successfully!');
       setSelectedEntry(null);
       setTargetFolder('');
       await loadEntries();
     } catch (error) {
-      alert('Failed to move attachments: ' + (error.response?.data?.detail || error.message));
+      toast.error('Failed to move attachments: ' + (error.response?.data?.detail || error.message));
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
@@ -83,20 +98,33 @@ const Inbox = () => {
     if (!confirm('Delete this inbox entry?')) return;
 
     try {
-      await axios.delete(`/dms/inbox/${entryId}`);
+      await api.delete(`/v2/dms/inbox/${entryId}`, {
+        headers: { 'X-Account-Id': accountId }
+      });
+      toast.success('Entry deleted');
       await loadEntries();
     } catch (error) {
-      alert('Failed to delete entry: ' + (error.response?.data?.detail || error.message));
+      toast.error('Failed to delete entry: ' + (error.response?.data?.detail || error.message));
     }
   };
 
   const copyInboxAddress = () => {
     navigator.clipboard.writeText(inboxAddress);
-    alert('Inbox address copied to clipboard!');
+    toast.success('Inbox address copied to clipboard!');
   };
 
+  if (!accountId) {
+    return (
+      <div className="p-6">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
+          No account assigned. Please contact your administrator.
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="p-4 md:p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-4">Inbox</h1>
         
@@ -145,9 +173,21 @@ const Inbox = () => {
         </div>
       </div>
 
+      {/* Error State */}
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex justify-between items-center">
+          <span>{error}</span>
+          <button onClick={loadEntries} className="text-sm underline">Retry</button>
+        </div>
+      )}
+
       {/* Inbox Entries */}
       <div className="space-y-4">
-        {entries.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : entries.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-lg">
             <p className="text-gray-500">No inbox entries</p>
           </div>
@@ -218,10 +258,10 @@ const Inbox = () => {
                       </select>
                       <button
                         onClick={() => handleMoveToFolder(entry.id)}
-                        disabled={loading || selectedEntry !== entry.id || !targetFolder}
+                        disabled={processing || selectedEntry !== entry.id || !targetFolder}
                         className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                       >
-                        Move
+                        {processing ? 'Moving...' : 'Move'}
                       </button>
                     </div>
                   )}

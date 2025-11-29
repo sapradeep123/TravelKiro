@@ -132,8 +132,23 @@ async def get_my_approvals(
     """Get pending approval steps for current user"""
     steps = await repository.get_my_pending_approvals(current_user.id, skip, limit)
     
+    from app.schemas.dms.schemas import ApprovalWorkflowSummary
+    
     result = []
     for step in steps:
+        workflow_summary = None
+        if step.workflow:
+            workflow_summary = ApprovalWorkflowSummary(
+                id=step.workflow.id,
+                file_id=step.workflow.file_id,
+                mode=step.workflow.mode.value,
+                resolution_text=step.workflow.resolution_text,
+                status=step.workflow.status.value,
+                file_name=step.workflow.file.name if step.workflow.file else "Unknown",
+                document_id=step.workflow.file.document_id if step.workflow.file else "Unknown",
+                initiator_username=step.workflow.initiator.username if step.workflow.initiator else "Unknown"
+            )
+        
         result.append(ApprovalStepDetail(
             id=step.id,
             workflow_id=step.workflow_id,
@@ -144,7 +159,8 @@ async def get_my_approvals(
             acted_at=step.acted_at,
             created_at=step.created_at,
             approver_username=step.approver.username,
-            approver_email=step.approver.email
+            approver_email=step.approver.email,
+            workflow=workflow_summary
         ))
     
     return result

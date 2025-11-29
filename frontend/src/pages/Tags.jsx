@@ -1,55 +1,80 @@
 import { useEffect, useState } from 'react'
 import { api } from '../services/api'
-import { Tag, Plus, Edit2, Trash2, Search } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { Tag, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function Tags() {
+  const { user } = useAuth()
   const [tags, setTags] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newTagName, setNewTagName] = useState('')
-  const [newTagColor, setNewTagColor] = useState('#16a34a')
+  const [error, setError] = useState(null)
+
+  const accountId = user?.default_account_id || user?.accounts?.[0]?.id
 
   useEffect(() => {
-    loadTags()
-  }, [])
+    if (accountId) {
+      loadTags()
+    } else if (user) {
+      // User loaded but no account - stop loading
+      setLoading(false)
+    }
+  }, [accountId, user])
 
   const loadTags = async () => {
     try {
       setLoading(true)
-      // Get all documents to extract unique tags
-      const response = await api.get('/v2/metadata?limit=99&offset=0')
-      const data = response.data
-      console.log('Tags API Response:', data) // Debug log
+      setError(null)
       
-      // Find the key that starts with "documents of "
-      const docsKey = Object.keys(data).find(key => key.startsWith('documents of '))
-      console.log('Tags - Found docsKey:', docsKey) // Debug log
-      const docs = docsKey ? (data[docsKey] || []) : []
-      console.log('Tags - Documents array:', docs) // Debug log
+      // Get files from DMS to extract tags
+      const response = await api.get('/v2/dms/files-dms', {
+        params: { limit: 500 },
+        headers: { 'X-Account-Id': accountId }
+      })
       
-      const allTags = [...new Set(docs.flatMap(doc => doc.tags || []))]
-      setTags(allTags.map(tag => ({ name: tag, count: docs.filter(d => d.tags && d.tags.includes(tag)).length })))
+      const files = response.data || []
+      
+      // Extract unique tags and count
+      const tagMap = new Map()
+      files.forEach(file => {
+        if (file.tags && Array.isArray(file.tags)) {
+          file.tags.forEach(tag => {
+            if (tag && tag.trim()) {
+              if (!tagMap.has(tag)) {
+                tagMap.set(tag, { name: tag, count: 0, files: [] })
+              }
+              tagMap.get(tag).count++
+              tagMap.get(tag).files.push({ id: file.id, name: file.name })
+            }
+          })
+        }
+      })
+      
+      const tagsList = Array.from(tagMap.values()).sort((a, b) => b.count - a.count)
+      setTags(tagsList)
     } catch (error) {
-      console.error('Tags load error:', error) // Debug log
-      toast.error('Failed to load tags: ' + (error.response?.data?.detail || error.message))
+      console.error('Tags load error:', error)
+      setError('Failed to load tags')
+      toast.error('Failed to load tags')
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredTags = tags.filter(tag =>
-    tag.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  if (loading) {
+  if (!accountId) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="p-6">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
+          No account assigned. Please contact your administrator.
+        </div>
       </div>
     )
   }
+
+  const filteredTags = tags.filter(tag =>
+    tag.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <div className="p-4 md:p-6">
@@ -57,9 +82,16 @@ export default function Tags() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-xl md:text-2xl font-semibold text-gray-900">Tags</h1>
-            <p className="text-sm text-gray-600 mt-1">{tags.length} tags</p>
+            <p className="text-sm text-gray-600 mt-1">{tags.length} tags (read-only from files)</p>
           </div>
         </div>
+
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex justify-between items-center">
+            <span>{error}</span>
+            <button onClick={loadTags} className="text-sm underline">Retry</button>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <div className="relative">
@@ -75,28 +107,31 @@ export default function Tags() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-        {filteredTags.map((tag) => (
-          <div key={tag.name} className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between">
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      ) : filteredTags.length === 0 ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+          <Tag className="mx-auto text-gray-400 mb-4" size={48} />
+          <p className="text-gray-500">{searchQuery ? 'No tags match your search' : 'No tags found'}</p>
+          <p className="text-sm text-gray-400 mt-2">Tags are created when you add them to files</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+          {filteredTags.map((tag) => (
+            <div key={tag.name} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Tag className="text-blue-600" size={20} />
                 </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">{tag.name}</h3>
-                  <p className="text-sm text-gray-500">{tag.count} documents</p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-gray-900 truncate">{tag.name}</h3>
+                  <p className="text-sm text-gray-500">{tag.count} {tag.count === 1 ? 'file' : 'files'}</p>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredTags.length === 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-          <Tag className="mx-auto text-gray-400 mb-4" size={48} />
-          <p className="text-gray-500">No tags found</p>
+          ))}
         </div>
       )}
     </div>

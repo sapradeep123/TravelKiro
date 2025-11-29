@@ -23,14 +23,18 @@ export default function Metadata() {
 
   const loadData = async () => {
     try {
+      setLoading(true)
       const [defsRes, sectionsRes] = await Promise.all([
         api.get('/v2/dms/metadata-dms/definitions', { headers: { 'X-Account-Id': accountId } }),
         api.get('/v2/dms/sections', { headers: { 'X-Account-Id': accountId } })
       ])
-      setDefinitions(defsRes.data)
-      setSections(sectionsRes.data)
+      setDefinitions(defsRes.data || [])
+      setSections(sectionsRes.data || [])
     } catch (error) {
-      toast.error('Failed to load metadata definitions')
+      console.error('Failed to load metadata:', error)
+      const detail = error.response?.data?.detail
+      const msg = typeof detail === 'string' ? detail : 'Failed to load metadata definitions'
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -66,7 +70,12 @@ export default function Metadata() {
       setEditingDef(null)
       loadData()
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save')
+      const detail = error.response?.data?.detail
+      let msg = 'Failed to save'
+      if (typeof detail === 'string') msg = detail
+      else if (Array.isArray(detail)) msg = detail.map(d => d.msg || d.message || String(d)).join(', ')
+      else if (detail && typeof detail === 'object') msg = detail.msg || detail.message || JSON.stringify(detail)
+      toast.error(msg)
     }
   }
 
@@ -80,7 +89,9 @@ export default function Metadata() {
       toast.success('Definition deleted')
       loadData()
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to delete')
+      const detail = error.response?.data?.detail
+      const msg = typeof detail === 'string' ? detail : 'Failed to delete'
+      toast.error(msg)
     }
   }
 

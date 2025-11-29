@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../services/api';
+import toast from 'react-hot-toast';
 
 const FileVersions = ({ fileId, accountId }) => {
   const [versions, setVersions] = useState([]);
@@ -10,17 +11,16 @@ const FileVersions = ({ fileId, accountId }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchVersions();
-  }, [fileId]);
+    if (fileId && accountId) {
+      fetchVersions();
+    }
+  }, [fileId, accountId]);
 
   const fetchVersions = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/dms/files-dms/${fileId}/versions`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'X-Account-Id': accountId
-        }
+      const response = await api.get(`/v2/dms/files-dms/${fileId}/versions`, {
+        headers: { 'X-Account-Id': accountId }
       });
       setVersions(response.data);
     } catch (err) {
@@ -40,12 +40,11 @@ const FileVersions = ({ fileId, accountId }) => {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      await axios.post(
-        `/dms/files-dms/${fileId}/versions?comment=${encodeURIComponent(comment)}`,
+      await api.post(
+        `/v2/dms/files-dms/${fileId}/versions?comment=${encodeURIComponent(comment)}`,
         formData,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'X-Account-Id': accountId,
             'Content-Type': 'multipart/form-data'
           }
@@ -54,6 +53,7 @@ const FileVersions = ({ fileId, accountId }) => {
 
       setSelectedFile(null);
       setComment('');
+      toast.success('Version uploaded');
       fetchVersions();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to upload version');
@@ -64,13 +64,10 @@ const FileVersions = ({ fileId, accountId }) => {
 
   const handleDownloadVersion = async (versionId, versionNumber) => {
     try {
-      const response = await axios.get(
-        `/dms/files-dms/${fileId}/versions/${versionId}/download`,
+      const response = await api.get(
+        `/v2/dms/files-dms/${fileId}/versions/${versionId}/download`,
         {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'X-Account-Id': accountId
-          },
+          headers: { 'X-Account-Id': accountId },
           responseType: 'blob'
         }
       );
@@ -82,8 +79,9 @@ const FileVersions = ({ fileId, accountId }) => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      toast.success('Download started');
     } catch (err) {
-      setError('Failed to download version');
+      toast.error('Failed to download version');
     }
   };
 
@@ -93,18 +91,13 @@ const FileVersions = ({ fileId, accountId }) => {
     }
 
     try {
-      await axios.post(
-        `/dms/files-dms/${fileId}/versions/${versionId}/restore`,
+      await api.post(
+        `/v2/dms/files-dms/${fileId}/versions/${versionId}/restore`,
         {},
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'X-Account-Id': accountId
-          }
-        }
+        { headers: { 'X-Account-Id': accountId } }
       );
+      toast.success('Version restored');
       fetchVersions();
-      alert('Version restored successfully');
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to restore version');
     }

@@ -60,7 +60,16 @@ const FileMetadata = ({ fileId, accountId }) => {
       toast.success('Metadata saved');
       setEditMode(false);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save metadata');
+      const detail = error.response?.data?.detail;
+      let errorMsg = 'Failed to save metadata';
+      if (typeof detail === 'string') {
+        errorMsg = detail;
+      } else if (Array.isArray(detail)) {
+        errorMsg = detail.map(d => d.msg || d.message || JSON.stringify(d)).join(', ');
+      } else if (detail && typeof detail === 'object') {
+        errorMsg = detail.msg || detail.message || JSON.stringify(detail);
+      }
+      toast.error(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -137,7 +146,7 @@ const FileMetadata = ({ fileId, accountId }) => {
         return (
           <input
             type="text"
-            value={value}
+            value={typeof value === 'object' ? JSON.stringify(value) : value}
             onChange={(e) => handleValueChange(def.id, e.target.value)}
             disabled={isDisabled}
             className="form-control"

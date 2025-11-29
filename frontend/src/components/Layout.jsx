@@ -11,12 +11,8 @@ import {
   RefreshCw,
   Users,
   Tag,
-  Hash,
-  Folder,
   FolderTree,
   List,
-  Star,
-  Mail,
   Settings,
   FileCheck,
   FileText as Logs,
@@ -70,15 +66,10 @@ export default function Layout() {
     { path: '/reminders', icon: RefreshCw, label: 'Reminders' },
   ]
 
+  // Only show modules with backend support
   const manageItems = [
-    { path: '/correspondents', icon: Users, label: 'Correspondents' },
-    { path: '/tags', icon: Tag, label: 'Tags' },
-    { path: '/document-types', icon: Hash, label: 'Document Types' },
-    { path: '/categories', icon: FolderTree, label: 'Categories' },
-    { path: '/storage-paths', icon: Folder, label: 'Storage Paths' },
-    { path: '/custom-fields', icon: List, label: 'Custom Fields' },
-    { path: '/templates', icon: Star, label: 'Templates' },
-    { path: '/mail', icon: Mail, label: 'Mail' },
+    { path: '/tags', icon: Tag, label: 'Tags' },  // Read-only from files
+    { path: '/metadata', icon: List, label: 'Metadata Fields' },  // Full CRUD support
   ]
 
   const adminItems = [

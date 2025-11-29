@@ -107,6 +107,7 @@ class ApprovalsRepository:
         ).options(
             selectinload(ApprovalStep.workflow).selectinload(ApprovalWorkflow.file),
             selectinload(ApprovalStep.workflow).selectinload(ApprovalWorkflow.initiator),
+            selectinload(ApprovalStep.workflow).selectinload(ApprovalWorkflow.steps).selectinload(ApprovalStep.approver),
             selectinload(ApprovalStep.approver)
         ).join(ApprovalWorkflow).where(
             ApprovalWorkflow.status == WorkflowStatus.pending

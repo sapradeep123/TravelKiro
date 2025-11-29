@@ -2,16 +2,22 @@ import { useEffect, useState } from 'react'
 import { api } from '../../services/api'
 import { Shield, Plus, Edit2, Trash2, Save, X, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function Roles() {
+  const { user } = useAuth()
   const [roles, setRoles] = useState([])
   const [modules, setModules] = useState([])
+  const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingRole, setEditingRole] = useState(null)
   const [showPermissions, setShowPermissions] = useState(null)
   const [permissions, setPermissions] = useState({})
+  
+  // Get current account_id from user context
+  const currentAccountId = user?.default_account_id || user?.accounts?.[0]?.id
 
   useEffect(() => {
     loadData()
@@ -19,12 +25,15 @@ export default function Roles() {
 
   const loadData = async () => {
     try {
-      const [rolesRes, modulesRes] = await Promise.all([
-        api.get('/v2/rbac/roles'),
-        api.get('/v2/rbac/modules')
+      const headers = currentAccountId ? { 'X-Account-Id': currentAccountId } : {}
+      const [rolesRes, modulesRes, accountsRes] = await Promise.all([
+        api.get('/v2/rbac/roles', { headers }),
+        api.get('/v2/rbac/modules', { headers }),
+        api.get('/v2/rbac/accounts', { headers })
       ])
       setRoles(rolesRes.data)
       setModules(modulesRes.data)
+      setAccounts(accountsRes.data)
     } catch (error) {
       toast.error('Failed to load data')
     } finally {
@@ -54,7 +63,12 @@ export default function Roles() {
   }
 
   const handleCreateRole = () => {
-    setEditingRole({ name: '', description: '', account_id: null })
+    // Pre-fill account_id with current account or first available
+    setEditingRole({ 
+      name: '', 
+      description: '', 
+      account_id: currentAccountId || (accounts.length > 0 ? accounts[0].id : null)
+    })
     setShowModal(true)
   }
 
@@ -65,21 +79,37 @@ export default function Roles() {
 
   const handleSaveRole = async () => {
     try {
+      const headers = currentAccountId ? { 'X-Account-Id': currentAccountId } : {}
+      
       if (editingRole.id) {
         await api.patch(`/v2/rbac/roles/${editingRole.id}`, {
           name: editingRole.name,
           description: editingRole.description
-        })
+        }, { headers })
         toast.success('Role updated successfully')
       } else {
-        await api.post('/v2/rbac/roles', editingRole)
+        // Validate account_id for new roles
+        if (!editingRole.account_id) {
+          toast.error('Please select an account for this role')
+          return
+        }
+        await api.post('/v2/rbac/roles', {
+          name: editingRole.name,
+          description: editingRole.description,
+          account_id: editingRole.account_id
+        }, { headers })
         toast.success('Role created successfully')
       }
       setShowModal(false)
       setEditingRole(null)
       loadData()
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save role')
+      const detail = error.response?.data?.detail
+      if (detail?.includes('Account') || detail?.includes('account')) {
+        toast.error('Account ID is required. Please select an account.')
+      } else {
+        toast.error(detail || 'Failed to save role')
+      }
     }
   }
 
@@ -194,6 +224,9 @@ export default function Roles() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                   Description
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                  Account
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -215,6 +248,12 @@ export default function Roles() {
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell">
                     <div className="text-sm text-gray-600">{role.description || '-'}</div>
+                  </td>
+                  <td className="px-6 py-4 hidden lg:table-cell">
+                    <div className="text-sm text-gray-600">
+                      {accounts.find(a => a.id === role.account_id)?.name || 
+                       (role.account_id ? role.account_id.slice(0, 8) + '...' : 'Global')}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
@@ -281,6 +320,29 @@ export default function Roles() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </div>
+              {/* Account selection - only for new roles */}
+              {!editingRole?.id && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Account <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={editingRole?.account_id || ''}
+                    onChange={(e) => setEditingRole({ ...editingRole, account_id: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  >
+                    <option value="">Select an account</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!editingRole?.account_id && (
+                    <p className="text-xs text-red-500 mt-1">Account is required for new roles</p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex gap-2 mt-6">
               <button

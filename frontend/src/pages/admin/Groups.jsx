@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../services/api'
 import { Users, Plus, Edit2, Trash2, Save, X, Search, UserPlus, UserMinus } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
 export default function Groups() {
+  const { user } = useAuth()
   const [groups, setGroups] = useState([])
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -14,15 +16,20 @@ export default function Groups() {
   const [groupMembers, setGroupMembers] = useState([])
   const [availableUsers, setAvailableUsers] = useState([])
 
+  const accountId = user?.default_account_id || user?.accounts?.[0]?.id
+
   useEffect(() => {
-    loadData()
-  }, [])
+    if (accountId) {
+      loadData()
+    }
+  }, [accountId])
 
   const loadData = async () => {
     try {
+      const headers = { 'X-Account-Id': accountId }
       const [groupsRes, usersRes] = await Promise.all([
-        api.get('/v2/rbac/groups'),
-        api.get('/v2/rbac/users')
+        api.get('/v2/rbac/groups', { headers }),
+        api.get('/v2/rbac/users', { headers })
       ])
       setGroups(groupsRes.data)
       setUsers(usersRes.data)
@@ -35,9 +42,9 @@ export default function Groups() {
 
   const loadGroupMembers = async (groupId) => {
     try {
-      const group = groups.find(g => g.id === groupId)
+      const headers = { 'X-Account-Id': accountId }
       // Get group details with members
-      const response = await api.get(`/v2/rbac/groups/${groupId}`)
+      const response = await api.get(`/v2/rbac/groups/${groupId}`, { headers })
       const members = response.data.users || []
       setGroupMembers(members)
       
@@ -53,7 +60,7 @@ export default function Groups() {
   }
 
   const handleCreateGroup = () => {
-    setEditingGroup({ name: '', description: '', account_id: null })
+    setEditingGroup({ name: '', description: '', account_id: accountId })
     setShowModal(true)
   }
 
@@ -64,14 +71,15 @@ export default function Groups() {
 
   const handleSaveGroup = async () => {
     try {
+      const headers = { 'X-Account-Id': accountId }
       if (editingGroup.id) {
         await api.patch(`/v2/rbac/groups/${editingGroup.id}`, {
           name: editingGroup.name,
           description: editingGroup.description
-        })
+        }, { headers })
         toast.success('Group updated successfully')
       } else {
-        await api.post('/v2/rbac/groups', editingGroup)
+        await api.post('/v2/rbac/groups', editingGroup, { headers })
         toast.success('Group created successfully')
       }
       setShowModal(false)
@@ -86,7 +94,8 @@ export default function Groups() {
     if (!confirm('Delete this group? This cannot be undone.')) return
 
     try {
-      await api.delete(`/v2/rbac/groups/${groupId}`)
+      const headers = { 'X-Account-Id': accountId }
+      await api.delete(`/v2/rbac/groups/${groupId}`, { headers })
       toast.success('Group deleted successfully')
       loadData()
     } catch (error) {
@@ -96,10 +105,11 @@ export default function Groups() {
 
   const handleAddUser = async (userId) => {
     try {
+      const headers = { 'X-Account-Id': accountId }
       await api.post('/v2/rbac/groups/assign-user', {
         user_id: userId,
         group_id: showMembers
-      })
+      }, { headers })
       toast.success('User added to group')
       loadGroupMembers(showMembers)
     } catch (error) {
@@ -109,7 +119,9 @@ export default function Groups() {
 
   const handleRemoveUser = async (userId) => {
     try {
+      const headers = { 'X-Account-Id': accountId }
       await api.delete('/v2/rbac/groups/unassign-user', {
+        headers,
         data: {
           user_id: userId,
           group_id: showMembers
@@ -126,6 +138,16 @@ export default function Groups() {
     group.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     group.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  if (!accountId) {
+    return (
+      <div className="p-6">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
+          No account assigned. Please contact your administrator.
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

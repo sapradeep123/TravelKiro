@@ -25,16 +25,19 @@ const MyReminders = () => {
       setError(null);
       const params = filter === 'due' ? { due: 'now' } : { due: 'all' };
       
-      const response = await api.get('/v2/dms/files-dms/reminders/me', {
+      const response = await api.get('/v2/dms/reminders/me', {
         params,
         headers: { 'X-Account-Id': accountId }
       });
-      setReminders(response.data);
+      setReminders(response.data || []);
     } catch (err) {
       if (err.response?.status === 403) {
         setError('You do not have permission to view reminders');
+      } else if (err.response?.status === 404) {
+        // Endpoint not found - backend may need restart
+        setReminders([]);
       } else {
-        setError('Failed to load reminders');
+        setError('Failed to load reminders. Please try again.');
       }
       console.error(err);
     } finally {
@@ -44,7 +47,7 @@ const MyReminders = () => {
 
   const handleDismiss = async (reminderId) => {
     try {
-      await api.patch(`/v2/dms/files-dms/reminders/${reminderId}`, 
+      await api.patch(`/v2/dms/reminders/${reminderId}`, 
         { status: 'dismissed' },
         { headers: { 'X-Account-Id': accountId } }
       );
@@ -145,7 +148,7 @@ const MyReminders = () => {
 
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex justify-between items-center">
-          <span>{error}</span>
+          <span>{typeof error === 'string' ? error : 'An error occurred'}</span>
           <button onClick={fetchReminders} className="text-sm underline">Retry</button>
         </div>
       )}

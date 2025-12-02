@@ -19,6 +19,7 @@ import FileDetailDMS from './pages/FileDetailDMS'
 import FolderDetailDMS from './pages/FolderDetailDMS'
 import Inbox from './pages/Inbox'
 import MyApprovals from './pages/MyApprovals'
+import ApprovalDashboard from './pages/ApprovalDashboard'
 import MyReminders from './pages/MyReminders'
 import Profile from './pages/Profile'
 import RecycleBin from './pages/RecycleBin'
@@ -71,6 +72,7 @@ function App() {
             <Route path="folders/:folderId" element={<FolderDetailDMS />} />
             <Route path="inbox" element={<Inbox />} />
             <Route path="approvals" element={<MyApprovals />} />
+            <Route path="approval-dashboard" element={<ApprovalDashboard />} />
             <Route path="reminders" element={<MyReminders />} />
             <Route path="profile" element={<Profile />} />
             <Route path="recycle-bin" element={<RecycleBin />} />

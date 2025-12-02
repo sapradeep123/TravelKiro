@@ -23,10 +23,10 @@ const FileReminders = ({ fileId, accountId }) => {
   const fetchReminders = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/v2/dms/files-dms/${fileId}/reminders`, {
+      const response = await api.get(`/v2/dms/reminders/file/${fileId}`, {
         headers: { 'X-Account-Id': accountId }
       });
-      setReminders(response.data);
+      setReminders(response.data || []);
     } catch (err) {
       setError('Failed to load reminders');
       console.error(err);
@@ -49,9 +49,15 @@ const FileReminders = ({ fileId, accountId }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Convert datetime-local to ISO string
+      const payload = {
+        ...formData,
+        remind_at: new Date(formData.remind_at).toISOString()
+      };
+      
       await api.post(
-        `/v2/dms/files-dms/${fileId}/reminders`,
-        formData,
+        `/v2/dms/reminders/file/${fileId}`,
+        payload,
         { headers: { 'X-Account-Id': accountId } }
       );
       toast.success('Reminder created');
@@ -59,7 +65,19 @@ const FileReminders = ({ fileId, accountId }) => {
       setShowForm(false);
       fetchReminders();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create reminder');
+      // Handle validation errors (422) which come as array
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        const errorMsg = detail.map(e => e.msg || e.message || JSON.stringify(e)).join(', ');
+        setError(errorMsg);
+        toast.error(errorMsg);
+      } else if (typeof detail === 'string') {
+        setError(detail);
+        toast.error(detail);
+      } else {
+        setError('Failed to create reminder');
+        toast.error('Failed to create reminder');
+      }
     }
   };
 
@@ -69,7 +87,7 @@ const FileReminders = ({ fileId, accountId }) => {
     }
 
     try {
-      await api.delete(`/v2/dms/files-dms/reminders/${reminderId}`, {
+      await api.delete(`/v2/dms/reminders/${reminderId}`, {
         headers: { 'X-Account-Id': accountId }
       });
       toast.success('Reminder deleted');
@@ -82,7 +100,7 @@ const FileReminders = ({ fileId, accountId }) => {
   const handleDismiss = async (reminderId) => {
     try {
       await api.patch(
-        `/v2/dms/files-dms/reminders/${reminderId}`,
+        `/v2/dms/reminders/${reminderId}`,
         { status: 'dismissed' },
         { headers: { 'X-Account-Id': accountId } }
       );
@@ -118,7 +136,7 @@ const FileReminders = ({ fileId, accountId }) => {
     <div className="space-y-6">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
-          <span>{error}</span>
+          <span>{typeof error === 'string' ? error : JSON.stringify(error)}</span>
           <button onClick={() => setError(null)} className="text-red-700 hover:text-red-900">
             <X size={18} />
           </button>
@@ -128,7 +146,10 @@ const FileReminders = ({ fileId, accountId }) => {
       {/* Add Reminder Button */}
       <button
         className="btn-primary flex items-center space-x-2"
-        onClick={() => setShowForm(!showForm)}
+        onClick={() => {
+          setShowForm(!showForm);
+          setError(null);
+        }}
       >
         <Plus size={18} />
         <span>{showForm ? 'Cancel' : 'Add Reminder'}</span>

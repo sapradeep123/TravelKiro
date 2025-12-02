@@ -7,6 +7,7 @@ import FileReminders from '../components/FileReminders';
 import FileMetadata from '../components/FileMetadata';
 import SecureViewer from '../components/SecureViewer';
 import FileAccessControl from '../components/FileAccessControl';
+import StartApprovalWorkflow from '../components/StartApprovalWorkflow';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { 
@@ -24,7 +25,8 @@ import {
   KeyRound,
   ShieldCheck,
   ShieldOff,
-  Users
+  Users,
+  PlayCircle
 } from 'lucide-react';
 
 const FileDetailDMS = () => {
@@ -39,6 +41,7 @@ const FileDetailDMS = () => {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [encryptionEnabled, setEncryptionEnabled] = useState(false);
   const [encryptionLoading, setEncryptionLoading] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
   const accountId = user?.default_account_id || user?.accounts?.[0]?.id;
 
   useEffect(() => {
@@ -400,43 +403,50 @@ const FileDetailDMS = () => {
 
             <div>
               <h4 className="text-md font-medium text-gray-900 mb-3">Quick Actions</h4>
-              <div className="flex flex-wrap gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                 {canPreview && (
                   <button 
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2" 
+                    className="bg-green-600 text-white px-3 py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 text-sm" 
                     onClick={handleSecureView}
                   >
-                    <Shield size={18} />
+                    <Shield size={16} />
                     <span>Secure View</span>
                   </button>
                 )}
                 <button 
-                  className="btn-secondary flex items-center space-x-2" 
+                  className="btn-secondary flex items-center justify-center space-x-2 text-sm px-3 py-2.5" 
                   onClick={handleDownload}
                 >
-                  <Download size={18} />
+                  <Download size={16} />
                   <span>Download</span>
                 </button>
                 <button 
-                  className="btn-secondary flex items-center space-x-2" 
+                  className="btn-secondary flex items-center justify-center space-x-2 text-sm px-3 py-2.5" 
                   onClick={() => setActiveTab('versions')}
                 >
-                  <Clock size={18} />
-                  <span>View Versions</span>
+                  <Clock size={16} />
+                  <span>Versions</span>
                 </button>
                 <button 
-                  className="btn-secondary flex items-center space-x-2" 
+                  className="btn-secondary flex items-center justify-center space-x-2 text-sm px-3 py-2.5" 
                   onClick={() => setActiveTab('lock')}
                 >
-                  <Lock size={18} />
-                  <span>Manage Lock</span>
+                  <Lock size={16} />
+                  <span>Lock</span>
                 </button>
                 <button 
-                  className="btn-secondary flex items-center space-x-2" 
+                  className="btn-secondary flex items-center justify-center space-x-2 text-sm px-3 py-2.5" 
                   onClick={() => setActiveTab('reminders')}
                 >
-                  <Bell size={18} />
-                  <span>Set Reminder</span>
+                  <Bell size={16} />
+                  <span>Reminder</span>
+                </button>
+                <button 
+                  className="bg-orange-600 text-white px-3 py-2.5 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center space-x-2 text-sm" 
+                  onClick={() => setShowApprovalModal(true)}
+                >
+                  <PlayCircle size={16} />
+                  <span>Approval</span>
                 </button>
               </div>
             </div>
@@ -488,6 +498,20 @@ const FileDetailDMS = () => {
           mimeType={file.mime_type}
           accountId={accountId}
           onClose={() => setShowSecureViewer(false)}
+        />
+      )}
+
+      {/* Start Approval Workflow Modal */}
+      {showApprovalModal && (
+        <StartApprovalWorkflow
+          fileId={fileId}
+          fileName={file.name}
+          accountId={accountId}
+          onClose={() => setShowApprovalModal(false)}
+          onSuccess={() => {
+            toast.success('Approval workflow started successfully');
+            fetchFileDetails();
+          }}
         />
       )}
     </div>

@@ -62,7 +62,7 @@ export default function Layout() {
 
   const savedViews = [
     { path: '/inbox', icon: Inbox, label: 'Inbox' },
-    { path: '/approvals', icon: FileCheck, label: 'Approvals' },
+    { path: '/approval-dashboard', icon: FileCheck, label: 'Approvals' },
     { path: '/reminders', icon: RefreshCw, label: 'Reminders' },
   ]
 

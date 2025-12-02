@@ -19,7 +19,10 @@ import {
   Tag,
   ExternalLink,
   ScanLine,
-  Shield
+  Shield,
+  KeyRound,
+  ShieldCheck,
+  ShieldOff
 } from 'lucide-react';
 
 const FileDetailDMS = () => {
@@ -32,6 +35,8 @@ const FileDetailDMS = () => {
   const [error, setError] = useState(null);
   const [showSecureViewer, setShowSecureViewer] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [encryptionEnabled, setEncryptionEnabled] = useState(false);
+  const [encryptionLoading, setEncryptionLoading] = useState(false);
   const accountId = user?.default_account_id || user?.accounts?.[0]?.id;
 
   useEffect(() => {
@@ -62,6 +67,7 @@ const FileDetailDMS = () => {
       }
       
       setFile(fileData);
+      setEncryptionEnabled(fileData.is_encrypted || false);
     } catch (err) {
       setError('Failed to load file details');
       console.error(err);
@@ -70,7 +76,35 @@ const FileDetailDMS = () => {
     }
   };
 
+  const handleToggleEncryption = async () => {
+    try {
+      setEncryptionLoading(true);
+      const newState = !encryptionEnabled;
+      
+      await api.patch(`/v2/dms/files-dms/${fileId}`, {
+        is_encrypted: newState
+      }, {
+        headers: { 'X-Account-Id': accountId }
+      });
+      
+      setEncryptionEnabled(newState);
+      toast.success(newState 
+        ? 'Document encryption enabled. Downloads will be encrypted.' 
+        : 'Document encryption disabled.'
+      );
+    } catch (err) {
+      toast.error('Failed to update encryption settings');
+    } finally {
+      setEncryptionLoading(false);
+    }
+  };
+
   const handleDownload = async () => {
+    if (encryptionEnabled) {
+      toast.error('This document is encrypted and can only be viewed within DocFlow. Use Secure View instead.');
+      return;
+    }
+    
     try {
       const response = await api.get(`/v2/dms/files-dms/${fileId}/download`, {
         headers: { 'X-Account-Id': accountId },
@@ -249,6 +283,63 @@ const FileDetailDMS = () => {
                 <p className="text-gray-900">{file.notes}</p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* SHA Hash & Encryption Section */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* SHA-256 Hash */}
+            <div>
+              <p className="text-sm text-gray-500 flex items-center space-x-1">
+                <KeyRound size={14} />
+                <span>SHA-256 Hash (File Integrity):</span>
+              </p>
+              <p className="text-gray-900 font-mono text-xs mt-1 break-all bg-gray-50 p-2 rounded">
+                {file.file_hash || 'Not available'}
+              </p>
+            </div>
+
+            {/* Encryption Toggle */}
+            <div>
+              <p className="text-sm text-gray-500 mb-2 flex items-center space-x-1">
+                <Shield size={14} />
+                <span>Document Encryption:</span>
+              </p>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleToggleEncryption}
+                  disabled={encryptionLoading}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    encryptionEnabled ? 'bg-green-600' : 'bg-gray-300'
+                  } ${encryptionLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      encryptionEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm font-medium ${encryptionEnabled ? 'text-green-700' : 'text-gray-600'}`}>
+                  {encryptionEnabled ? (
+                    <span className="flex items-center space-x-1">
+                      <ShieldCheck size={16} />
+                      <span>Encrypted (DocFlow Only)</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center space-x-1">
+                      <ShieldOff size={16} />
+                      <span>Not Encrypted</span>
+                    </span>
+                  )}
+                </span>
+              </div>
+              {encryptionEnabled && (
+                <p className="text-xs text-green-600 mt-2">
+                  ⚠️ Downloads will be encrypted. Document can only be viewed in DocFlow.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

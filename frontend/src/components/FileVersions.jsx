@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { Upload, Download, RotateCcw, X } from 'lucide-react';
+import { Upload, Download, RotateCcw, X, KeyRound, Copy, Check } from 'lucide-react';
 
-const FileVersions = ({ fileId, accountId }) => {
+const FileVersions = ({ fileId, accountId, currentFileHash }) => {
   const [versions, setVersions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [comment, setComment] = useState('');
   const [error, setError] = useState(null);
+  const [copiedHash, setCopiedHash] = useState(null);
 
   useEffect(() => {
     if (fileId && accountId) {
@@ -114,6 +115,17 @@ const FileVersions = ({ fileId, accountId }) => {
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   };
 
+  const copyHash = async (hash, id) => {
+    try {
+      await navigator.clipboard.writeText(hash);
+      setCopiedHash(id);
+      toast.success('SHA-256 hash copied to clipboard');
+      setTimeout(() => setCopiedHash(null), 2000);
+    } catch (err) {
+      toast.error('Failed to copy hash');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -176,50 +188,77 @@ const FileVersions = ({ fileId, accountId }) => {
         {versions.length === 0 ? (
           <p className="text-gray-500">No versions available</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Version</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Date</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Size</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Comment</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {versions.map((version) => (
-                  <tr key={version.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <span className="font-semibold text-gray-900">v{version.version_number}</span>
-                    </td>
-                    <td className="py-3 px-4 text-gray-600 text-sm">{formatDate(version.created_at)}</td>
-                    <td className="py-3 px-4 text-gray-600 text-sm">{formatSize(version.size_bytes)}</td>
-                    <td className="py-3 px-4 text-gray-600 text-sm">
-                      {version.comment || <span className="text-gray-400">-</span>}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-2">
+          <div className="space-y-4">
+            {versions.map((version, index) => (
+              <div 
+                key={version.id} 
+                className={`p-4 rounded-lg border ${
+                  index === 0 ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <span className={`font-bold ${index === 0 ? 'text-green-700' : 'text-gray-900'}`}>
+                        v{version.version_number}
+                      </span>
+                      {index === 0 && (
+                        <span className="px-2 py-0.5 bg-green-600 text-white text-xs rounded-full font-medium">
+                          CURRENT
+                        </span>
+                      )}
+                      <span className="text-gray-500 text-sm">{formatDate(version.created_at)}</span>
+                      <span className="text-gray-500 text-sm">• {formatSize(version.size_bytes)}</span>
+                    </div>
+                    
+                    {version.comment && (
+                      <p className="text-gray-600 text-sm mb-2">{version.comment}</p>
+                    )}
+                    
+                    {/* SHA-256 Hash */}
+                    <div className="flex items-center space-x-2 mt-2">
+                      <KeyRound size={14} className="text-gray-400" />
+                      <span className="text-xs text-gray-500">SHA-256:</span>
+                      <code className="text-xs font-mono bg-white px-2 py-1 rounded border text-gray-700">
+                        {version.file_hash ? `${version.file_hash.substring(0, 16)}...${version.file_hash.substring(version.file_hash.length - 8)}` : 'N/A'}
+                      </code>
+                      {version.file_hash && (
                         <button
-                          className="text-blue-600 hover:text-blue-700 p-1 rounded hover:bg-blue-50 flex items-center space-x-1 text-sm"
-                          onClick={() => handleDownloadVersion(version.id, version.version_number)}
+                          onClick={() => copyHash(version.file_hash, version.id)}
+                          className="p-1 hover:bg-gray-200 rounded"
+                          title="Copy full hash"
                         >
-                          <Download size={16} />
-                          <span>Download</span>
+                          {copiedHash === version.id ? (
+                            <Check size={14} className="text-green-600" />
+                          ) : (
+                            <Copy size={14} className="text-gray-400" />
+                          )}
                         </button>
-                        <button
-                          className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-50 flex items-center space-x-1 text-sm"
-                          onClick={() => handleRestoreVersion(version.id)}
-                        >
-                          <RotateCcw size={16} />
-                          <span>Restore</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 ml-4">
+                    <button
+                      className="text-blue-600 hover:text-blue-700 p-2 rounded hover:bg-blue-100 flex items-center space-x-1 text-sm"
+                      onClick={() => handleDownloadVersion(version.id, version.version_number)}
+                      title="Download this version"
+                    >
+                      <Download size={16} />
+                    </button>
+                    {index !== 0 && (
+                      <button
+                        className="text-green-600 hover:text-green-700 p-2 rounded hover:bg-green-100 flex items-center space-x-1 text-sm"
+                        onClick={() => handleRestoreVersion(version.id)}
+                        title="Restore this version"
+                      >
+                        <RotateCcw size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

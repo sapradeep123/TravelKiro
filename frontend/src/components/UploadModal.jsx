@@ -1,29 +1,41 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { api } from '../services/api'
-import { Upload, X, File, Loader, Folder, FolderPlus } from 'lucide-react'
+import { Upload, X, File, Loader } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function UploadModal({ onClose, onSuccess, defaultFolder = null }) {
+  const { user } = useAuth()
   const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState({})
   const [tags, setTags] = useState('')
-  const [category, setCategory] = useState('')
-  const [categories, setCategories] = useState([])
-  const [showNewCategory, setShowNewCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
+  
+  // Section and Folder state
+  const [section, setSection] = useState('')
+  const [sections, setSections] = useState([])
   const [folder, setFolder] = useState(defaultFolder || '')
   const [folders, setFolders] = useState([])
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
+  
   const [customMetadata, setCustomMetadata] = useState({})
   const [newMetadataKey, setNewMetadataKey] = useState('')
   const [newMetadataValue, setNewMetadataValue] = useState('')
 
   useEffect(() => {
-    loadCategoriesAndFolders()
+    loadSections()
   }, [])
+  
+  useEffect(() => {
+    // Load folders when section changes
+    if (section) {
+      loadFoldersForSection(section)
+    } else {
+      setFolders([])
+      setFolder('')
+    }
+  }, [section])
 
   useEffect(() => {
     // Set default folder if provided (separate effect to handle updates)
@@ -40,31 +52,45 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
     }
   }, [defaultFolder])
 
-  const loadCategoriesAndFolders = async () => {
-    try {
-      // First, load existing documents to extract categories
-      const metaResponse = await api.get('/v2/metadata?limit=99&offset=0')
-      const metaData = metaResponse.data
-      const docsKey = Object.keys(metaData).find(key => key.startsWith('documents of '))
-      const docs = docsKey ? (metaData[docsKey] || []) : []
-      
-      const uniqueCategories = [...new Set(docs.flatMap(doc => doc.categories || []).filter(Boolean))]
-      setCategories(uniqueCategories.sort())
+  const getAccountId = () => {
+    return user?.default_account_id || user?.accounts?.[0]?.id
+  }
 
-      // Then, load logical folders from backend (independent of documents)
-      const foldersResponse = await api.get('/v2/folders')
-      const folderData = foldersResponse.data || []
-      const folderPaths = folderData.map(f => f.path).sort()
-      setFolders(folderPaths)
+  const loadSections = async () => {
+    try {
+      // Load sections from DMS
+      const accountId = getAccountId()
+      if (accountId) {
+        const sectionsResponse = await api.get('/v2/dms/sections', {
+          headers: { 'X-Account-Id': accountId }
+        })
+        setSections(sectionsResponse.data || [])
+      }
     } catch (error) {
-      console.error('Failed to load categories and folders:', error)
+      console.error('Failed to load sections:', error)
+    }
+  }
+  
+  const loadFoldersForSection = async (sectionId) => {
+    try {
+      const accountId = getAccountId()
+      if (!accountId) return
+      
+      const response = await api.get('/v2/dms/folders-dms', {
+        params: { section_id: sectionId },
+        headers: { 'X-Account-Id': accountId }
+      })
+      setFolders(response.data || [])
+    } catch (error) {
+      console.error('Failed to load folders for section:', error)
+      setFolders([])
     }
   }
 
   const onDrop = useCallback((acceptedFiles) => {
     setFiles(prev => [...prev, ...acceptedFiles.map(file => ({
       file,
-      id: Math.random().toString(36).substr(2, 9)
+      id: Math.random().toString(36).substring(2, 11)
     }))])
   }, [])
 
@@ -96,45 +122,39 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
     })
   }
 
-  const handleAddCategory = () => {
-    if (!newCategoryName.trim()) {
-      toast.error('Please enter a category name')
-      return
-    }
-    
-    const trimmedCategory = newCategoryName.trim()
-    if (categories.includes(trimmedCategory)) {
-      toast.error('Category already exists')
-      return
-    }
-    
-    setCategories([...categories, trimmedCategory].sort())
-    setCategory(trimmedCategory)
-    setNewCategoryName('')
-    setShowNewCategory(false)
-    toast.success('Category added')
-  }
-
-  const handleAddFolder = () => {
+  const handleAddFolder = async () => {
     if (!newFolderName.trim()) {
       toast.error('Please enter a folder name')
       return
     }
     
-    const trimmedFolder = newFolderName.trim()
-    // If a folder is already selected, create a sub-folder
-    const fullPath = folder ? `${folder}/${trimmedFolder}` : trimmedFolder
-    
-    if (folders.includes(fullPath)) {
-      toast.error('Folder already exists')
+    if (!section) {
+      toast.error('Please select a section first')
       return
     }
     
-    setFolders([...folders, fullPath].sort())
-    setFolder(fullPath)
-    setNewFolderName('')
-    setShowNewFolder(false)
-    toast.success(`Folder "${fullPath}" will be created when you upload`)
+    try {
+      const accountId = getAccountId()
+      const folderData = {
+        name: newFolderName.trim(),
+        account_id: accountId,
+        section_id: section,
+        parent_folder_id: folder || null
+      }
+      
+      const response = await api.post('/v2/dms/folders-dms', folderData, {
+        headers: { 'X-Account-Id': accountId }
+      })
+      
+      // Reload folders for this section
+      await loadFoldersForSection(section)
+      setFolder(response.data.id)
+      setNewFolderName('')
+      setShowNewFolder(false)
+      toast.success('Folder created successfully')
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to create folder')
+    }
   }
 
   const handleUpload = async () => {
@@ -143,63 +163,60 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
       return
     }
 
-    if (!category || !category.trim()) {
-      toast.error('Please select or create a category. Categories are required for standardization.')
+    if (!section) {
+      toast.error('Please select a section')
+      return
+    }
+
+    if (!folder) {
+      toast.error('Please select a folder')
       return
     }
 
     setUploading(true)
-    const formData = new FormData()
-    
-    files.forEach(({ file }) => {
-      formData.append('files', file)
-    })
-
-    // Add folder if specified
-    if (folder && folder.trim()) {
-      formData.append('folder', folder.trim())
-      console.log('Uploading to folder:', folder.trim())
-    } else {
-      console.log('Uploading to root (no folder)')
-    }
 
     try {
-      const response = await api.post('/v2/upload', formData, {
+      const accountId = getAccountId()
+      const formData = new FormData()
+      
+      // Add all files to the form data
+      files.forEach(({ file }) => {
+        formData.append('files', file)
+      })
+      
+      // Upload to DMS system
+      const response = await api.post(`/v2/dms/files-dms/upload?folder_id=${folder}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'X-Account-Id': accountId
         },
       })
 
-      // Update metadata with tags, category, folder path and custom metadata
-      const uploadedDocs = Array.isArray(response.data) ? response.data : [response.data]
-      for (const doc of uploadedDocs) {
-        const updateData = {}
-        
-        // Category is required
-        if (category) {
-          updateData.categories = [category.trim()]
-        }
-        
-        if (tags) {
-          updateData.tags = tags.split(',').map(t => t.trim()).filter(Boolean)
-        }
-        
-        // Include folder path in custom_metadata for easier folder-document mapping
-        const meta = { ...customMetadata }
-        if (folder && folder.trim()) {
-          meta.folder_path = folder.trim()
-        }
-        if (Object.keys(meta).length > 0) {
-          updateData.custom_metadata = meta
-        }
-        
-        if (Object.keys(updateData).length > 0) {
-          await api.put(`/v2/metadata/${doc.name}`, updateData)
+      // Update metadata with tags if specified
+      if (tags && response.data.uploaded) {
+        const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
+        for (const uploadedFile of response.data.uploaded) {
+          try {
+            await api.patch(`/v2/dms/files-dms/${uploadedFile.file_id}`, {
+              tags: tagList
+            }, {
+              headers: { 'X-Account-Id': accountId }
+            })
+          } catch (err) {
+            console.error('Failed to update tags:', err)
+          }
         }
       }
 
-      toast.success(`Successfully uploaded ${files.length} file(s)${folder ? ` to folder "${folder}"` : ''}`)
-      console.log('Upload successful, response:', response.data)
+      const folderName = folders.find(f => f.id === folder)?.name || 'selected folder'
+      const sectionName = sections.find(s => s.id === section)?.name || 'selected section'
+      
+      toast.success(`Successfully uploaded ${response.data.success_count} file(s) to ${sectionName} / ${folderName}`)
+      
+      if (response.data.fail_count > 0) {
+        toast.error(`${response.data.fail_count} file(s) failed to upload`)
+      }
+      
       onSuccess()
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Upload failed')
@@ -272,70 +289,33 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
             </div>
           )}
 
-          {/* Category - Required */}
+          {/* Section - Required */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category <span className="text-red-500">*</span>
+              Section <span className="text-red-500">*</span>
             </label>
-            <div className="flex space-x-2">
-              <select
-                value={category}
-                onChange={(e) => {
-                  if (e.target.value === '__new__') {
-                    setShowNewCategory(true)
-                    setCategory('')
-                  } else {
-                    setCategory(e.target.value)
-                    setShowNewCategory(false)
-                  }
-                }}
-                className="input-field flex-1"
-                required
-              >
-                <option value="">Select a category...</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                <option value="__new__">+ Create New Category</option>
-              </select>
-            </div>
-            {showNewCategory && (
-              <div className="mt-2 flex space-x-2">
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="New category name"
-                  className="input-field flex-1"
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
-                />
-                <button
-                  onClick={handleAddCategory}
-                  className="btn-secondary whitespace-nowrap"
-                >
-                  Add
-                </button>
-                <button
-                  onClick={() => {
-                    setShowNewCategory(false)
-                    setNewCategoryName('')
-                    setCategory('')
-                  }}
-                  className="btn-secondary"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            )}
-            {category && !showNewCategory && (
-              <p className="text-xs text-gray-500 mt-1">Selected: <strong>{category}</strong></p>
+            <select
+              value={section}
+              onChange={(e) => setSection(e.target.value)}
+              className="input-field w-full"
+              required
+            >
+              <option value="">Select a section...</option>
+              {sections.map((sec) => (
+                <option key={sec.id} value={sec.id}>{sec.name}</option>
+              ))}
+            </select>
+            {section && (
+              <p className="text-xs text-gray-500 mt-1">
+                Selected: <strong>{sections.find(s => s.id === section)?.name}</strong>
+              </p>
             )}
           </div>
 
-          {/* Folder - Optional */}
+          {/* Folder - Required */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Folder (Optional)
+              Folder <span className="text-red-500">*</span>
             </label>
             <div className="flex space-x-2">
               <select
@@ -343,40 +323,35 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
                 onChange={(e) => {
                   if (e.target.value === '__new__') {
                     setShowNewFolder(true)
-                    setFolder('')
-                  } else if (e.target.value === '__new_sub__') {
-                    if (folder) {
-                      // Create sub-folder in currently selected folder
-                      setShowNewFolder(true)
-                      // Keep current folder as parent
-                    } else {
-                      toast.error('Please select a parent folder first')
-                    }
                   } else {
                     setFolder(e.target.value)
                     setShowNewFolder(false)
                   }
                 }}
                 className="input-field flex-1"
+                disabled={!section}
+                required
               >
-                <option value="">No folder (root)</option>
+                <option value="">Select a folder...</option>
                 {folders.map((fold) => (
-                  <option key={fold} value={fold}>{fold}</option>
+                  <option key={fold.id} value={fold.id}>{fold.name}</option>
                 ))}
                 <option value="__new__">+ Create New Folder</option>
-                <option value="__new_sub__">+ Create Sub-folder</option>
               </select>
             </div>
+            {!section && (
+              <p className="text-xs text-gray-500 mt-1">Please select a section first</p>
+            )}
             {showNewFolder && (
               <div className="mt-2 flex space-x-2">
-              <input
-                type="text"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder={folder ? `Sub-folder in "${folder}"` : "New folder name"}
-                className="input-field flex-1"
-                onKeyPress={(e) => e.key === 'Enter' && handleAddFolder()}
-              />
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="New folder name"
+                  className="input-field flex-1"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddFolder()}
+                />
                 <button
                   onClick={handleAddFolder}
                   className="btn-secondary whitespace-nowrap"
@@ -387,7 +362,6 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
                   onClick={() => {
                     setShowNewFolder(false)
                     setNewFolderName('')
-                    setFolder('')
                   }}
                   className="btn-secondary"
                 >
@@ -398,10 +372,10 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
             {folder && !showNewFolder && (
               <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs text-blue-700">
-                  <strong>📁 Folder selected:</strong> <span className="font-mono">{folder}</span>
+                  <strong>📁 Folder:</strong> {folders.find(f => f.id === folder)?.name}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
-                  Document will be uploaded to this folder
+                  Files will be uploaded to this folder
                 </p>
               </div>
             )}
@@ -477,7 +451,7 @@ export default function UploadModal({ onClose, onSuccess, defaultFolder = null }
           </button>
           <button
             onClick={handleUpload}
-            disabled={uploading || files.length === 0 || !category}
+            disabled={uploading || files.length === 0 || !section || !folder}
             className="btn-primary flex items-center space-x-2 disabled:opacity-50"
           >
             {uploading ? (

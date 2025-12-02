@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api'
-import { List, Plus, Edit2, Trash2, Save, X, Search } from 'lucide-react'
+import { List, Plus, Edit2, Trash2, Save, X, Search, Eye, FileText, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
 export default function Metadata() {
+  const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const [definitions, setDefinitions] = useState([])
   const [sections, setSections] = useState([])
@@ -12,6 +14,11 @@ export default function Metadata() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingDef, setEditingDef] = useState(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [viewingDef, setViewingDef] = useState(null)
+  const [filesWithValues, setFilesWithValues] = useState([])
+  const [filesLoading, setFilesLoading] = useState(false)
+  const [filesTotalCount, setFilesTotalCount] = useState(0)
 
   const accountId = user?.default_account_id || user?.accounts?.[0]?.id
 
@@ -98,6 +105,31 @@ export default function Metadata() {
     }
   }
 
+  const handleView = async (def) => {
+    setViewingDef(def)
+    setShowViewModal(true)
+    setFilesLoading(true)
+    try {
+      const response = await api.get(`/v2/dms/metadata-dms/definitions/${def.id}/files`, {
+        headers: { 'X-Account-Id': accountId }
+      })
+      setFilesWithValues(response.data.files || [])
+      setFilesTotalCount(response.data.total || 0)
+    } catch (error) {
+      console.error('Failed to load files:', error)
+      toast.error('Failed to load files with this metadata')
+      setFilesWithValues([])
+      setFilesTotalCount(0)
+    } finally {
+      setFilesLoading(false)
+    }
+  }
+
+  const handleNavigateToFile = (fileId) => {
+    setShowViewModal(false)
+    navigate(`/files/${fileId}`)
+  }
+
   const filteredDefs = definitions.filter(d =>
     d.label?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     d.key?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -164,8 +196,9 @@ export default function Metadata() {
                   <td className="px-6 py-4 hidden lg:table-cell text-sm text-gray-600">{sections.find(s => s.id === def.section_id)?.name || 'All'}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => handleEdit(def)} className="text-gray-600 hover:text-gray-800"><Edit2 size={18} /></button>
-                      <button onClick={() => handleDelete(def.id)} className="text-red-600 hover:text-red-800"><Trash2 size={18} /></button>
+                      <button onClick={() => handleView(def)} className="text-blue-600 hover:text-blue-800" title="View files with this metadata"><Eye size={18} /></button>
+                      <button onClick={() => handleEdit(def)} className="text-gray-600 hover:text-gray-800" title="Edit"><Edit2 size={18} /></button>
+                      <button onClick={() => handleDelete(def.id)} className="text-red-600 hover:text-red-800" title="Delete"><Trash2 size={18} /></button>
                     </div>
                   </td>
                 </tr>
@@ -249,6 +282,79 @@ export default function Metadata() {
               </button>
               <button onClick={() => { setShowModal(false); setEditingDef(null) }} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
                 <X size={18} /> Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Files Modal */}
+      {showViewModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold">Files with "{viewingDef?.label}"</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {filesTotalCount} file{filesTotalCount !== 1 ? 's' : ''} found
+                </p>
+              </div>
+              <button 
+                onClick={() => { setShowViewModal(false); setViewingDef(null); setFilesWithValues([]) }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {filesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : filesWithValues.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="mx-auto text-gray-400 mb-4" size={48} />
+                <p className="text-gray-500">No files have values for this metadata field</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filesWithValues.map((file) => (
+                  <div 
+                    key={file.file_id} 
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <FileText className="text-blue-600 flex-shrink-0" size={20} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
+                        <p className="text-xs text-gray-500">
+                          <span className="font-mono">{file.document_id}</span>
+                          <span className="mx-2">•</span>
+                          Value: <span className="font-medium text-gray-700">{
+                            typeof file.value === 'object' ? JSON.stringify(file.value) : String(file.value)
+                          }</span>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleNavigateToFile(file.file_id)}
+                      className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 ml-4 flex-shrink-0"
+                      title="Go to file"
+                    >
+                      <span className="text-sm hidden sm:inline">View</span>
+                      <ExternalLink size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button 
+                onClick={() => { setShowViewModal(false); setViewingDef(null); setFilesWithValues([]) }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                Close
               </button>
             </div>
           </div>

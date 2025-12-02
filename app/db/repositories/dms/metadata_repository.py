@@ -86,6 +86,47 @@ class MetadataRepository:
         await self.session.delete(definition)
         await self.session.commit()
     
+    async def get_files_by_definition(self, definition_id: str, account_id: str, 
+                                      skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get all files that have a value for a specific metadata definition"""
+        stmt = select(FileMetadata, FileNew).join(
+            FileNew, FileMetadata.file_id == FileNew.id
+        ).where(
+            FileMetadata.definition_id == definition_id,
+            FileNew.account_id == account_id,
+            FileNew.is_deleted == False
+        ).offset(skip).limit(limit)
+        
+        result = await self.session.execute(stmt)
+        records = result.all()
+        
+        files_with_values = []
+        for metadata, file in records:
+            files_with_values.append({
+                "file_id": file.id,
+                "file_name": file.name,
+                "document_id": file.document_id,
+                "folder_id": file.folder_id,
+                "mime_type": file.mime_type,
+                "value": metadata.value,
+                "created_at": file.created_at
+            })
+        
+        return files_with_values
+    
+    async def count_files_by_definition(self, definition_id: str, account_id: str) -> int:
+        """Count files that have a value for a specific metadata definition"""
+        from sqlalchemy import func
+        stmt = select(func.count()).select_from(FileMetadata).join(
+            FileNew, FileMetadata.file_id == FileNew.id
+        ).where(
+            FileMetadata.definition_id == definition_id,
+            FileNew.account_id == account_id,
+            FileNew.is_deleted == False
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
+    
     # ==================== FILE METADATA ====================
     
     async def get_file_metadata(self, file_id: str) -> List[Dict[str, Any]]:

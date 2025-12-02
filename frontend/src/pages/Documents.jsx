@@ -1,21 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { api } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 import { 
   Upload, 
   Download, 
   Trash2, 
   Eye, 
   Tag,
-  Filter,
-  SortAsc,
   Grid,
   List as ListIcon,
   ChevronLeft,
   ChevronRight,
   X,
-  Edit2,
-  MoreVertical,
   FileText
 } from 'lucide-react'
 import { format } from 'date-fns'
@@ -24,15 +21,16 @@ import UploadModal from '../components/UploadModal'
 import DocumentThumbnail from '../components/DocumentThumbnail'
 
 export default function Documents() {
+  const { user } = useAuth()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchParams, setSearchParams] = useSearchParams()
   const [showUpload, setShowUpload] = useState(false)
   const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
   const [selectedTags, setSelectedTags] = useState([])
-  const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedSection, setSelectedSection] = useState(searchParams.get('section') || '')
   const [selectedFolder, setSelectedFolder] = useState('')
-  const [categories, setCategories] = useState([])
+  const [sections, setSections] = useState([])
   const [folders, setFolders] = useState([])
   const [sortBy, setSortBy] = useState('created')
   const [sortOrder, setSortOrder] = useState('desc')
@@ -40,68 +38,95 @@ export default function Documents() {
   const [totalDocs, setTotalDocs] = useState(0)
   const itemsPerPage = 20
 
-  useEffect(() => {
-    loadCategoriesAndFolders()
-  }, [])
+  const getAccountId = () => {
+    return user?.default_account_id || user?.accounts?.[0]?.id
+  }
 
-  const loadCategoriesAndFolders = async () => {
+  useEffect(() => {
+    loadSectionsAndFolders()
+  }, [user])
+
+  // Update URL when section changes
+  useEffect(() => {
+    if (selectedSection) {
+      searchParams.set('section', selectedSection)
+    } else {
+      searchParams.delete('section')
+    }
+    setSearchParams(searchParams, { replace: true })
+  }, [selectedSection])
+
+  const loadSectionsAndFolders = async () => {
     try {
-      const response = await api.get('/v2/metadata?limit=99&offset=0')
-      const data = response.data
-      const docsKey = Object.keys(data).find(key => key.startsWith('documents of '))
-      const docs = docsKey ? (data[docsKey] || []) : []
+      const accountId = getAccountId()
+      if (!accountId) return
       
-      // Extract unique categories
-      const uniqueCategories = [...new Set(docs.flatMap(doc => doc.categories || []).filter(Boolean))]
-      setCategories(uniqueCategories.sort())
+      // Load sections
+      const sectionsResponse = await api.get('/v2/dms/sections', {
+        headers: { 'X-Account-Id': accountId }
+      })
+      setSections(sectionsResponse.data || [])
       
-      // Extract unique folders from s3_url
-      // s3_url format: http://minio:9000/docflow/user_id/folder/filename.pdf
-      const uniqueFolders = [...new Set(docs.map(doc => {
-        if (doc.s3_url) {
-          try {
-            const url = new URL(doc.s3_url)
-            const pathParts = url.pathname.split('/').filter(p => p) // Remove empty strings
-            // Path structure: docflow/user_id/folder/filename
-            // If there are 4+ parts, folder is at index 2
-            if (pathParts.length >= 4) {
-              return pathParts[2] // This is the folder name
-            }
-          } catch (e) {
-            // Fallback: try simple split if URL parsing fails
-            const parts = doc.s3_url.split('/').filter(p => p && !p.includes(':'))
-            if (parts.length >= 4) {
-              return parts[2] // folder is at index 2
-            }
-          }
-        }
-        return null
-      }).filter(Boolean))]
-      setFolders(uniqueFolders.sort())
+      // Load all folders
+      const foldersResponse = await api.get('/v2/dms/folders-dms', {
+        headers: { 'X-Account-Id': accountId }
+      })
+      const loadedFolders = foldersResponse.data || []
+      setFolders(loadedFolders)
+      
+      // Return folders for immediate use
+      return loadedFolders
     } catch (error) {
-      console.error('Failed to load categories and folders:', error)
+      console.error('Failed to load sections and folders:', error)
+      return []
     }
   }
 
   useEffect(() => {
-    loadDocuments()
-  }, [currentPage, sortBy, sortOrder])
+    // Only load documents after folders are loaded (needed for section filtering)
+    if (folders.length > 0 || !selectedSection) {
+      loadDocuments(folders)
+    }
+  }, [currentPage, sortBy, sortOrder, selectedSection, selectedFolder, user, folders])
 
-  const loadDocuments = async () => {
+  const loadDocuments = async (currentFolders = folders) => {
     try {
       setLoading(true)
-      const response = await api.get(`/v2/metadata?limit=${itemsPerPage}&offset=${(currentPage - 1) * itemsPerPage}`)
-      const data = response.data
-      console.log('Documents API Response:', data) // Debug log
+      const accountId = getAccountId()
+      if (!accountId) {
+        setDocuments([])
+        setTotalDocs(0)
+        setLoading(false)
+        return
+      }
       
-      // Find the key that starts with "documents of "
-      const docsKey = Object.keys(data).find(key => key.startsWith('documents of '))
-      console.log('Found docsKey:', docsKey) // Debug log
-      const docs = docsKey ? (data[docsKey] || []) : []
-      console.log('Documents array:', docs) // Debug log
+      // Build query params for DMS files API
+      const params = new URLSearchParams()
+      
+      if (selectedFolder) {
+        params.append('folder_id', selectedFolder)
+      }
+      
+      params.append('skip', ((currentPage - 1) * itemsPerPage).toString())
+      params.append('limit', itemsPerPage.toString())
+      
+      const response = await api.get(`/v2/dms/files-dms?${params.toString()}`, {
+        headers: { 'X-Account-Id': accountId }
+      })
+      
+      let files = response.data || []
+      console.log('DMS Files Response:', files)
+      
+      // Filter by section if selected (files don't have section_id directly, need to filter via folder)
+      if (selectedSection && !selectedFolder && currentFolders.length > 0) {
+        const sectionFolderIds = currentFolders
+          .filter(f => f.section_id === selectedSection)
+          .map(f => f.id)
+        files = files.filter(f => sectionFolderIds.includes(f.folder_id))
+      }
       
       // Sort documents
-      const sorted = [...docs].sort((a, b) => {
+      const sorted = [...files].sort((a, b) => {
         let aVal, bVal
         switch (sortBy) {
           case 'created':
@@ -109,12 +134,12 @@ export default function Documents() {
             bVal = new Date(b.created_at)
             break
           case 'name':
-            aVal = a.name.toLowerCase()
-            bVal = b.name.toLowerCase()
+            aVal = (a.name || '').toLowerCase()
+            bVal = (b.name || '').toLowerCase()
             break
           case 'size':
-            aVal = a.size || 0
-            bVal = b.size || 0
+            aVal = a.size_bytes || 0
+            bVal = b.size_bytes || 0
             break
           default:
             aVal = new Date(a.created_at)
@@ -129,19 +154,23 @@ export default function Documents() {
       })
       
       setDocuments(sorted)
-      setTotalDocs(data['no_of_docs'] || 0)
+      setTotalDocs(sorted.length)
     } catch (error) {
+      console.error('Failed to load documents:', error)
       toast.error('Failed to load documents')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (docName) => {
+  const handleDelete = async (doc) => {
     if (!confirm('Are you sure you want to delete this document?')) return
 
     try {
-      await api.delete(`/v2/${docName}`)
+      const accountId = getAccountId()
+      await api.delete(`/v2/dms/files-dms/${doc.id}`, {
+        headers: { 'X-Account-Id': accountId }
+      })
       toast.success('Document moved to trash')
       loadDocuments()
     } catch (error) {
@@ -151,13 +180,15 @@ export default function Documents() {
 
   const handleDownload = async (doc) => {
     try {
-      const response = await api.get(`/v2/file/${doc.name}/download`, {
+      const accountId = getAccountId()
+      const response = await api.get(`/v2/dms/files-dms/${doc.id}/download`, {
+        headers: { 'X-Account-Id': accountId },
         responseType: 'blob',
       })
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', doc.name)
+      link.setAttribute('download', doc.name || doc.original_filename)
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -174,31 +205,6 @@ export default function Documents() {
     if (selectedTags.length > 0) {
       const hasTag = selectedTags.some(tag => doc.tags && doc.tags.includes(tag))
       if (!hasTag) return false
-    }
-    
-    // Filter by category
-    if (selectedCategory) {
-      const hasCategory = doc.categories && doc.categories.includes(selectedCategory)
-      if (!hasCategory) return false
-    }
-    
-    // Filter by folder
-    if (selectedFolder) {
-      if (doc.s3_url) {
-        try {
-          const url = new URL(doc.s3_url)
-          const pathParts = url.pathname.split('/').filter(p => p)
-          const docFolder = pathParts.length >= 4 ? pathParts[2] : null
-          if (docFolder !== selectedFolder) return false
-        } catch (e) {
-          // Fallback
-          const parts = doc.s3_url.split('/').filter(p => p && !p.includes(':'))
-          const docFolder = parts.length >= 4 ? parts[2] : null
-          if (docFolder !== selectedFolder) return false
-        }
-      } else {
-        return false
-      }
     }
     
     return true
@@ -255,15 +261,18 @@ export default function Documents() {
                 <span>Added</span>
               </button>
 
-              {/* Category Filter */}
+              {/* Section Filter */}
               <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                value={selectedSection}
+                onChange={(e) => {
+                  setSelectedSection(e.target.value)
+                  setSelectedFolder('') // Reset folder when section changes
+                }}
                 className="px-2 md:px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               >
-                <option value="">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
+                <option value="">All Sections</option>
+                {sections.map((sec) => (
+                  <option key={sec.id} value={sec.id}>{sec.name}</option>
                 ))}
               </select>
 
@@ -274,16 +283,18 @@ export default function Documents() {
                 className="px-2 md:px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               >
                 <option value="">All Folders</option>
-                {folders.map((fold) => (
-                  <option key={fold} value={fold}>{fold}</option>
-                ))}
+                {folders
+                  .filter(f => !selectedSection || f.section_id === selectedSection)
+                  .map((fold) => (
+                    <option key={fold.id} value={fold.id}>{fold.name}</option>
+                  ))}
               </select>
 
-              {(selectedTags.length > 0 || selectedCategory || selectedFolder) && (
+              {(selectedTags.length > 0 || selectedSection || selectedFolder) && (
                 <button
                   onClick={() => {
                     setSelectedTags([])
-                    setSelectedCategory('')
+                    setSelectedSection('')
                     setSelectedFolder('')
                   }}
                   className="px-2 md:px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-1 md:space-x-2 text-red-600"
@@ -362,11 +373,11 @@ export default function Documents() {
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
           <FileText className="mx-auto text-gray-400 mb-4" size={48} />
           <p className="text-gray-500 mb-4">
-            {(selectedTags.length > 0 || selectedCategory || selectedFolder)
+            {(selectedTags.length > 0 || selectedSection || selectedFolder)
               ? 'No documents match your filters'
               : 'No documents yet'}
           </p>
-          {(selectedTags.length === 0 && !selectedCategory && !selectedFolder) && (
+          {(selectedTags.length === 0 && !selectedSection && !selectedFolder) && (
             <button onClick={() => setShowUpload(true)} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
               Upload your first document
             </button>
@@ -381,7 +392,7 @@ export default function Documents() {
                   key={doc.id}
                   doc={doc}
                   onDownload={() => handleDownload(doc)}
-                  onDelete={() => handleDelete(doc.name)}
+                  onDelete={() => handleDelete(doc)}
                 />
               ))}
             </div>
@@ -392,7 +403,7 @@ export default function Documents() {
                   key={doc.id}
                   doc={doc}
                   onDownload={() => handleDownload(doc)}
-                  onDelete={() => handleDelete(doc.name)}
+                  onDelete={() => handleDelete(doc)}
                 />
               ))}
             </div>
@@ -460,16 +471,31 @@ export default function Documents() {
 
 // Document Card Component
 function DocumentCard({ doc, onDownload, onDelete }) {
-  const [showActions, setShowActions] = useState(false)
+  // Get file extension from mime_type or name
+  const getFileType = () => {
+    if (doc.mime_type) {
+      const parts = doc.mime_type.split('/')
+      return parts[parts.length - 1]
+    }
+    if (doc.name) {
+      const parts = doc.name.split('.')
+      return parts.length > 1 ? parts[parts.length - 1] : ''
+    }
+    return ''
+  }
+
+  const fileType = getFileType()
+  const displayName = doc.name || doc.original_filename || 'Unnamed'
+  const fileSize = doc.size_bytes || doc.size || 0
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow group">
       {/* Thumbnail */}
-      <Link to={`/documents/${doc.id}`} className="block relative aspect-[3/4] bg-gray-100">
+      <Link to={`/files/${doc.id}`} className="block relative aspect-[3/4] bg-gray-100">
         <DocumentThumbnail document={doc} className="absolute inset-0 w-full h-full" />
-        {doc.file_type && (
+        {fileType && (
           <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-            {doc.file_type.toUpperCase()}
+            {fileType.toUpperCase()}
           </div>
         )}
         {/* Action buttons on hover */}
@@ -485,7 +511,7 @@ function DocumentCard({ doc, onDownload, onDelete }) {
             <Download size={18} />
           </button>
           <Link
-            to={`/documents/${doc.id}`}
+            to={`/files/${doc.id}`}
             className="p-2 bg-white rounded-lg hover:bg-gray-100"
             title="View"
           >
@@ -506,9 +532,9 @@ function DocumentCard({ doc, onDownload, onDelete }) {
 
       {/* Content */}
       <div className="p-3">
-        <Link to={`/documents/${doc.id}`}>
+        <Link to={`/files/${doc.id}`}>
           <h3 className="font-medium text-sm text-gray-900 mb-1 line-clamp-2 hover:text-blue-600">
-            {doc.name}
+            {displayName}
           </h3>
         </Link>
         
@@ -531,9 +557,9 @@ function DocumentCard({ doc, onDownload, onDelete }) {
         )}
 
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>{format(new Date(doc.created_at), 'MMM d, yyyy')}</span>
-          {doc.size && (
-            <span>{(doc.size / 1024).toFixed(1)} KB</span>
+          <span>{doc.created_at ? format(new Date(doc.created_at), 'MMM d, yyyy') : '-'}</span>
+          {fileSize > 0 && (
+            <span>{(fileSize / 1024).toFixed(1)} KB</span>
           )}
         </div>
       </div>
@@ -543,6 +569,23 @@ function DocumentCard({ doc, onDownload, onDelete }) {
 
 // Document List Item Component
 function DocumentListItem({ doc, onDownload, onDelete }) {
+  // Get file extension from mime_type or name
+  const getFileType = () => {
+    if (doc.mime_type) {
+      const parts = doc.mime_type.split('/')
+      return parts[parts.length - 1]
+    }
+    if (doc.name) {
+      const parts = doc.name.split('.')
+      return parts.length > 1 ? parts[parts.length - 1] : ''
+    }
+    return ''
+  }
+
+  const fileType = getFileType()
+  const displayName = doc.name || doc.original_filename || 'Unnamed'
+  const fileSize = doc.size_bytes || doc.size || 0
+
   return (
     <div className="p-4 hover:bg-gray-50 transition-colors">
       <div className="flex items-center space-x-4">
@@ -555,9 +598,9 @@ function DocumentListItem({ doc, onDownload, onDelete }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
-              <Link to={`/documents/${doc.id}`}>
+              <Link to={`/files/${doc.id}`}>
                 <h3 className="font-medium text-gray-900 hover:text-blue-600 mb-1">
-                  {doc.name}
+                  {displayName}
                 </h3>
               </Link>
               
@@ -575,9 +618,9 @@ function DocumentListItem({ doc, onDownload, onDelete }) {
               )}
 
               <div className="flex items-center space-x-4 text-xs text-gray-500">
-                <span>Created: {format(new Date(doc.created_at), 'MMM d, yyyy')}</span>
-                {doc.size && <span>{(doc.size / 1024).toFixed(1)} KB</span>}
-                {doc.file_type && <span>{doc.file_type.toUpperCase()}</span>}
+                <span>Created: {doc.created_at ? format(new Date(doc.created_at), 'MMM d, yyyy') : '-'}</span>
+                {fileSize > 0 && <span>{(fileSize / 1024).toFixed(1)} KB</span>}
+                {fileType && <span>{fileType.toUpperCase()}</span>}
               </div>
             </div>
 
@@ -591,7 +634,7 @@ function DocumentListItem({ doc, onDownload, onDelete }) {
                 <Download size={18} />
               </button>
               <Link
-                to={`/documents/${doc.id}`}
+                to={`/files/${doc.id}`}
                 className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 title="View"
               >

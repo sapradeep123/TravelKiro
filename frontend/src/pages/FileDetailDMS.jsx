@@ -7,6 +7,17 @@ import FileReminders from '../components/FileReminders';
 import FileMetadata from '../components/FileMetadata';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { 
+  ArrowLeft, 
+  Download, 
+  FileText, 
+  Clock, 
+  Lock, 
+  Bell, 
+  Info, 
+  Tag,
+  ExternalLink
+} from 'lucide-react';
 
 const FileDetailDMS = () => {
   const { fileId } = useParams();
@@ -31,7 +42,21 @@ const FileDetailDMS = () => {
       const response = await api.get(`/v2/dms/files-dms/${fileId}`, {
         headers: { 'X-Account-Id': accountId }
       });
-      setFile(response.data);
+      const fileData = response.data;
+      
+      // Fetch folder to get section_id for metadata filtering
+      if (fileData.folder_id) {
+        try {
+          const folderResponse = await api.get(`/v2/dms/folders-dms/${fileData.folder_id}`, {
+            headers: { 'X-Account-Id': accountId }
+          });
+          fileData.section_id = folderResponse.data.section_id;
+        } catch (folderErr) {
+          console.warn('Could not fetch folder details:', folderErr);
+        }
+      }
+      
+      setFile(fileData);
     } catch (err) {
       setError('Failed to load file details');
       console.error(err);
@@ -70,10 +95,18 @@ const FileDetailDMS = () => {
     return new Date(dateString).toLocaleString();
   };
 
+  const tabs = [
+    { id: 'details', label: 'Details', icon: Info },
+    { id: 'metadata', label: 'Metadata', icon: Tag },
+    { id: 'versions', label: 'Versions', icon: Clock },
+    { id: 'lock', label: 'Lock', icon: Lock },
+    { id: 'reminders', label: 'Reminders', icon: Bell },
+  ];
+
   if (!accountId) {
     return (
       <div className="p-6">
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
           No account assigned. Please contact your administrator.
         </div>
       </div>
@@ -91,206 +124,204 @@ const FileDetailDMS = () => {
   if (error || !file) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
           {error || 'File not found'}
         </div>
-        <button className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300" onClick={() => navigate(-1)}>
-          Go Back
+        <button 
+          className="btn-secondary flex items-center space-x-2" 
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft size={18} />
+          <span>Go Back</span>
         </button>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6">
-        {/* Header */}
-        <div className="row mb-4">
-          <div className="col">
-            <button className="btn btn-link ps-0" onClick={() => navigate(-1)}>
-              <i className="bi bi-arrow-left me-2"></i>
-              Back
-            </button>
-            <h2 className="mt-2">
-              <i className="bi bi-file-earmark me-2"></i>
-              {file.name}
-            </h2>
-          </div>
-          <div className="col-auto">
-            <button className="btn btn-primary" onClick={handleDownload}>
-              <i className="bi bi-download me-2"></i>
-              Download
-            </button>
-          </div>
+    <div className="p-4 md:p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <button 
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft size={18} />
+            <span>Back</span>
+          </button>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center space-x-2">
+            <FileText size={24} className="text-gray-500" />
+            <span className="break-words">{file.name}</span>
+          </h1>
         </div>
+        <button className="btn-primary flex items-center space-x-2" onClick={handleDownload}>
+          <Download size={18} />
+          <span>Download</span>
+        </button>
+      </div>
 
-        {/* File Info Card */}
-        <div className="card mb-4">
-          <div className="card-body">
-            <div className="row">
-              <div className="col-md-6">
-                <dl className="row mb-0">
-                  <dt className="col-sm-4">Document ID:</dt>
-                  <dd className="col-sm-8">
-                    <code>{file.document_id}</code>
-                  </dd>
-
-                  <dt className="col-sm-4">Original Filename:</dt>
-                  <dd className="col-sm-8">{file.original_filename}</dd>
-
-                  <dt className="col-sm-4">Size:</dt>
-                  <dd className="col-sm-8">{formatSize(file.size_bytes)}</dd>
-
-                  <dt className="col-sm-4">Type:</dt>
-                  <dd className="col-sm-8">{file.mime_type || 'Unknown'}</dd>
-                </dl>
-              </div>
-              <div className="col-md-6">
-                <dl className="row mb-0">
-                  <dt className="col-sm-4">Created:</dt>
-                  <dd className="col-sm-8">{formatDate(file.created_at)}</dd>
-
-                  <dt className="col-sm-4">Updated:</dt>
-                  <dd className="col-sm-8">{formatDate(file.updated_at)}</dd>
-
-                  <dt className="col-sm-4">Tags:</dt>
-                  <dd className="col-sm-8">
-                    {file.tags && file.tags.length > 0 ? (
-                      file.tags.map((tag, idx) => (
-                        <span key={idx} className="badge bg-secondary me-1">
-                          {tag}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-muted">No tags</span>
-                    )}
-                  </dd>
-
-                  {file.notes && (
-                    <>
-                      <dt className="col-sm-4">Notes:</dt>
-                      <dd className="col-sm-8">{file.notes}</dd>
-                    </>
-                  )}
-                </dl>
-              </div>
+      {/* File Info Card */}
+      <div className="card">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm text-gray-500">Document ID:</p>
+              <p className="text-gray-900 font-mono text-sm">{file.document_id}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Original Filename:</p>
+              <p className="text-gray-900">{file.original_filename}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Size:</p>
+              <p className="text-gray-900">{formatSize(file.size_bytes)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Type:</p>
+              <p className="text-gray-900">{file.mime_type || 'Unknown'}</p>
             </div>
           </div>
-        </div>
-
-        {/* Tabs */}
-        <ul className="nav nav-tabs mb-4">
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === 'details' ? 'active' : ''}`}
-              onClick={() => setActiveTab('details')}
-            >
-              <i className="bi bi-info-circle me-2"></i>
-              Details
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === 'metadata' ? 'active' : ''}`}
-              onClick={() => setActiveTab('metadata')}
-            >
-              <i className="bi bi-tags me-2"></i>
-              Metadata
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === 'versions' ? 'active' : ''}`}
-              onClick={() => setActiveTab('versions')}
-            >
-              <i className="bi bi-clock-history me-2"></i>
-              Versions
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === 'lock' ? 'active' : ''}`}
-              onClick={() => setActiveTab('lock')}
-            >
-              <i className="bi bi-lock me-2"></i>
-              Lock
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === 'reminders' ? 'active' : ''}`}
-              onClick={() => setActiveTab('reminders')}
-            >
-              <i className="bi bi-bell me-2"></i>
-              Reminders
-            </button>
-          </li>
-        </ul>
-
-        {/* Tab Content */}
-        <div className="tab-content">
-          {activeTab === 'details' && (
-            <div className="card">
-              <div className="card-body">
-                <h5 className="card-title">File Information</h5>
-                <p className="text-muted">
-                  This is the main file information. Use the tabs above to manage versions, 
-                  lock status, and reminders.
-                </p>
-                
-                {file.is_office_doc && (
-                  <div className="alert alert-info">
-                    <i className="bi bi-file-earmark-word me-2"></i>
-                    This is an Office document ({file.office_type})
-                    {file.office_url && (
-                      <a href={file.office_url} target="_blank" rel="noopener noreferrer" className="ms-2">
-                        Open in Office 365
-                      </a>
-                    )}
-                  </div>
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm text-gray-500">Created:</p>
+              <p className="text-gray-900">{formatDate(file.created_at)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Updated:</p>
+              <p className="text-gray-900">{formatDate(file.updated_at)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Tags:</p>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {file.tags && file.tags.length > 0 ? (
+                  file.tags.map((tag, idx) => (
+                    <span 
+                      key={idx} 
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                    >
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-gray-400">No tags</span>
                 )}
-
-                <div className="mt-4">
-                  <h6>Quick Actions</h6>
-                  <div className="d-flex gap-2">
-                    <button className="btn btn-outline-primary" onClick={handleDownload}>
-                      <i className="bi bi-download me-2"></i>
-                      Download
-                    </button>
-                    <button className="btn btn-outline-secondary" onClick={() => setActiveTab('versions')}>
-                      <i className="bi bi-clock-history me-2"></i>
-                      View Versions
-                    </button>
-                    <button className="btn btn-outline-warning" onClick={() => setActiveTab('lock')}>
-                      <i className="bi bi-lock me-2"></i>
-                      Manage Lock
-                    </button>
-                    <button className="btn btn-outline-info" onClick={() => setActiveTab('reminders')}>
-                      <i className="bi bi-bell me-2"></i>
-                      Set Reminder
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
-          )}
-
-          {activeTab === 'metadata' && (
-            <FileMetadata fileId={fileId} accountId={accountId} />
-          )}
-
-          {activeTab === 'versions' && (
-            <FileVersions fileId={fileId} accountId={accountId} />
-          )}
-
-          {activeTab === 'lock' && (
-            <FileLock fileId={fileId} accountId={accountId} />
-          )}
-
-          {activeTab === 'reminders' && (
-            <FileReminders fileId={fileId} accountId={accountId} />
-          )}
+            {file.notes && (
+              <div>
+                <p className="text-sm text-gray-500">Notes:</p>
+                <p className="text-gray-900">{file.notes}</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="flex space-x-1 overflow-x-auto">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon size={18} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div>
+        {activeTab === 'details' && (
+          <div className="card">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">File Information</h3>
+            <p className="text-gray-600 mb-6">
+              This is the main file information. Use the tabs above to manage versions, 
+              lock status, and reminders.
+            </p>
+            
+            {file.is_office_doc && (
+              <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+                <FileText size={18} />
+                <span>This is an Office document ({file.office_type})</span>
+                {file.office_url && (
+                  <a 
+                    href={file.office_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="ml-2 text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                  >
+                    <span>Open in Office 365</span>
+                    <ExternalLink size={14} />
+                  </a>
+                )}
+              </div>
+            )}
+
+            <div>
+              <h4 className="text-md font-medium text-gray-900 mb-3">Quick Actions</h4>
+              <div className="flex flex-wrap gap-3">
+                <button 
+                  className="btn-secondary flex items-center space-x-2" 
+                  onClick={handleDownload}
+                >
+                  <Download size={18} />
+                  <span>Download</span>
+                </button>
+                <button 
+                  className="btn-secondary flex items-center space-x-2" 
+                  onClick={() => setActiveTab('versions')}
+                >
+                  <Clock size={18} />
+                  <span>View Versions</span>
+                </button>
+                <button 
+                  className="btn-secondary flex items-center space-x-2" 
+                  onClick={() => setActiveTab('lock')}
+                >
+                  <Lock size={18} />
+                  <span>Manage Lock</span>
+                </button>
+                <button 
+                  className="btn-secondary flex items-center space-x-2" 
+                  onClick={() => setActiveTab('reminders')}
+                >
+                  <Bell size={18} />
+                  <span>Set Reminder</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'metadata' && (
+          <FileMetadata fileId={fileId} accountId={accountId} sectionId={file?.section_id} />
+        )}
+
+        {activeTab === 'versions' && (
+          <FileVersions fileId={fileId} accountId={accountId} />
+        )}
+
+        {activeTab === 'lock' && (
+          <FileLock fileId={fileId} accountId={accountId} />
+        )}
+
+        {activeTab === 'reminders' && (
+          <FileReminders fileId={fileId} accountId={accountId} />
+        )}
+      </div>
+    </div>
   );
 };
 

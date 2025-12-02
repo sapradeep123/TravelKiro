@@ -165,7 +165,7 @@ export default function Sections() {
               <div className="flex items-center gap-3">
                 <FolderTree className="text-blue-600" size={24} />
                 <div>
-                  <Link to={`/storage-paths?section=${section.id}`} className="text-lg font-medium text-gray-900 hover:text-blue-600">
+                  <Link to={`/documents?section=${section.id}`} className="text-lg font-medium text-gray-900 hover:text-blue-600">
                     {section.name}
                   </Link>
                   {section.description && (

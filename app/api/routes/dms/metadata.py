@@ -102,6 +102,25 @@ async def delete_metadata_definition(
     await repository.delete_metadata_definition(definition_id, x_account_id)
 
 
+@router.get(
+    "/definitions/{definition_id}/files",
+    dependencies=[Depends(require_permission("metadata", "read"))],
+    summary="Get files with metadata values"
+)
+async def get_files_by_definition(
+    definition_id: str,
+    skip: int = 0,
+    limit: int = 100,
+    x_account_id: str = Header(...),
+    current_user: TokenData = Depends(get_current_user),
+    repository: MetadataRepository = Depends(get_repository(MetadataRepository))
+):
+    """Get all files that have a value for this metadata definition"""
+    files = await repository.get_files_by_definition(definition_id, x_account_id, skip, limit)
+    count = await repository.count_files_by_definition(definition_id, x_account_id)
+    return {"files": files, "total": count}
+
+
 # ==================== FILE METADATA ====================
 
 @router.get(

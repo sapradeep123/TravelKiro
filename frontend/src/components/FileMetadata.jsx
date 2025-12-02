@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
+import { Edit2, Save, X, RefreshCw } from 'lucide-react';
 
-const FileMetadata = ({ fileId, accountId }) => {
+const FileMetadata = ({ fileId, accountId, sectionId }) => {
   const [definitions, setDefinitions] = useState([]);
   const [values, setValues] = useState({});
   const [loading, setLoading] = useState(true);
@@ -13,13 +14,20 @@ const FileMetadata = ({ fileId, accountId }) => {
     if (fileId && accountId) {
       loadData();
     }
-  }, [fileId, accountId]);
+  }, [fileId, accountId, sectionId]);
 
   const loadData = async () => {
     try {
       setLoading(true);
+      
+      // Build URL with optional section_id filter
+      let defsUrl = '/v2/dms/metadata-dms/definitions';
+      if (sectionId) {
+        defsUrl += `?section_id=${sectionId}`;
+      }
+      
       const [defsRes, valuesRes] = await Promise.all([
-        api.get('/v2/dms/metadata-dms/definitions', {
+        api.get(defsUrl, {
           headers: { 'X-Account-Id': accountId }
         }),
         api.get(`/v2/dms/metadata-dms/files/${fileId}`, {
@@ -37,9 +45,14 @@ const FileMetadata = ({ fileId, accountId }) => {
       setValues(valuesMap);
     } catch (error) {
       console.error('Failed to load metadata:', error);
+      toast.error('Failed to load metadata');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadData();
   };
 
   const handleValueChange = (defId, value) => {
@@ -78,6 +91,7 @@ const FileMetadata = ({ fileId, accountId }) => {
   const renderField = (def) => {
     const value = values[def.id] ?? '';
     const isDisabled = !editMode;
+    const baseInputClass = `input-field ${isDisabled ? 'bg-gray-50 cursor-not-allowed' : ''}`;
 
     switch (def.field_type) {
       case 'boolean':
@@ -87,7 +101,7 @@ const FileMetadata = ({ fileId, accountId }) => {
             checked={!!value}
             onChange={(e) => handleValueChange(def.id, e.target.checked)}
             disabled={isDisabled}
-            className="form-check-input"
+            className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
           />
         );
       case 'number':
@@ -97,7 +111,7 @@ const FileMetadata = ({ fileId, accountId }) => {
             value={value}
             onChange={(e) => handleValueChange(def.id, e.target.value ? Number(e.target.value) : '')}
             disabled={isDisabled}
-            className="form-control"
+            className={baseInputClass}
           />
         );
       case 'date':
@@ -107,7 +121,7 @@ const FileMetadata = ({ fileId, accountId }) => {
             value={value ? value.split('T')[0] : ''}
             onChange={(e) => handleValueChange(def.id, e.target.value)}
             disabled={isDisabled}
-            className="form-control"
+            className={baseInputClass}
           />
         );
       case 'select':
@@ -116,7 +130,7 @@ const FileMetadata = ({ fileId, accountId }) => {
             value={value}
             onChange={(e) => handleValueChange(def.id, e.target.value)}
             disabled={isDisabled}
-            className="form-select"
+            className={baseInputClass}
           >
             <option value="">-- Select --</option>
             {(def.options || []).map(opt => (
@@ -134,8 +148,7 @@ const FileMetadata = ({ fileId, accountId }) => {
               handleValueChange(def.id, selected);
             }}
             disabled={isDisabled}
-            className="form-select"
-            style={{ minHeight: '80px' }}
+            className={`${baseInputClass} min-h-[80px]`}
           >
             {(def.options || []).map(opt => (
               <option key={opt} value={opt}>{opt}</option>
@@ -149,7 +162,7 @@ const FileMetadata = ({ fileId, accountId }) => {
             value={typeof value === 'object' ? JSON.stringify(value) : value}
             onChange={(e) => handleValueChange(def.id, e.target.value)}
             disabled={isDisabled}
-            className="form-control"
+            className={baseInputClass}
           />
         );
     }
@@ -158,10 +171,8 @@ const FileMetadata = ({ fileId, accountId }) => {
   if (loading) {
     return (
       <div className="card">
-        <div className="card-body text-center py-4">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       </div>
     );
@@ -170,51 +181,72 @@ const FileMetadata = ({ fileId, accountId }) => {
   if (definitions.length === 0) {
     return (
       <div className="card">
-        <div className="card-body">
-          <h5 className="card-title">Custom Metadata</h5>
-          <p className="text-muted">No metadata fields defined for this section.</p>
-          <p className="text-muted small">
-            Go to <strong>Metadata</strong> in the admin menu to create custom fields.
-          </p>
-        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Custom Metadata</h3>
+        <p className="text-gray-500">No metadata fields defined for this section.</p>
+        <p className="text-sm text-gray-400 mt-2">
+          Go to <span className="font-medium">Metadata</span> in the admin menu to create custom fields.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="card">
-      <div className="card-header d-flex justify-content-between align-items-center">
-        <h5 className="mb-0">Custom Metadata</h5>
-        {!editMode ? (
-          <button className="btn btn-sm btn-outline-primary" onClick={() => setEditMode(true)}>
-            <i className="bi bi-pencil me-1"></i> Edit
-          </button>
-        ) : (
-          <div className="d-flex gap-2">
-            <button className="btn btn-sm btn-primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-            <button className="btn btn-sm btn-secondary" onClick={() => { setEditMode(false); loadData(); }}>
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="card-body">
-        <div className="row g-3">
-          {definitions.map(def => (
-            <div key={def.id} className="col-md-6">
-              <label className="form-label">
-                {def.label}
-                {def.is_required && <span className="text-danger ms-1">*</span>}
-              </label>
-              {renderField(def)}
-              {def.description && (
-                <small className="text-muted">{def.description}</small>
-              )}
-            </div>
-          ))}
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-gray-900">Custom Metadata</h3>
+        <div className="flex items-center space-x-2">
+          {!editMode ? (
+            <>
+              <button 
+                className="btn-secondary flex items-center space-x-2 text-sm"
+                onClick={handleRefresh}
+                title="Refresh metadata"
+              >
+                <RefreshCw size={16} />
+              </button>
+              <button 
+                className="btn-secondary flex items-center space-x-2 text-sm"
+                onClick={() => setEditMode(true)}
+              >
+                <Edit2 size={16} />
+                <span>Edit</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                className="btn-primary flex items-center space-x-2 text-sm"
+                onClick={handleSave} 
+                disabled={saving}
+              >
+                <Save size={16} />
+                <span>{saving ? 'Saving...' : 'Save'}</span>
+              </button>
+              <button 
+                className="btn-secondary flex items-center space-x-2 text-sm"
+                onClick={() => { setEditMode(false); loadData(); }}
+              >
+                <X size={16} />
+                <span>Cancel</span>
+              </button>
+            </>
+          )}
         </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {definitions.map(def => (
+          <div key={def.id}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {def.label}
+              {def.is_required && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            {renderField(def)}
+            {def.description && (
+              <p className="text-sm text-gray-500 mt-1">{def.description}</p>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

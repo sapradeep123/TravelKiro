@@ -52,7 +52,7 @@ class RetentionPolicyBase(BaseModel):
     folder_id: str
     apply_to_subfolders: bool = False
     retention_days: int = Field(..., ge=1, le=3650)  # 1 day to 10 years
-    mode: str = Field("move_to_recycle", pattern=r'^(move_to_recycle|delete)$')
+    mode: str = Field("MOVE_TO_RECYCLE", pattern=r'^(MOVE_TO_RECYCLE|DELETE)$')
 
 
 class RetentionPolicyCreate(RetentionPolicyBase):
@@ -62,7 +62,7 @@ class RetentionPolicyCreate(RetentionPolicyBase):
 class RetentionPolicyUpdate(BaseModel):
     apply_to_subfolders: Optional[bool] = None
     retention_days: Optional[int] = Field(None, ge=1, le=3650)
-    mode: Optional[str] = Field(None, pattern=r'^(move_to_recycle|delete)$')
+    mode: Optional[str] = Field(None, pattern=r'^(MOVE_TO_RECYCLE|DELETE)$')
 
 
 class RetentionPolicyOut(RetentionPolicyBase):

@@ -9,8 +9,8 @@ from app.db.models import Base
 
 
 class RetentionMode(str, enum.Enum):
-    MOVE_TO_RECYCLE = "move_to_recycle"  # Soft delete (set deleted_at)
-    DELETE = "delete"  # Permanent delete
+    MOVE_TO_RECYCLE = "MOVE_TO_RECYCLE"  # Soft delete (set deleted_at)
+    DELETE = "DELETE"  # Permanent delete
 
 
 class RetentionPolicy(Base):

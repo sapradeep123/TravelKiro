@@ -23,12 +23,13 @@ export default function Retention() {
     try {
       const [policiesRes, foldersRes] = await Promise.all([
         api.get('/v2/dms/retention', { params: { account_id: accountId } }),
-        api.get('/v2/dms/folders', { headers: { 'X-Account-Id': accountId } })
+        api.get('/v2/dms/folders-dms', { headers: { 'X-Account-Id': accountId } })
       ])
       setPolicies(policiesRes.data)
       setFolders(foldersRes.data)
     } catch (error) {
       toast.error('Failed to load retention policies')
+      console.error('Error loading data:', error)
     } finally {
       setLoading(false)
     }
@@ -36,8 +37,11 @@ export default function Retention() {
 
   const handleCreate = () => {
     setEditingPolicy({
-      folder_id: '', retention_days: 365, mode: 'delete',
-      notify_before_days: 30, is_active: true, account_id: accountId
+      folder_id: '', 
+      retention_days: 365, 
+      mode: 'MOVE_TO_RECYCLE',
+      apply_to_subfolders: false,
+      account_id: accountId
     })
     setShowModal(true)
   }
@@ -76,10 +80,11 @@ export default function Retention() {
   }
 
   const handleApplyPolicies = async () => {
-    if (!confirm('Apply all retention policies now? This may delete files.')) return
+    if (!confirm('Apply all retention policies now? This may delete or move files to recycle bin.')) return
     try {
       const result = await api.post(`/v2/dms/retention/apply/${accountId}`)
-      toast.success(`Applied: ${result.data.files_deleted || 0} files deleted`)
+      const msg = `Applied: ${result.data.moved_to_recycle || 0} moved to recycle, ${result.data.permanently_deleted || 0} deleted`
+      toast.success(msg)
       loadData()
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to apply policies')
@@ -135,7 +140,7 @@ export default function Retention() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Folder</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Retention</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Mode</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Created</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
@@ -150,18 +155,18 @@ export default function Retention() {
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell">
                     <div className="text-sm text-gray-600">{policy.retention_days} days</div>
-                    {policy.notify_before_days && (
-                      <div className="text-xs text-gray-400">Notify {policy.notify_before_days}d before</div>
+                    {policy.apply_to_subfolders && (
+                      <div className="text-xs text-gray-400">Includes subfolders</div>
                     )}
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell">
-                    <span className={`px-2 py-1 text-xs rounded ${policy.mode === 'delete' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                      {policy.mode}
+                    <span className={`px-2 py-1 text-xs rounded ${policy.mode === 'DELETE' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                      {policy.mode === 'MOVE_TO_RECYCLE' ? 'Move to Recycle' : 'Delete'}
                     </span>
                   </td>
                   <td className="px-6 py-4 hidden lg:table-cell">
-                    <span className={`px-2 py-1 text-xs rounded ${policy.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                      {policy.is_active ? 'Active' : 'Inactive'}
+                    <span className="text-sm text-gray-600">
+                      {new Date(policy.created_at).toLocaleDateString()}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -204,22 +209,16 @@ export default function Retention() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mode</label>
-                <select value={editingPolicy?.mode || 'delete'} onChange={(e) => setEditingPolicy({ ...editingPolicy, mode: e.target.value })}
+                <select value={editingPolicy?.mode || 'MOVE_TO_RECYCLE'} onChange={(e) => setEditingPolicy({ ...editingPolicy, mode: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
-                  <option value="delete">Delete</option>
-                  <option value="archive">Archive</option>
+                  <option value="MOVE_TO_RECYCLE">Move to Recycle Bin</option>
+                  <option value="DELETE">Permanently Delete</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notify Before (days)</label>
-                <input type="number" value={editingPolicy?.notify_before_days || 30}
-                  onChange={(e) => setEditingPolicy({ ...editingPolicy, notify_before_days: parseInt(e.target.value) })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
-              </div>
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={editingPolicy?.is_active !== false}
-                  onChange={(e) => setEditingPolicy({ ...editingPolicy, is_active: e.target.checked })} className="w-4 h-4" />
-                <span className="text-sm">Active</span>
+                <input type="checkbox" checked={editingPolicy?.apply_to_subfolders || false}
+                  onChange={(e) => setEditingPolicy({ ...editingPolicy, apply_to_subfolders: e.target.checked })} className="w-4 h-4" />
+                <span className="text-sm">Apply to subfolders</span>
               </label>
             </div>
             <div className="flex gap-2 mt-6">

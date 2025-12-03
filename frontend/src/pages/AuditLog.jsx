@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
+import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const AuditLog = () => {
@@ -27,13 +27,14 @@ const AuditLog = () => {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const response = await axios.post('/v2/dms/audit/query', filters, {
+      const response = await api.post('/v2/dms/audit/query', filters, {
         params: { account_id: accountId }
       });
       setLogs(response.data);
     } catch (error) {
       console.error('Failed to load audit logs:', error);
-      alert('Failed to load audit logs: ' + (error.response?.data?.detail || error.message));
+      const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
+      alert(`Failed to load audit logs: ${errorMsg}`);
     } finally {
       setLoading(false);
     }

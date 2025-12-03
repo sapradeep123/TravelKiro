@@ -129,13 +129,34 @@ class AuditLogOut(BaseModel):
     action: str
     resource_type: str
     resource_id: Optional[str]
-    metadata: Optional[dict]
+    metadata: Optional[dict] = None
     ip_address: Optional[str]
     user_agent: Optional[str]
     created_at: datetime
 
     class Config:
         from_attributes = True
+        populate_by_name = True
+        
+    @classmethod
+    def model_validate(cls, obj):
+        # Map extra_data to metadata
+        if hasattr(obj, 'extra_data'):
+            obj_dict = {
+                'id': obj.id,
+                'account_id': obj.account_id,
+                'user_id': obj.user_id,
+                'api_key_id': obj.api_key_id,
+                'action': obj.action,
+                'resource_type': obj.resource_type,
+                'resource_id': obj.resource_id,
+                'metadata': obj.extra_data,
+                'ip_address': obj.ip_address,
+                'user_agent': obj.user_agent,
+                'created_at': obj.created_at
+            }
+            return cls(**obj_dict)
+        return super().model_validate(obj)
 
 
 class AuditLogQuery(BaseModel):

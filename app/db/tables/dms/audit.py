@@ -27,7 +27,7 @@ class AuditLog(Base):
     resource_id = Column(String(26), nullable=True, index=True)
     
     # Additional context
-    extra_data = Column(JSON, nullable=True)  # Flexible JSON for action-specific data
+    extra_data = Column(JSON, nullable=True)  # Flexible JSON for action-specific data (mapped as 'metadata' in API)
     ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6
     user_agent = Column(Text, nullable=True)
     

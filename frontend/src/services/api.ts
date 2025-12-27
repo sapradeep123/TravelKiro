@@ -75,12 +75,32 @@ api.interceptors.response.use(
 
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
+        } else {
+          // No refresh token, clear everything and force re-login
+          await storage.deleteItem('accessToken');
+          await storage.deleteItem('refreshToken');
+          await storage.deleteItem('user');
+          
+          // Redirect to login on web
+          if (Platform.OS === 'web') {
+            if (typeof globalThis !== 'undefined' && 'location' in globalThis) {
+              (globalThis as any).location.href = '/login';
+            }
+          }
         }
       } catch (refreshError) {
         // Refresh failed, clear tokens and redirect to login
         await storage.deleteItem('accessToken');
         await storage.deleteItem('refreshToken');
         await storage.deleteItem('user');
+        
+        // Redirect to login on web
+        if (Platform.OS === 'web') {
+          if (typeof globalThis !== 'undefined' && 'location' in globalThis) {
+            (globalThis as any).location.href = '/login';
+          }
+        }
+        
         return Promise.reject(refreshError);
       }
     }

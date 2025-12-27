@@ -1,0 +1,55 @@
+// Expo automatically loads EXPO_PUBLIC_* variables from .env
+// This file ensures the config is dynamic
+module.exports = {
+  expo: {
+    name: 'Travel Encyclopedia',
+    slug: 'travel-encyclopedia',
+    version: '1.0.0',
+    orientation: 'portrait',
+    icon: './assets/icon.png',
+    userInterfaceStyle: 'light',
+    splash: {
+      image: './assets/splash.png',
+      resizeMode: 'contain',
+      backgroundColor: '#2196F3'
+    },
+    assetBundlePatterns: [
+      '**/*'
+    ],
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: 'com.travelencyclopedia.app'
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: './assets/adaptive-icon.png',
+        backgroundColor: '#2196F3'
+      },
+      package: 'com.travelencyclopedia.app',
+      permissions: [
+        'CAMERA',
+        'READ_EXTERNAL_STORAGE',
+        'WRITE_EXTERNAL_STORAGE'
+      ]
+    },
+    web: {
+      favicon: './assets/favicon.png',
+      bundler: 'metro'
+    },
+    plugins: [
+      'expo-router',
+      [
+        'expo-image-picker',
+        {
+          photosPermission: 'Allow Butterfliy to access your photos to share travel memories',
+          cameraPermission: 'Allow Butterfliy to access your camera to capture travel moments'
+        }
+      ]
+    ],
+    scheme: 'travel-encyclopedia',
+    experiments: {
+      typedRoutes: true
+    }
+  }
+};
+

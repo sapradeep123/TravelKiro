@@ -58,7 +58,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip token refresh for logout and auth endpoints (except refresh-token itself)
+    const isAuthEndpoint = originalRequest.url?.includes('/auth/logout') || 
+                          originalRequest.url?.includes('/auth/login') ||
+                          originalRequest.url?.includes('/auth/register') ||
+                          originalRequest.url?.includes('/auth/refresh-token');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
@@ -88,8 +94,18 @@ api.interceptors.response.use(
             }
           }
         }
-      } catch (refreshError) {
-        // Refresh failed, clear tokens and redirect to login
+      } catch (refreshError: any) {
+        // Refresh failed (401 or other error), clear tokens silently
+        // Don't throw error for logout - just clear tokens
+        if (originalRequest.url?.includes('/auth/logout')) {
+          await storage.deleteItem('accessToken');
+          await storage.deleteItem('refreshToken');
+          await storage.deleteItem('user');
+          // Return a resolved promise for logout to prevent error
+          return Promise.resolve({ data: { message: 'Logged out' } });
+        }
+        
+        // For other endpoints, clear tokens and reject
         await storage.deleteItem('accessToken');
         await storage.deleteItem('refreshToken');
         await storage.deleteItem('user');
@@ -103,6 +119,14 @@ api.interceptors.response.use(
         
         return Promise.reject(refreshError);
       }
+    }
+
+    // For logout endpoints with 401, clear tokens and resolve gracefully
+    if (error.response?.status === 401 && originalRequest.url?.includes('/auth/logout')) {
+      await storage.deleteItem('accessToken');
+      await storage.deleteItem('refreshToken');
+      await storage.deleteItem('user');
+      return Promise.resolve({ data: { message: 'Logged out' } });
     }
 
     return Promise.reject(error);

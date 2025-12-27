@@ -50,9 +50,19 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
+    // Always clear tokens, even if API call fails
+    // The API interceptor will handle 401 errors gracefully for logout
     try {
       await api.post('/auth/logout');
+    } catch (error: any) {
+      // Ignore errors during logout - tokens will be cleared anyway
+      // This prevents uncaught errors when tokens are already invalid
+      if (error.response?.status !== 401) {
+        // Only log non-401 errors (401 is expected for expired tokens)
+        console.warn('Logout API call failed:', error.message);
+      }
     } finally {
+      // Always clear tokens regardless of API call success/failure
       await storage.deleteItem('accessToken');
       await storage.deleteItem('refreshToken');
       await storage.deleteItem('user');

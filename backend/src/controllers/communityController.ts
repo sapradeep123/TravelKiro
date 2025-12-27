@@ -89,6 +89,23 @@ export class CommunityController {
     }
   }
 
+  // GET /api/community/posts/public - Get public feed for landing page (no auth required)
+  async getPublicFeed(req: Request, res: Response) {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 12, 20);
+
+      const result = await communityService.getPublicFeed(limit);
+
+      res.status(200).json({ data: result });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(500).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
   // GET /api/community/posts/:id - Get single post
   async getPost(req: Request, res: Response) {
     try {

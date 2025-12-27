@@ -13,8 +13,9 @@ export default function AdminLayout() {
     );
   }
 
-  // Only SITE_ADMIN and GOVT_DEPARTMENT can access admin routes
-  if (!user || (user.role !== 'SITE_ADMIN' && user.role !== 'GOVT_DEPARTMENT')) {
+  // Allow SITE_ADMIN, GOVT_DEPARTMENT, and TOURIST_GUIDE to access admin routes
+  // TOURIST_GUIDE can access guide-specific routes (packages, events, accommodations)
+  if (!user || (user.role !== 'SITE_ADMIN' && user.role !== 'GOVT_DEPARTMENT' && user.role !== 'TOURIST_GUIDE')) {
     return <Redirect href="/(tabs)" />;
   }
 
@@ -30,6 +31,9 @@ export default function AdminLayout() {
       <Stack.Screen name="edit-event" />
       <Stack.Screen name="manage-event-types" />
       <Stack.Screen name="packages" />
+      <Stack.Screen name="create-package" />
+      <Stack.Screen name="manage-accommodations" />
+      <Stack.Screen name="call-requests" />
       <Stack.Screen name="approvals" />
     </Stack>
   );

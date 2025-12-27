@@ -61,12 +61,11 @@ export class ApprovalService {
             content = await prisma.accommodation.findUnique({
               where: { id: approval.contentId },
               include: {
-                uploader: {
+                creator: {
                   include: {
                     profile: true,
                   },
                 },
-                location: true,
               },
             });
             break;

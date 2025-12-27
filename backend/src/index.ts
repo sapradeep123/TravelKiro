@@ -19,6 +19,7 @@ import albumRoutes, { photoRouter, commentRouter } from './routes/albums';
 import messagingRoutes from './routes/messaging';
 import siteSettingsRoutes from './routes/siteSettings';
 import uploadRoutes from './routes/upload';
+import chatbotRoutes from './routes/chatbot';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -97,6 +98,7 @@ app.use('/api/photo-comments', commentRouter);
 app.use('/api/messaging', messagingRoutes);
 app.use('/api/site-settings', siteSettingsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
 // Error handling
 app.use(notFoundHandler);

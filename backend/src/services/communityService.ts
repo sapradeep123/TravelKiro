@@ -80,6 +80,54 @@ export class CommunityService {
     return post;
   }
 
+  async getPublicFeed(limit: number = 12) {
+    const where: any = {};
+
+    // Only show non-hidden posts
+    try {
+      where.isHidden = false;
+    } catch (error) {
+      // Field doesn't exist yet
+    }
+
+    const posts = await prisma.communityPost.findMany({
+      where,
+      include: {
+        user: {
+          include: {
+            profile: {
+              select: {
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    });
+
+    // Return simplified posts for public view
+    return posts.map((post: any) => ({
+      id: post.id,
+      caption: post.caption,
+      mediaUrls: post.mediaUrls,
+      mediaTypes: post.mediaTypes,
+      likeCount: post.likeCount || 0,
+      commentCount: post.commentCount || 0,
+      createdAt: post.createdAt,
+      user: {
+        profile: {
+          name: post.user?.profile?.name || 'Traveler',
+          avatar: post.user?.profile?.avatar,
+        },
+      },
+    }));
+  }
+
   async getFeed(userId?: string, page: number = 1, pageSize: number = 20) {
     const skip = (page - 1) * pageSize;
     const where: any = {};

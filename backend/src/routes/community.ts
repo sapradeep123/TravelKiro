@@ -53,6 +53,9 @@ router.post('/upload-images', authenticate, communityImageUpload.array('images',
 // POST /api/community/posts - Create new post (auth required)
 router.post('/posts', authenticate, communityController.createPost);
 
+// GET /api/community/posts/public - Get public feed for landing page (no auth)
+router.get('/posts/public', communityController.getPublicFeed);
+
 // GET /api/community/posts - Get global feed with pagination
 router.get('/posts', communityController.getFeed);
 

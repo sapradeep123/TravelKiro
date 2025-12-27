@@ -407,7 +407,10 @@ export class EventService {
 
     const updated = await prisma.eventCallbackRequest.update({
       where: { id: requestId },
-      data: { isContacted: true },
+      data: { 
+        status: 'CONTACTED',
+        contactedAt: new Date(),
+      },
     });
 
     return updated;

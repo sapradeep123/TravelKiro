@@ -62,9 +62,6 @@ export class UserService {
 
     const users = await prisma.user.findMany({
       where,
-      include: {
-        profile: true,
-      },
       select: {
         id: true,
         email: true,

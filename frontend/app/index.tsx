@@ -13,7 +13,8 @@ export default function Index() {
       if (isAuthenticated) {
         router.replace('/(tabs)/locations');
       } else {
-        router.replace('/(auth)/login');
+        // Show explore page for non-authenticated users
+        router.replace('/(public)/explore');
       }
     }
   }, [isAuthenticated, loading]);
@@ -21,9 +22,9 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <Text variant="headlineLarge" style={styles.title}>
-        Butterfliy
+        🦋 Butterfliy
       </Text>
-      <ActivityIndicator size="large" color="#2196F3" style={styles.loader} />
+      <ActivityIndicator size="large" color="#6366f1" style={styles.loader} />
     </View>
   );
 }
@@ -36,7 +37,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   title: {
-    color: '#2196F3',
+    color: '#6366f1',
     fontWeight: 'bold',
     marginBottom: 20,
   },

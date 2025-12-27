@@ -100,6 +100,15 @@ export default function AdminDashboard() {
       color: '#84cc16',
       route: '/(admin)/accommodation-reports',
       roles: ['SITE_ADMIN']
+    },
+    {
+      id: 'site-settings',
+      title: 'Site Settings',
+      description: 'Update logo, favicon, and site branding',
+      icon: 'settings',
+      color: '#64748b',
+      route: '/(admin)/site-settings',
+      roles: ['SITE_ADMIN']
     }
   ];
 

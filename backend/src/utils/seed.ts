@@ -256,25 +256,44 @@ async function main() {
     console.log('✅ Location already exists: Jaipur');
   }
 
-  // Create sample event
-  const event1 = await prisma.event.create({
-    data: {
+  // Create sample event - using findFirst to avoid duplicates
+  let event1 = await prisma.event.findFirst({
+    where: {
       title: 'Kerala Boat Race Festival',
-      description: 'Experience the thrilling snake boat races during the Onam festival. Watch teams of rowers compete in traditional boats on the backwaters.',
-      eventType: 'Festival',
       locationId: location2.id,
-      startDate: new Date('2024-09-01'),
-      endDate: new Date('2024-09-03'),
-      images: [
-        'https://images.unsplash.com/photo-1609137144813-7d9921338f24?w=800',
-      ],
-      hostId: govtUser.id,
-      hostRole: 'GOVT_DEPARTMENT',
-      approvalStatus: 'APPROVED',
     },
   });
 
-  console.log('✅ Event created: Kerala Boat Race Festival');
+  if (!event1) {
+    event1 = await prisma.event.create({
+      data: {
+        title: 'Kerala Boat Race Festival',
+        description: 'Experience the thrilling snake boat races during the Onam festival. Watch teams of rowers compete in traditional boats on the backwaters. This annual event attracts thousands of spectators and features multiple boat race competitions, traditional music, and cultural performances.',
+        eventType: 'Festival',
+        locationId: location2.id,
+        venue: 'Punnamada Lake, Alleppey Backwaters',
+        startDate: new Date('2024-09-01'),
+        endDate: new Date('2024-09-03'),
+        images: [
+          'https://images.unsplash.com/photo-1609137144813-7d9921338f24?w=800',
+          'https://images.unsplash.com/photo-1593693397690-362cb9666fc2?w=800',
+        ],
+        nearestAirport: 'Cochin International Airport',
+        airportDistance: '85 km (approx 2.5 hours by road)',
+        nearestRailway: 'Alleppey Railway Station',
+        railwayDistance: 'Located in the city center',
+        nearestBusStation: 'Alleppey Bus Stand',
+        busStationDistance: 'Located in the city center',
+        hostId: govtUser.id,
+        hostRole: 'GOVT_DEPARTMENT',
+        approvalStatus: 'APPROVED',
+        isActive: true,
+      },
+    });
+    console.log('✅ Event created: Kerala Boat Race Festival');
+  } else {
+    console.log('✅ Event already exists: Kerala Boat Race Festival');
+  }
 
   // Create sample package
   const package1 = await prisma.package.create({

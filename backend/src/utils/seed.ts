@@ -93,66 +93,99 @@ async function main() {
 
   console.log('✅ Regular user created:', user.email);
 
-  // Create sample locations (approved by admin)
-  const location1 = await prisma.location.create({
-    data: {
+  // Create sample locations (approved by admin) - using findFirst to avoid duplicates
+  let location1 = await prisma.location.findFirst({
+    where: {
       country: 'India',
       state: 'Kerala',
       area: 'Munnar',
-      description: 'Munnar is a town in the Western Ghats mountain range in Kerala. A hill station and former resort for the British Raj elite, it\'s surrounded by rolling hills dotted with tea plantations established in the late 19th century.',
-      images: [
-        'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=800',
-        'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=800',
-      ],
-      createdBy: govtUser.id,
-      createdByRole: 'GOVT_DEPARTMENT',
-      approvalStatus: 'APPROVED',
-      approvedBy: admin.id,
-      approvedAt: new Date(),
     },
   });
 
-  console.log('✅ Location created: Munnar');
+  if (!location1) {
+    location1 = await prisma.location.create({
+      data: {
+        country: 'India',
+        state: 'Kerala',
+        area: 'Munnar',
+        description: 'Munnar is a town in the Western Ghats mountain range in Kerala. A hill station and former resort for the British Raj elite, it\'s surrounded by rolling hills dotted with tea plantations established in the late 19th century.',
+        images: [
+          'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=800',
+          'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=800',
+        ],
+        createdBy: govtUser.id,
+        createdByRole: 'GOVT_DEPARTMENT',
+        approvalStatus: 'APPROVED',
+        approvedBy: admin.id,
+        approvedAt: new Date(),
+      },
+    });
+    console.log('✅ Location created: Munnar');
+  } else {
+    console.log('✅ Location already exists: Munnar');
+  }
 
-  const location2 = await prisma.location.create({
-    data: {
+  let location2 = await prisma.location.findFirst({
+    where: {
       country: 'India',
       state: 'Kerala',
       area: 'Alleppey',
-      description: 'Alappuzha (or Alleppey) is a city on the Laccadive Sea in the southern Indian state of Kerala. It\'s best known for houseboat cruises along the rustic Kerala backwaters, a network of tranquil canals and lagoons.',
-      images: [
-        'https://images.unsplash.com/photo-1593693397690-362cb9666fc2?w=800',
-        'https://images.unsplash.com/photo-1609137144813-7d9921338f24?w=800',
-      ],
-      createdBy: govtUser.id,
-      createdByRole: 'GOVT_DEPARTMENT',
-      approvalStatus: 'APPROVED',
-      approvedBy: admin.id,
-      approvedAt: new Date(),
     },
   });
 
-  console.log('✅ Location created: Alleppey');
+  if (!location2) {
+    location2 = await prisma.location.create({
+      data: {
+        country: 'India',
+        state: 'Kerala',
+        area: 'Alleppey',
+        description: 'Alappuzha (or Alleppey) is a city on the Laccadive Sea in the southern Indian state of Kerala. It\'s best known for houseboat cruises along the rustic Kerala backwaters, a network of tranquil canals and lagoons.',
+        images: [
+          'https://images.unsplash.com/photo-1593693397690-362cb9666fc2?w=800',
+          'https://images.unsplash.com/photo-1609137144813-7d9921338f24?w=800',
+        ],
+        createdBy: govtUser.id,
+        createdByRole: 'GOVT_DEPARTMENT',
+        approvalStatus: 'APPROVED',
+        approvedBy: admin.id,
+        approvedAt: new Date(),
+      },
+    });
+    console.log('✅ Location created: Alleppey');
+  } else {
+    console.log('✅ Location already exists: Alleppey');
+  }
 
-  const location3 = await prisma.location.create({
-    data: {
+  let location3 = await prisma.location.findFirst({
+    where: {
       country: 'India',
       state: 'Rajasthan',
       area: 'Jaipur',
-      description: 'Jaipur is the capital of India\'s Rajasthan state. It evokes the royal family that once ruled the region and that, in 1727, founded what is now called the Old City, or "Pink City" for its trademark building color.',
-      images: [
-        'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=800',
-        'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=800',
-      ],
-      createdBy: admin.id,
-      createdByRole: 'SITE_ADMIN',
-      approvalStatus: 'APPROVED',
-      approvedBy: admin.id,
-      approvedAt: new Date(),
     },
   });
 
-  console.log('✅ Location created: Jaipur');
+  if (!location3) {
+    location3 = await prisma.location.create({
+      data: {
+        country: 'India',
+        state: 'Rajasthan',
+        area: 'Jaipur',
+        description: 'Jaipur is the capital of India\'s Rajasthan state. It evokes the royal family that once ruled the region and that, in 1727, founded what is now called the Old City, or "Pink City" for its trademark building color.',
+        images: [
+          'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=800',
+          'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=800',
+        ],
+        createdBy: admin.id,
+        createdByRole: 'SITE_ADMIN',
+        approvalStatus: 'APPROVED',
+        approvedBy: admin.id,
+        approvedAt: new Date(),
+      },
+    });
+    console.log('✅ Location created: Jaipur');
+  } else {
+    console.log('✅ Location already exists: Jaipur');
+  }
 
   // Create sample event
   const event1 = await prisma.event.create({

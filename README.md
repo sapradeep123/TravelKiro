@@ -1,145 +1,168 @@
-# Butterfliy Travel Encyclopedia
+# TravelKiro - Travel Encyclopedia Platform
 
-A comprehensive travel platform connecting tourists with destinations, events, packages, and local guides.
+A comprehensive travel platform connecting tourists, guides, and destinations.
 
-## Overview
+## 🌟 Overview
 
-Butterfliy is a full-stack travel encyclopedia application that enables:
-- **Tourists**: Discover destinations, events, and packages
-- **Government Departments**: Manage and promote regional tourism
-- **Tourist Guides**: Create packages and offer services
-- **Site Admins**: Oversee platform operations and approvals
+TravelKiro enables travelers to discover destinations, plan group travels, connect with guides, and share experiences. Built with React Native (Expo) and Node.js.
 
-## Tech Stack
+## 🚀 Quick Start
 
-**Frontend:**
-- React Native (Expo)
-- React Native Paper (UI)
-- TypeScript
+### Prerequisites
+- Node.js 18+
+- PostgreSQL 14+
+- npm or yarn
 
-**Backend:**
-- Node.js + Express
-- PostgreSQL + Prisma ORM
-- JWT Authentication
-
-## Features
-
-### Core Modules
-- ✅ **Locations** - Tourist destinations with rich media
-- ✅ **Events** - Festivals, concerts, cultural events
-- ✅ **Packages** - Curated travel packages
-- ✅ **Accommodations** - Hotels, resorts, restaurants with CRM
-- ✅ **Community** - Social features and user interactions
-- ✅ **Group Travel** - Collaborative trip planning
-
-### Accommodations Module (Latest)
-Complete property management system with integrated CRM:
-- 5 accommodation types (Hotels, Resorts, Restaurants, Home Stays, Shared Flats)
-- 8-stage lead workflow (NEW → CONVERTED)
-- Analytics and reporting dashboard
-- Geographic search with coordinates
-- Review and rating system
-
-📖 **[View Complete Guide](docs/ACCOMMODATIONS_GUIDE.md)**
-
-## Quick Start
+### Installation
 
 ```bash
+# Clone repository
+git clone https://github.com/sapradeep123/TravelKiro.git
+cd TravelKiro
+
 # Install dependencies
 cd backend && npm install
 cd ../frontend && npm install
 
 # Setup database
 cd backend
-npx prisma migrate dev
+npx prisma migrate deploy
 npx prisma generate
-
-# Start servers
-cd backend && npm run dev    # Port 3000
-cd frontend && npm start     # Port 8081
+npx tsx src/utils/seed.ts  # Add sample data
 ```
 
-**Access:** http://localhost:8081
+### Run Application
 
-**Default Login:**
-- Admin: admin@butterfliy.com / Admin@123
-- Govt: govt@butterfliy.com / Govt@123
-- Guide: guide@butterfliy.com / Guide@123
-
-## Documentation
-
-📚 **[Complete Project Documentation](./PROJECT_DOCUMENTATION.md)** - All-in-one comprehensive guide
-
-Additional Resources:
-- [Getting Started Guide](./docs/GETTING_STARTED.md)
-- [Features Documentation](./docs/FEATURES.md)
-- [API Reference](./docs/API_REFERENCE.md)
-- [Accommodations Guide](./docs/ACCOMMODATIONS_GUIDE.md)
-
-## Project Structure
-
-```
-├── backend/              # Express API server
-│   ├── src/
-│   │   ├── controllers/  # Request handlers
-│   │   ├── services/     # Business logic
-│   │   ├── routes/       # API routes
-│   │   └── middleware/   # Auth, error handling
-│   └── prisma/           # Database schema
-│
-├── frontend/             # React Native app
-│   ├── app/              # Expo Router pages
-│   │   ├── (tabs)/       # Main navigation tabs
-│   │   ├── (admin)/      # Admin pages
-│   │   └── (auth)/       # Login/Register
-│   ├── src/
-│   │   ├── services/     # API clients
-│   │   ├── contexts/     # React contexts
-│   │   └── types/        # TypeScript types
-│   └── components/       # Reusable components
-│
-└── docs/                 # Documentation
-```
-
-## Key Features
-
-- 🗺️ **Locations**: Browse and manage travel destinations
-- 🎉 **Events**: Discover festivals and local events
-- 📦 **Packages**: Curated travel packages with itineraries
-- 👥 **Community**: Share experiences and connect
-- 🏨 **Accommodations**: Hotels, restaurants, resorts
-- 📞 **Callback System**: Request information from hosts
-- 🚌 **Group Travel**: Collaborative trip planning
-- ✅ **Approval System**: Content moderation workflow
-
-## Development
-
-### Backend
 ```bash
+# Start backend (Terminal 1)
 cd backend
-npm run dev          # Start dev server
-npx prisma studio    # Open database GUI
-npx prisma generate  # Regenerate Prisma client
+npm run dev
+
+# Start frontend (Terminal 2)
+cd frontend
+npx expo start --port 8082
 ```
 
-### Frontend
+**Access**: http://localhost:8082
+
+## 🔑 Login Credentials
+
+| Role | Email | Password |
+|------|-------|----------|
+| **Admin** | admin@travelencyclopedia.com | admin123 |
+| **Govt** | tourism@kerala.gov.in | govt123 |
+| **Guide** | guide@example.com | guide123 |
+| **User** | user@example.com | user123 |
+
+## ✨ Features
+
+- 🗺️ **Locations** - Browse travel destinations
+- 🎉 **Events** - Discover festivals and events
+- 📦 **Packages** - Curated travel packages
+- 🚌 **Group Travel** - Collaborative trip planning with bidding
+- 💬 **Messaging** - Real-time chat between users
+- 📸 **Photo Albums** - Share travel experiences
+- 👥 **Community** - Social features and posts
+- ⚙️ **Site Settings** - Admin customization (logo, legal pages)
+
+## 🛠️ Tech Stack
+
+**Frontend**: React Native, Expo, TypeScript, React Native Paper  
+**Backend**: Node.js, Express, TypeScript, Prisma ORM  
+**Database**: PostgreSQL  
+**Authentication**: JWT with refresh tokens
+
+## 📁 Project Structure
+
+```
+TravelKiro/
+├── backend/          # Node.js API
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── services/
+│   │   ├── routes/
+│   │   └── middleware/
+│   └── prisma/       # Database schema
+├── frontend/         # React Native app
+│   ├── app/          # Expo Router pages
+│   ├── src/
+│   │   ├── services/
+│   │   ├── contexts/
+│   │   └── types/
+│   └── components/
+└── docs/             # Documentation
+```
+
+## 🔧 Development
+
+### Backend Commands
 ```bash
-cd frontend
-npm start            # Start Expo dev server
+npm run dev          # Start dev server
+npx prisma studio    # Database GUI
+npx prisma generate  # Regenerate client
+```
+
+### Frontend Commands
+```bash
+npx expo start       # Start dev server
 npm run web          # Open in browser
 ```
 
-## Contributing
+## � Producation Deployment
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete deployment instructions.
+
+**Quick Deploy**:
+```bash
+./deploy-frontend.sh
+```
+
+**Production URLs**:
+- Frontend: http://38.242.248.213:3200
+- Backend: http://38.242.248.213:5500
+
+## 🐛 Troubleshooting
+
+### 401 Error / Can't Login
+1. Clear browser local storage (F12 → Application → Local Storage → Clear)
+2. Hard refresh (Ctrl+Shift+R)
+3. Login again
+
+### No Data Showing
+1. Run seed script: `npx tsx src/utils/seed.ts`
+2. Check backend is running: http://localhost:3000/health
+3. Check browser console for errors
+
+### Logout Not Working
+1. Clear browser data
+2. Close all tabs
+3. Open fresh and login
+
+## 📚 Documentation
+
+- **Complete Guide**: See [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **API Docs**: Backend runs on http://localhost:3000
+- **Health Check**: http://localhost:3000/health
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
-## License
+## 📄 License
 
 MIT License - see LICENSE file for details
 
-## Support
+## 📞 Support
 
-For issues and questions, please open a GitHub issue.
+- **Issues**: https://github.com/sapradeep123/TravelKiro/issues
+- **Repository**: https://github.com/sapradeep123/TravelKiro
+
+---
+
+**Version**: 1.0  
+**Last Updated**: November 19, 2025  
+**Status**: Production Ready ✅

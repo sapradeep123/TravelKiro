@@ -34,21 +34,22 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
             file_path = DIST_DIR / parsed_path.lstrip('/')
             if file_path.exists() and file_path.is_file():
                 self.path = parsed_path
-                super().do_GET()
+                return super().do_GET()
             else:
-                self.send_error(404, "File not found")
-            return
+                return self.send_error(404, "File not found")
         
-        # Check if it's an actual file
+        # Check if it's an actual file that exists
         file_path = DIST_DIR / parsed_path.lstrip('/')
         if parsed_path != '/' and file_path.exists() and file_path.is_file():
             # Serve the actual file
             self.path = parsed_path
-            super().do_GET()
-        else:
-            # For SPA routing, serve index.html for all other routes
-            self.path = '/index.html'
-            super().do_GET()
+            return super().do_GET()
+        
+        # For SPA routing, serve index.html for all other routes
+        # Save original path for logging
+        original_path = self.path
+        self.path = '/index.html'
+        super().do_GET()
 
 def run(port=8082):
     os.chdir(DIST_DIR)

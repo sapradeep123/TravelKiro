@@ -216,8 +216,10 @@ async function main() {
   console.log('✅ Package created: Kerala Backwaters Experience');
 
   // Create sample accommodations
-  const hotel1 = await prisma.accommodation.create({
-    data: {
+  const hotel1 = await prisma.accommodation.upsert({
+    where: { slug: 'taj-gateway-hotel-munnar' },
+    update: {},
+    create: {
       name: 'The Taj Gateway Hotel',
       slug: 'taj-gateway-hotel-munnar',
       type: 'HOTEL',
@@ -244,8 +246,10 @@ async function main() {
 
   console.log('✅ Accommodation created: The Taj Gateway Hotel');
 
-  const restaurant1 = await prisma.accommodation.create({
-    data: {
+  const restaurant1 = await prisma.accommodation.upsert({
+    where: { slug: 'saravana-bhavan-alleppey' },
+    update: {},
+    create: {
       name: 'Saravana Bhavan',
       slug: 'saravana-bhavan-alleppey',
       type: 'RESTAURANT',

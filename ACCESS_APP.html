@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TravelKiro - Access Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .alert {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .alert-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .alert-text {
+            color: #856404;
+            line-height: 1.6;
+        }
+        
+        .access-button {
+            display: block;
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .access-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .credentials {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .credentials h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .credential-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .credential-label {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .credential-value {
+            color: #333;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            border: 2px solid #0c5460;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #0c5460;
+        }
+        
+        .status {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            padding: 15px;
+            background: #d4edda;
+            border-radius: 10px;
+        }
+        
+        .status-item {
+            text-align: center;
+        }
+        
+        .status-label {
+            font-size: 12px;
+            color: #155724;
+            margin-bottom: 5px;
+        }
+        
+        .status-value {
+            font-weight: bold;
+            color: #155724;
+            font-size: 16px;
+        }
+        
+        .checkmark {
+            color: #28a745;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 TravelKiro Application</h1>
+        <p class="subtitle">Access your travel encyclopedia platform</p>
+        
+        <div class="alert">
+            <div class="alert-title">⚠️ Important: Use the Correct URL</div>
+            <div class="alert-text">
+                You were accessing the <strong>backend API</strong> which shows JSON data.<br>
+                Click the button below to access the <strong>frontend UI</strong> with the login page.
+            </div>
+        </div>
+        
+        <a href="http://localhost:8082" class="access-button" target="_blank">
+            🌐 Open TravelKiro Application
+        </a>
+        
+        <div class="status">
+            <div class="status-item">
+                <div class="status-label">Backend</div>
+                <div class="status-value"><span class="checkmark">✓</span> Running</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Frontend</div>
+                <div class="status-value"><span class="checkmark">✓</span> Running</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Port</div>
+                <div class="status-value">8082</div>
+            </div>
+        </div>
+        
+        <div class="credentials">
+            <h3>🔑 Test Credentials</h3>
+            
+            <div class="credential-item">
+                <div class="credential-label">Site Administrator</div>
+                <div class="credential-value">Email: admin@travelencyclopedia.com</div>
+                <div class="credential-value">Password: admin123</div>
+            </div>
+            
+            <div class="credential-item">
+                <div class="credential-label">Regular User</div>
+                <div class="credential-value">Email: user@travelencyclopedia.com</div>
+                <div class="credential-value">Password: password123</div>
+            </div>
+            
+            <div class="credential-item">
+                <div class="credential-label">Tourist Guide</div>
+                <div class="credential-value">Email: guide@example.com</div>
+                <div class="credential-value">Password: guide123</div>
+            </div>
+        </div>
+        
+        <div class="info">
+            <strong>📝 Note:</strong> After clicking the button above, you'll see the login page with a beautiful gradient background, logo, and login form. Use any of the credentials above to sign in.
+        </div>
+    </div>
+</body>
+</html>

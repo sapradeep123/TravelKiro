@@ -132,7 +132,9 @@ export default function CommunityScreen() {
         }
       } else {
         const response = await groupTravelService.getAllGroupTravels();
-        setGroupTravels(Array.isArray(response.data) ? response.data : []);
+        // API returns { data: [...] }, and getAllGroupTravels() returns response.data which is { data: [...] }
+        const travels = response?.data || [];
+        setGroupTravels(Array.isArray(travels) ? travels : []);
       }
     } catch (error) {
       console.error('Error loading data:', error);

@@ -413,20 +413,45 @@ async function main() {
 
   console.log('✅ Community post created');
 
-  // Create sample group travel
-  const groupTravel1 = await prisma.groupTravel.create({
-    data: {
+  // Create sample group travel - using findFirst to avoid duplicates
+  let groupTravel1 = await prisma.groupTravel.findFirst({
+    where: {
       title: 'Rajasthan Heritage Tour - Group of 10',
-      description: 'Looking for a group of 10 people to explore the heritage sites of Rajasthan including Jaipur, Udaipur, and Jodhpur.',
-      locationId: location3.id,
-      travelDate: new Date('2024-12-15'),
-      expiryDate: new Date('2024-11-30'),
       creatorId: user.id,
-      status: 'OPEN',
     },
   });
 
-  console.log('✅ Group travel created: Rajasthan Heritage Tour');
+  if (!groupTravel1) {
+    // Set expiry date to future date to ensure it's active
+    const futureDate = new Date();
+    futureDate.setMonth(futureDate.getMonth() + 2);
+    
+    groupTravel1 = await prisma.groupTravel.create({
+      data: {
+        title: 'Rajasthan Heritage Tour - Group of 10',
+        description: 'Looking for a group of 10 people to explore the heritage sites of Rajasthan including Jaipur, Udaipur, and Jodhpur. Visit magnificent forts, palaces, and experience the rich culture and traditions of Rajasthan.',
+        locationId: location3.id,
+        travelDate: new Date('2024-12-15'),
+        expiryDate: futureDate,
+        creatorId: user.id,
+        status: 'OPEN',
+      },
+    });
+    console.log('✅ Group travel created: Rajasthan Heritage Tour');
+  } else {
+    // Update existing group travel to ensure it's OPEN and has future expiry
+    const futureDate = new Date();
+    futureDate.setMonth(futureDate.getMonth() + 2);
+    
+    await prisma.groupTravel.update({
+      where: { id: groupTravel1.id },
+      data: {
+        status: 'OPEN',
+        expiryDate: futureDate,
+      },
+    });
+    console.log('✅ Group travel already exists, updated to OPEN status: Rajasthan Heritage Tour');
+  }
 
   console.log('\n🎉 Database seeded successfully!');
   console.log('\n📝 Test Credentials:');

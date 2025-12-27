@@ -82,8 +82,10 @@ api.interceptors.response.use(
           await storage.deleteItem('user');
           
           // Redirect to login on web
-          if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            window.location.href = '/login';
+          if (Platform.OS === 'web') {
+            if (typeof globalThis !== 'undefined' && 'location' in globalThis) {
+              (globalThis as any).location.href = '/login';
+            }
           }
         }
       } catch (refreshError) {
@@ -93,8 +95,10 @@ api.interceptors.response.use(
         await storage.deleteItem('user');
         
         // Redirect to login on web
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.location.href = '/login';
+        if (Platform.OS === 'web') {
+          if (typeof globalThis !== 'undefined' && 'location' in globalThis) {
+            (globalThis as any).location.href = '/login';
+          }
         }
         
         return Promise.reject(refreshError);
